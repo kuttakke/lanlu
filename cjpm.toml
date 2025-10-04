@@ -14,6 +14,7 @@
 [dependencies]
   cjoy = { git = "https://gitcode.com/Cangjie-SIG/cjoy.git", branch = "main" }
   opengauss = {git = "https://gitcode.com/Cangjie-TPC/opengauss-driver.git", branch="master"}
+  dotenv = {path= "./dotenv"}
 
 [target]
   [target.x86_64-unknown-linux-gnu]
