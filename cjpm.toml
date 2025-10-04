@@ -1,0 +1,22 @@
+[package]
+  cjc-version = "1.0.1"
+  name = "lrr4cj"
+  description = "nothing here"
+  version = "1.0.0"
+  target-dir = ""
+  src-dir = ""
+  output-type = "executable"
+  compile-option = ""
+  override-compile-option = ""
+  link-option = ""
+  package-configuration = {}
+
+[dependencies]
+  cjoy = { git = "https://gitcode.com/Cangjie-SIG/cjoy.git", branch = "main" }
+  opengauss = {git = "https://gitcode.com/Cangjie-TPC/opengauss-driver.git", branch="master"}
+
+[target]
+  [target.x86_64-unknown-linux-gnu]
+    compile-option = "--cfg \"ohos=false\""
+    [target.x86_64-unknown-linux-gnu.bin-dependencies]
+      path-option = [ "${CANGJIE_STDX_PATH}/linux_x86_64_llvm/static/stdx" ]
