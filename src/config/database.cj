@@ -85,19 +85,25 @@ public class DatabaseConfig {
             case Some(conn) =>
                 try {
                     // 创建归档表
-                    let createArchivesTable = "CREATE TABLE IF NOT EXISTS archives (id VARCHAR(40) PRIMARY KEY, title VARCHAR(255) NOT NULL, filename VARCHAR(255) NOT NULL, extension VARCHAR(10) NOT NULL, pagecount INTEGER DEFAULT 0, progress INTEGER DEFAULT 0, isnew BOOLEAN DEFAULT true, tags TEXT, lastreadtime BIGINT DEFAULT 0, summary TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+                    let createArchivesTable = "CREATE TABLE IF NOT EXISTS archives (id SERIAL PRIMARY KEY, arcid VARCHAR(40) NOT NULL UNIQUE, filename TEXT NOT NULL, title TEXT, summary TEXT, thumbhash VARCHAR(40), created_at TIMESTAMP DEFAULT now(), updated_at TIMESTAMP DEFAULT now(), relative_path TEXT, file_size BIGINT, isnew BOOLEAN DEFAULT false, pagecount INTEGER, last_read_time TIMESTAMP WITH TIME ZONE, progress INTEGER DEFAULT 0)"
                     
                     // 创建分类表
-                    let createCategoriesTable = "CREATE TABLE IF NOT EXISTS categories (id VARCHAR(20) PRIMARY KEY, name VARCHAR(100) NOT NULL, search TEXT, pinned BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+                    let createCategoriesTable = "CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, catid VARCHAR(20) NOT NULL UNIQUE, name VARCHAR(255) NOT NULL, search TEXT, is_static BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT now(), pinned BOOLEAN DEFAULT false, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)"
+                    
+                    // 创建标签表
+                    let createTagsTable = "CREATE TABLE IF NOT EXISTS tags (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, namespace VARCHAR(100), value TEXT, weight INTEGER DEFAULT 1)"
                     
                     // 创建归档分类关联表
-                    let createArchiveCategoriesTable = "CREATE TABLE IF NOT EXISTS archive_categories (archive_id VARCHAR(40) REFERENCES archives(id) ON DELETE CASCADE, category_id VARCHAR(20) REFERENCES categories(id) ON DELETE CASCADE, PRIMARY KEY (archive_id, category_id))"
+                    let createArchiveCategoriesTable = "CREATE TABLE IF NOT EXISTS archive_categories (archive_id INTEGER REFERENCES archives(id) ON DELETE CASCADE, category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE, PRIMARY KEY (archive_id, category_id))"
+                    
+                    // 创建归档标签关联表
+                    let createArchiveTagsTable = "CREATE TABLE IF NOT EXISTS archive_tags (archive_id INTEGER REFERENCES archives(id) ON DELETE CASCADE, tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (archive_id, tag_id))"
                     
                     // 创建单行本表
-                    let createTankoubonsTable = "CREATE TABLE IF NOT EXISTS tankoubons (id VARCHAR(20) PRIMARY KEY, name VARCHAR(100) NOT NULL, summary TEXT, tags TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+                    let createTankoubonsTable = "CREATE TABLE IF NOT EXISTS tankoubons (id SERIAL PRIMARY KEY, tankid VARCHAR(40) NOT NULL UNIQUE, name VARCHAR(255) NOT NULL, summary TEXT, tags TEXT, locked BOOLEAN DEFAULT false, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)"
                     
                     // 创建单行本归档关联表
-                    let createTankoubonArchivesTable = "CREATE TABLE IF NOT EXISTS tankoubon_archives (tankoubon_id VARCHAR(20) REFERENCES tankoubons(id) ON DELETE CASCADE, archive_id VARCHAR(40) REFERENCES archives(id) ON DELETE CASCADE, PRIMARY KEY (tankoubon_id, archive_id))"
+                    let createTankoubonArchivesTable = "CREATE TABLE IF NOT EXISTS tankoubon_archives (tankoubon_id INTEGER REFERENCES tankoubons(id) ON DELETE CASCADE, archive_id INTEGER REFERENCES archives(id) ON DELETE CASCADE, position INTEGER NOT NULL, PRIMARY KEY (tankoubon_id, archive_id))"
                     
                     // 创建任务队列表
                     let createMinionJobsTable = "CREATE TABLE IF NOT EXISTS minion_jobs (id VARCHAR(40) PRIMARY KEY, task VARCHAR(50) NOT NULL, state VARCHAR(20) DEFAULT 'inactive', notes TEXT, error TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
@@ -109,17 +115,23 @@ public class DatabaseConfig {
                     let stmt2 = conn.prepareStatement(createCategoriesTable)
                     stmt2.update()
                     
-                    let stmt3 = conn.prepareStatement(createArchiveCategoriesTable)
+                    let stmt3 = conn.prepareStatement(createTagsTable)
                     stmt3.update()
                     
-                    let stmt4 = conn.prepareStatement(createTankoubonsTable)
+                    let stmt4 = conn.prepareStatement(createArchiveCategoriesTable)
                     stmt4.update()
                     
-                    let stmt5 = conn.prepareStatement(createTankoubonArchivesTable)
+                    let stmt5 = conn.prepareStatement(createArchiveTagsTable)
                     stmt5.update()
                     
-                    let stmt6 = conn.prepareStatement(createMinionJobsTable)
+                    let stmt6 = conn.prepareStatement(createTankoubonsTable)
                     stmt6.update()
+                    
+                    let stmt7 = conn.prepareStatement(createTankoubonArchivesTable)
+                    stmt7.update()
+                    
+                    let stmt8 = conn.prepareStatement(createMinionJobsTable)
+                    stmt8.update()
                     
                     conn.close()
                     return true
