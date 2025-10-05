@@ -148,20 +148,19 @@ public class ArchiveModel {
                         let archive = Archive()
                         // 使用索引读取数据，跳过progress字段避免索引14的问题
                         try {
-                            archive.id = rs.getOrNull<String>(2) ?? ""        // arcid
-                            archive.filename = rs.getOrNull<String>(3) ?? ""  // filename
-                            archive.title = rs.getOrNull<String>(4) ?? ""     // title
-                            archive.summary = rs.getOrNull<String>(5) ?? ""   // summary
-                            archive.thumbhash = rs.getOrNull<String>(6) ?? "" // thumbhash
-                            archive.created_at = rs.getOrNull<String>(7) ?? "" // created_at
-                            archive.updated_at = rs.getOrNull<String>(8) ?? "" // updated_at
-                            archive.relative_path = rs.getOrNull<String>(9) ?? "" // relative_path
-                            archive.file_size = rs.getOrNull<Int64>(10) ?? 0  // file_size
-                            archive.isNew = rs.getOrNull<Bool>(11) ?? false   // isnew
-                            archive.pagecount = rs.getOrNull<Int32>(12) ?? 0  // pagecount
-                            archive.last_read_time = rs.getOrNull<String>(13) ?? "" // last_read_time
-                            // 暂时跳过progress字段，避免索引14的问题
-                            archive.progress = 0
+                            archive.id = rs.getOrNull<String>(1) ?? ""        // arcid
+                            archive.filename = rs.getOrNull<String>(2) ?? ""  // filename
+                            archive.title = rs.getOrNull<String>(3) ?? ""     // title
+                            archive.summary = rs.getOrNull<String>(4) ?? ""   // summary
+                            archive.thumbhash = rs.getOrNull<String>(5) ?? "" // thumbhash
+                            archive.created_at = rs.getOrNull<String>(6) ?? "" // created_at
+                            archive.updated_at = rs.getOrNull<String>(7) ?? "" // updated_at
+                            archive.relative_path = rs.getOrNull<String>(8) ?? "" // relative_path
+                            archive.file_size = rs.getOrNull<Int64>(9) ?? 0  // file_size
+                            archive.isNew = rs.getOrNull<Bool>(10) ?? false   // isnew
+                            archive.pagecount = rs.getOrNull<Int32>(11) ?? 0  // pagecount
+                            archive.last_read_time = rs.getOrNull<String>(12) ?? "" // last_read_time
+                            archive.progress = rs.getOrNull<Int32>(13) ?? 0 // last_read_time
                             archives.add(archive)
                         } catch (e: Exception) {
                             println("读取字段时出错: ${e}")
