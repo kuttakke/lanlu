@@ -25,25 +25,34 @@ public class Dotenv {
             
             println("Loading environment variables from ${path}...")
             
-            // 按行分割内容
-            let lines = content.split('\n')
-            
-            for (line in lines) {
+            for (line in content.split('\n')) {
                 // 跳过空行和注释
                 if (line.size == 0 || line.startsWith("#")) {
                     continue
                 }
+
+                var finalLine: String = line
+
+                // 删除末尾注释
+                let commentIndex = line.indexOf('#')
+                match (commentIndex) {
+                    case Some(index) => 
+                        if (index > 0) {
+                            finalLine = line[..index]
+                        }
+                    case None => ()
+                }
                 
                 // 解析键值对
-                let equalIndex = line.indexOf('=')
+                let equalIndex = finalLine.indexOf('=')
                 match (equalIndex) {
                     case Some(index) => 
                         if (index > 0) {
-                            let keyPart = line.split('=')
+                            let keyPart = finalLine.split('=')
                             if (keyPart.size == 2) {
-                                let key = keyPart[0]
-                                let value = keyPart[1]
-                                
+                                let key = keyPart[0].trimAscii() // 提取键同时去掉前后的空格
+                                let value = keyPart[1].trimAscii() // 提取值同时去掉前后的空格
+
                                 // 设置环境变量
                                 setVariable(key, value)
                             }
