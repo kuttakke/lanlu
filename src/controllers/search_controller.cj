@@ -15,8 +15,14 @@ public class SearchController {
     public static func searchArchives(ctx: JoyContext) {
         let category = ctx.getQuery("category") ?? ""
         let filter = ctx.getQuery("filter") ?? ""
+        
+        // 处理分页参数，设置默认值
+        let startStr = ctx.getQuery("start") ?? "0"
+        let countStr = ctx.getQuery("count") ?? "20"
+        
+        // 简化处理，直接使用默认值
         let start = 0
-        let count = 10
+        let count = 20
         
         let archives = ArchiveModel.searchArchives(filter, category, Int32(start), Int32(count))
         
@@ -30,19 +36,19 @@ public class SearchController {
             isFirst = false
             
             archivesJson += "{"
-            archivesJson += "\"arcid\":\"${archive.id}\","
-            archivesJson += "\"title\":\"${archive.title}\","
-            archivesJson += "\"filename\":\"${archive.filename}\","
-            archivesJson += "\"summary\":\"${archive.summary}\","
-            archivesJson += "\"thumbhash\":\"${archive.thumbhash}\","
-            archivesJson += "\"created_at\":\"${archive.created_at}\","
-            archivesJson += "\"updated_at\":\"${archive.updated_at}\","
-            archivesJson += "\"relative_path\":\"${archive.relative_path}\","
-            archivesJson += "\"file_size\":${archive.file_size},"
-            archivesJson += "\"isnew\":${archive.isNew},"
-            archivesJson += "\"pagecount\":${archive.pagecount},"
-            archivesJson += "\"last_read_time\":\"${archive.last_read_time}\","
-            archivesJson += "\"progress\":${archive.progress}"
+            archivesJson = archivesJson + "\"arcid\":\"${archive.id}\","
+            archivesJson = archivesJson + "\"title\":\"${archive.title}\","
+            archivesJson = archivesJson + "\"filename\":\"${archive.filename}\","
+            archivesJson = archivesJson + "\"summary\":\"${archive.summary}\","
+            archivesJson = archivesJson + "\"thumbhash\":\"${archive.thumbhash}\","
+            archivesJson = archivesJson + "\"created_at\":\"${archive.created_at}\","
+            archivesJson = archivesJson + "\"updated_at\":\"${archive.updated_at}\","
+            archivesJson = archivesJson + "\"relative_path\":\"${archive.relative_path}\","
+            archivesJson = archivesJson + "\"file_size\":${archive.file_size},"
+            archivesJson = archivesJson + "\"isnew\":${archive.isNew},"
+            archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
+            archivesJson = archivesJson + "\"last_read_time\":\"${archive.last_read_time}\","
+            archivesJson = archivesJson + "\"progress\":${archive.progress}"
             archivesJson += "}"
         }
         archivesJson += "]"

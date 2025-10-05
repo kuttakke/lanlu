@@ -6,29 +6,53 @@ import std.io.*
 import std.fs.*
 import std.time.*
 import std.env.*
+import std.convert.*
+import dotenv.Dotenv
 
 /**
  * 数据库配置类
  */
 public class DatabaseConfig {
-    public static var host: String = getVariable("DB_HOST") ?? "127.0.0.1"
-    public static var port: Int32 = 5432
-    public static var database: String = getVariable("DB_NAME") ?? "lgr"
-    public static var username: String = getVariable("DB_USER") ?? "lgr"
-    public static var password: String = getVariable("DB_PASSWORD") ?? "lgr"
+    public static var dbType: String
+    public static var host: String
+    public static var port: Int32
+    public static var database: String
+    public static var username: String
+    public static var password: String
+    public static var ssl: String
+    
+    /**
+     * 静态初始化器，从环境变量读取配置
+     */
+    static init() {
+        // 确保先加载 .env 文件
+        Dotenv.config()
+        
+        // 从环境变量读取配置
+        dbType = getVariable("DB_TYPE") ?? "postgres"
+        host = getVariable("DB_HOST") ?? "127.0.0.1"
+        
+        let portStr = getVariable("DB_PORT") ?? "5432"
+        port = Int32.parse(portStr)
+        
+        database = getVariable("DB_NAME") ?? "lgr"
+        username = getVariable("DB_USER") ?? "lgr"
+        password = getVariable("DB_PASSWORD") ?? "lgr"
+        ssl = getVariable("DB_SSL") ?? "disable"
+    }
     
     /**
      * 获取数据库连接字符串
      */
     public static func getConnectionString(): String {
-        return "postgresql://" + username + ":" + password + "@" + host + ":" + port.toString() + "/" + database
+        return dbType + "://" + username + ":" + password + "@" + host + ":" + port.toString() + "/" + database + "?sslmode=" + ssl
     }
     
     /**
      * 获取数据库驱动
      */
     public static func getDriver(): Option<Driver> {
-        return DriverManager.getDriver("opengauss")
+        return DriverManager.getDriver(dbType)
     }
     
     /**
