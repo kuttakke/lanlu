@@ -53,8 +53,8 @@ public class SearchController {
         }
         archivesJson += "]"
         
-        let result = "{\"data\":" + archivesJson + ",\"total\":" + archives.size.toString() + "}"
-        ResponseView.successJson(ctx, result, "搜索归档成功")
+        let result = "{\"data\":" + archivesJson + ",\"draw\":0,\"recordsFiltered\":" + archives.size.toString() + ",\"recordsTotal\":" + archives.size.toString() + "}"
+        ctx.json(result)
     }
 
     /**
