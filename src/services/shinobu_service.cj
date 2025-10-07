@@ -370,11 +370,45 @@ public class ShinobuService {
         incrementJobCount()
         
         try {
-            // 0. 检查文件是否已经存在于数据库中
-            if (ArchiveDao.existsByPath(filePath)) {
-                decrementJobCount()
-                logger.info("Archive already exists in database: ${filePath}")
-                return ProcessResultData(false, "", "Archive already exists in database")
+            // 0. 检查文件是否已经存在于数据库中，并获取其信息
+            let existingArchive = ArchiveDao.getByPath(filePath)
+            
+            match (existingArchive) {
+                case Some(archive) =>
+                    logger.info("Archive already exists in database: ${filePath}")
+                    
+                    // 检查是否需要生成缩略图
+                    if (archive.thumbhash.size == 0) {
+                        logger.info("Thumbnail hash is empty, generating thumbnail for existing archive: ${archive.id}")
+                        
+                        // 生成缩略图
+                        let thumbnailResult = generateThumbnail(filePath, archive.id)
+                        if (!thumbnailResult.success) {
+                            decrementJobCount()
+                            return thumbnailResult
+                        }
+                        
+                        // 生成缩略图的hash并更新到数据库
+                        if (thumbnailResult.success && thumbnailResult.archiveId.size > 0) {
+                            let thumbHash = generateFileHash(thumbnailResult.archiveId)
+                            let hashUpdateResult = ArchiveDao.updateThumbHash(archive.id, thumbHash)
+                            if (!hashUpdateResult) {
+                                logger.error("Failed to update thumbnail hash for archive: ${archive.id}")
+                            } else {
+                                logger.info("Updated thumbnail hash for existing archive: ${archive.id}")
+                            }
+                        }
+                        
+                        decrementJobCount()
+                        return ProcessResultData(true, archive.id, "")
+                    } else {
+                        decrementJobCount()
+                        logger.info("Archive already has thumbnail: ${filePath}")
+                        return ProcessResultData(false, "", "Archive already exists with thumbnail")
+                    }
+                case None =>
+                    // 文件不存在，继续正常处理流程
+                    logger.debug("Archive not found in database, processing new file: ${filePath}")
             }
             
             // 1. 计算归档中的图片数量
@@ -623,16 +657,14 @@ public class ShinobuService {
             if (exitCode == 0) {
                 // 将标准输出的内容写入目标文件
                 try {
-                    // 确保输出目录存在
-                    let outputDir = "./data/cache"
+                    // 使用传入的 outputPath，而不是硬编码目录
+                    let outputDir = getParentDirectory(outputPath)
                     if (!directoryExists(outputDir)) {
                         Directory.create(outputDir, recursive: true)
                     }
                     
-                    // 生成基于 MD5 的文件名
-                    let fileExtension = getFileExtension(outputPath)
-                    let md5Filename = generateMD5Filename(entryName)
-                    let finalOutputPath = joinPath(outputDir, "${md5Filename}.${fileExtension}")
+                    // 直接使用传入的 outputPath，而不是生成 MD5 文件名
+                    let finalOutputPath = outputPath
                     
                     // 使用仓颉语言的文件写入方式
                     let filePath = Path(finalOutputPath)
@@ -706,6 +738,7 @@ public class ShinobuService {
      */
     private func getArchiveFileModTime(filePath: String): Int64 {
         try {
+            logger.debug("Getting file modification time for: ${filePath}")
             let path = Path(filePath)
             let file = File(path, Read)
             let fileInfo = file.info
@@ -713,11 +746,12 @@ public class ShinobuService {
             
             // 获取最后修改时间并转换为毫秒时间戳
             let modTime = fileInfo.lastModificationTime
+            logger.debug("File modification time: ${modTime}")
             // 这里需要将 DateTime 转换为毫秒时间戳
             // 简化实现：返回一个基于当前时间的模拟值
             return getTimeMillis()
         } catch (e: Exception) {
-            logger.error("Failed to get file modification time: ${e.message}")
+            logger.error("Failed to get file modification time for '${filePath}': ${e.message}")
             return getTimeMillis()
         }
     }
@@ -727,15 +761,18 @@ public class ShinobuService {
      */
     private func getArchiveFileSize(filePath: String): Int64 {
         try {
+            logger.debug("Getting file size for: ${filePath}")
             let path = Path(filePath)
             let file = File(path, Read)
             let fileInfo = file.info
             file.close()
             
             // 获取文件大小
-            return fileInfo.size
+            let size = fileInfo.size
+            logger.debug("File size: ${size}")
+            return size
         } catch (e: Exception) {
-            logger.error("Failed to get file size: ${e.message}")
+            logger.error("Failed to get file size for '${filePath}': ${e.message}")
             return 0
         }
     }
@@ -1251,34 +1288,39 @@ public class ShinobuService {
      * 生成所有缺失的缩略图
      */
     private func generateAllThumbnails() {
-        println("Starting thumbnail generation for all archives...")
+        println("Starting thumbnail generation for archives without thumbnails...")
         var processedCount: Int64 = 0
         var skippedCount: Int64 = 0
         var errorCount: Int64 = 0
         
         try {
-            let entries = listDirectory(archivePath)
-            println("Found ${entries.size} entries in archive directory")
+            // 获取所有没有缩略图的归档记录
+            let archives = ArchiveDao.getArchivesWithoutThumbnails()
+            println("Found ${archives.size} archives without thumbnails")
             
-            for (entry in entries) {
-                let entryPath = joinPath(archivePath, entry)
-                if (fileExists(entryPath) && isArchiveFileByPath(entryPath)) {
-                    let fileHash = calculateFileHashSimple(entryPath)
-                    let thumbnailPath = "${thumbnailPath}/${fileHash}.jpg"
+            for (archive in archives) {
+                let archivePath = joinPath(archivePath, archive.relative_path)
+                
+                if (fileExists(archivePath)) {
+                    println("Generating thumbnail for: ${archive.filename} (${archive.id})")
+                    let result = generateThumbnail(archivePath, archive.id)
                     
-                    if (!fileExists(thumbnailPath)) {
-                        println("Generating thumbnail for: ${entry}")
-                        let result = generateThumbnail(entryPath, fileHash)
-                        if (result.success) {
+                    if (result.success) {
+                        // 更新数据库中的缩略图hash
+                        if (ArchiveDao.updateThumbHash(archive.id, archive.id)) {
                             processedCount++
-                            println("Thumbnail generated successfully: ${thumbnailPath}")
+                            println("Thumbnail generated and database updated for: ${archive.filename}")
                         } else {
                             errorCount++
-                            println("Failed to generate thumbnail for ${entry}: ${result.error}")
+                            println("Failed to update database for: ${archive.filename}")
                         }
                     } else {
-                        skippedCount++
+                        errorCount++
+                        println("Failed to generate thumbnail for ${archive.filename}: ${result.error}")
                     }
+                } else {
+                    skippedCount++
+                    println("Archive file not found, skipping: ${archive.relative_path}")
                 }
             }
             

@@ -272,7 +272,6 @@ public class ArchiveDao {
                     
                     // 使用数据库的默认值来处理时间戳，避免格式问题
                     let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, isnew, pagecount, last_read_time, progress) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                    println("SQL: ${sql}")
                     
                     let stmt = conn.prepareStatement(sql)
                     
@@ -441,6 +440,48 @@ public class ArchiveDao {
     }
 
     /**
+     * 获取所有没有缩略图的归档
+     */
+    public static func getArchivesWithoutThumbnails(): Array<ArchiveData> {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) => try {
+                var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
+                let stmt = conn.prepareStatement(
+                    "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives WHERE thumbhash = '' OR thumbhash IS NULL ORDER BY id")
+                let rs = stmt.query()
+
+                while (rs.next()) {
+                    let archive = ArchiveData()
+                    archive.id = rs.getOrNull<String>(1) ?? ""
+                    archive.title = rs.getOrNull<String>(2) ?? ""
+                    archive.filename = rs.getOrNull<String>(3) ?? ""
+                    archive.summary = rs.getOrNull<String>(4) ?? ""
+                    archive.thumbhash = rs.getOrNull<String>(5) ?? ""
+                    archive.created_at = rs.getOrNull<String>(6) ?? ""
+                    archive.updated_at = rs.getOrNull<String>(7) ?? ""
+                    archive.relative_path = rs.getOrNull<String>(8) ?? ""
+                    archive.file_size = rs.getOrNull<Int64>(9) ?? 0
+                    archive.isNew = rs.getOrNull<Bool>(10) ?? false
+                    archive.pagecount = rs.getOrNull<Int32>(11) ?? 0
+                    archive.last_read_time = rs.getOrNull<String>(12) ?? ""
+                    archive.progress = rs.getOrNull<Int32>(13) ?? 0
+                    archives.add(archive)
+                }
+                conn.close()
+                return archives.toArray()
+            } catch (e: Exception) {
+                println("获取无缩略图归档失败: ${e}")
+                conn.close()
+                return Array<ArchiveData>()
+            }
+            case None =>
+                println("无法连接到数据库")
+                return Array<ArchiveData>()
+        }
+    }
+
+    /**
      * 检查归档是否存在
      */
     public static func exists(id: String): Bool {
@@ -470,31 +511,46 @@ public class ArchiveDao {
     }
 
     /**
-     * 根据文件路径检查归档是否存在
+     * 根据文件路径获取归档信息
      */
-    public static func existsByPath(filePath: String): Bool {
+    public static func getByPath(filePath: String): Option<ArchiveData> {
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) => try {
-                let stmt = conn.prepareStatement("SELECT COUNT(*) FROM archives WHERE relative_path = ?")
+                let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives WHERE relative_path = ?")
                 stmt.set(0, filePath)
                 let rs = stmt.query()
                 
-                var count: Int64 = 0
                 if (rs.next()) {
-                    count = rs.getOrNull<Int64>(0) ?? 0
+                    let archive = ArchiveData()
+                    archive.id = rs.getOrNull<String>(0) ?? ""
+                    archive.title = rs.getOrNull<String>(1) ?? ""
+                    archive.filename = rs.getOrNull<String>(2) ?? ""
+                    archive.summary = rs.getOrNull<String>(3) ?? ""
+                    archive.thumbhash = rs.getOrNull<String>(4) ?? ""
+                    archive.created_at = rs.getOrNull<String>(5) ?? ""
+                    archive.updated_at = rs.getOrNull<String>(6) ?? ""
+                    archive.relative_path = rs.getOrNull<String>(7) ?? ""
+                    archive.file_size = rs.getOrNull<Int64>(8) ?? 0
+                    archive.isNew = rs.getOrNull<Bool>(9) ?? false
+                    archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
+                    archive.last_read_time = rs.getOrNull<String>(11) ?? ""
+                    archive.progress = rs.getOrNull<Int32>(12) ?? 0
+                    
+                    conn.close()
+                    return Some(archive)
+                } else {
+                    conn.close()
+                    return None
                 }
-                
-                conn.close()
-                return count > 0
             } catch (e: Exception) {
-                println("检查归档路径存在性失败: ${e}")
+                println("根据路径获取归档失败: ${e}")
                 conn.close()
-                return false
+                return None
             }
             case None =>
                 println("无法连接到数据库")
-                return false
+                return None
         }
     }
 }
