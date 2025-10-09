@@ -42,6 +42,14 @@ export class ArchiveService {
 
   static getPageUrl(id: string, path: string): string {
     // 使用相对路径，因为前端和后端部署在一起
-    return `/api/archives/${id}/page?path=${encodeURIComponent(path)}`;
+    // 如果path被编码了，需要先解码再重新编码
+    try {
+      // 尝试解码path，如果已经是编码状态
+      const decodedPath = decodeURIComponent(path);
+      return `/api/archives/${id}/page?path=${decodedPath}`;
+    } catch (e) {
+      // 如果解码失败，说明path已经是正确格式
+      return `/api/archives/${id}/page?path=${path}`;
+    }
   }
 }
