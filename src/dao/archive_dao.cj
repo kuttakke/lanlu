@@ -168,12 +168,9 @@ public class ArchiveDao {
                 let countStmt = conn.prepareStatement(countSql)
                 var totalCount = 0
                 
-                var paramIndex = 1
                 if (filter.size > 0) {
-                    countStmt.set<String>(paramIndex, "%${filter}%")
-                    paramIndex++
-                    countStmt.set<String>(paramIndex, "%${filter}%")
-                    paramIndex++
+                    countStmt.set<String>(0, "%${filter}%")
+                    countStmt.set<String>(1, "%${filter}%")
                 }
                 
                 let countRs = countStmt.query()
@@ -227,12 +224,9 @@ public class ArchiveDao {
                 
                 let stmt = conn.prepareStatement(sql)
                 
-                paramIndex = 1
                 if (filter.size > 0) {
-                    stmt.set<String>(paramIndex, "%${filter}%")
-                    paramIndex++
-                    stmt.set<String>(paramIndex, "%${filter}%")
-                    paramIndex++
+                    stmt.set<String>(0, "%${filter}%")
+                    stmt.set<String>(1, "%${filter}%")
                 }
                 
                 let rs = stmt.query()

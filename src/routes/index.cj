@@ -1,6 +1,7 @@
 package lrr4cj.routes
 
 import cjoy.*
+import std.fs.*
 import lrr4cj.routes.api.archives.*
 import lrr4cj.routes.api.database.*
 import lrr4cj.routes.api.search.*
@@ -9,6 +10,7 @@ import lrr4cj.routes.api.minion.*
 import lrr4cj.routes.api.tankoubons.*
 import lrr4cj.routes.api.shinobu.*
 import lrr4cj.routes.api.*
+import lrr4cj.controllers.*
 
 /**
  * 路由注册模块
@@ -43,6 +45,9 @@ public class Routes {
         // 注册所有 API 路由（包括 /api/info）
         registerApiRoutes(router)
         
+        // 注册前端页面路由
+        registerFrontendRoutes(router)
+        
         // 注册根路由
         registerRootRoute(router)
         
@@ -52,11 +57,40 @@ public class Routes {
     }
     
     /**
+     * 注册前端页面路由
+     */
+    private static func registerFrontendRoutes(router: JoyRouters) {
+        // 首页路由
+        router.get("/", { ctx =>
+            FrontendController.serveIndex(ctx)
+        })
+        
+        // 搜索页面路由
+        router.get("/search", { ctx =>
+            FrontendController.servePath(ctx, "search")
+        })
+        
+        // 搜索页面路由
+        router.get("/reader", { ctx =>
+            FrontendController.servePath(ctx, "reader")
+        })
+
+        // 搜索页面路由
+        router.get("/archive", { ctx =>
+            FrontendController.servePath(ctx, "archive")
+        })
+        
+        // 处理Next.js RSC载荷文件（.txt文件）
+        router.get("/*", { ctx =>
+            FrontendController.serveStatic(ctx)
+        })
+    }
+    
+    
+    /**
      * 注册根路由
      */
     private static func registerRootRoute(router: JoyRouters) {
-        router.get("/", { ctx =>
-            ctx.string("欢迎使用基于 CJoy 的 MVC 架构示例！")
-        })
+        // 根路由已经在 registerFrontendRoutes 中处理
     }
 }
