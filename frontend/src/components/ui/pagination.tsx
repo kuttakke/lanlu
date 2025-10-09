@@ -1,5 +1,8 @@
+'use client';
+
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useLanguage } from "@/contexts/LanguageContext"
 
 interface PaginationProps {
   currentPage: number
@@ -8,14 +11,16 @@ interface PaginationProps {
   className?: string
 }
 
-export function Pagination({ 
-  currentPage, 
-  totalPages, 
-  onPageChange, 
-  className = "" 
+export function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  className = ""
 }: PaginationProps) {
+  const { t } = useLanguage();
   const pages = []
-  const maxVisiblePages = 5
+  // 在移动端显示更少的页码
+  const maxVisiblePages = typeof window !== 'undefined' && window.innerWidth < 768 ? 3 : 5
   
   let startPage = Math.max(0, currentPage - Math.floor(maxVisiblePages / 2))
   let endPage = Math.min(totalPages - 1, startPage + maxVisiblePages - 1)
@@ -29,14 +34,15 @@ export function Pagination({
   }
 
   return (
-    <div className={`flex items-center justify-center space-x-2 ${className}`}>
+    <div className={`flex items-center justify-center space-x-1 sm:space-x-2 overflow-x-auto py-2 ${className}`}>
       <Button
         variant="outline"
         size="sm"
         onClick={() => onPageChange(0)}
         disabled={currentPage === 0}
+        className="hidden sm:inline-flex"
       >
-        首页
+        {t('common.firstPage')}
       </Button>
       
       <Button
@@ -102,8 +108,9 @@ export function Pagination({
         size="sm"
         onClick={() => onPageChange(totalPages - 1)}
         disabled={currentPage === totalPages - 1}
+        className="hidden sm:inline-flex"
       >
-        末页
+        {t('common.lastPage')}
       </Button>
     </div>
   )

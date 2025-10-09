@@ -8,10 +8,12 @@ import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function ReaderContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
+  const { t } = useLanguage();
   
   const [pages, setPages] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -26,7 +28,7 @@ function ReaderContent() {
   useEffect(() => {
     async function fetchPages() {
       if (!id) {
-        setError('缺少归档ID参数');
+        setError(t('reader.missingId'));
         setLoading(false);
         return;
       }
@@ -36,14 +38,14 @@ function ReaderContent() {
         setPages(data);
       } catch (err) {
         console.error('Failed to fetch archive pages:', err);
-        setError('获取归档页面失败');
+        setError(t('reader.fetchError'));
       } finally {
         setLoading(false);
       }
     }
 
     fetchPages();
-  }, [id]);
+  }, [id, t]);
 
 
   const handlePrevPage = useCallback(() => {
@@ -141,7 +143,7 @@ function ReaderContent() {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-lg">加载中...</p>
+          <p className="text-lg">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -151,11 +153,11 @@ function ReaderContent() {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-500 mb-4">{error || '没有可显示的页面'}</p>
+          <p className="text-red-500 mb-4">{error || t('reader.noPages')}</p>
           <Link href={`/archive?id=${id}`}>
             <Button variant="outline" className="text-white border-white bg-transparent hover:bg-white hover:text-black">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              返回详情页
+              {t('reader.backToArchive')}
             </Button>
           </Link>
         </div>
@@ -173,18 +175,18 @@ function ReaderContent() {
           <Link href={`/archive?id=${id}`}>
             <Button variant="outline" size="sm" className="text-white border-white bg-transparent hover:bg-white hover:text-black">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              返回
+              {t('reader.back')}
             </Button>
           </Link>
           <div className="text-sm">
-            页面 {currentPage + 1} / {pages.length}
+            {t('reader.page').replace('{current}', String(currentPage + 1)).replace('{total}', String(pages.length))}
           </div>
         </div>
         
         <div className="flex items-center space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={toggleFitMode}
             className="text-white border-white bg-transparent hover:bg-white hover:text-black"
           >
@@ -195,15 +197,15 @@ function ReaderContent() {
             ) : (
               <Maximize2 className="w-4 h-4 mr-2 rotate-90" />
             )}
-            {fitMode === 'contain' ? '适应屏幕' : fitMode === 'width' ? '适应宽度' : '适应高度'}
+            {fitMode === 'contain' ? t('reader.fitScreen') : fitMode === 'width' ? t('reader.fitWidth') : t('reader.fitHeight')}
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={toggleFullscreen}
             className="text-white border-white bg-transparent hover:bg-white hover:text-black"
           >
-            {isFullscreen ? '退出全屏' : '全屏'}
+            {isFullscreen ? t('reader.exitFullscreen') : t('reader.fullscreen')}
           </Button>
         </div>
       </div>
@@ -235,7 +237,7 @@ function ReaderContent() {
           )}
           <img
             src={currentImageUrl}
-            alt={`页面 ${currentPage + 1}`}
+            alt={t('reader.pageAlt').replace('{page}', String(currentPage + 1))}
             className={`
               object-contain select-none touch-none
               ${fitMode === 'width' ? 'w-full h-auto max-h-full' : ''}
@@ -274,7 +276,7 @@ function ReaderContent() {
             className="text-white border-white bg-transparent hover:bg-white hover:text-black"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
-            上一页
+            {t('reader.prevPage')}
           </Button>
           
           <div className="flex items-center space-x-2">
@@ -296,7 +298,7 @@ function ReaderContent() {
             disabled={currentPage === pages.length - 1}
             className="text-white border-white bg-transparent hover:bg-white hover:text-black"
           >
-            下一页
+            {t('reader.nextPage')}
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -306,11 +308,13 @@ function ReaderContent() {
 }
 
 export default function ReaderPage() {
+  const { t } = useLanguage();
+  
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-lg">加载中...</p>
+          <p className="text-lg">{t('common.loading')}</p>
         </div>
       </div>
     }>

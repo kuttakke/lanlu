@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function SearchBar() {
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const router = useRouter();
 
@@ -21,7 +23,7 @@ export function SearchBar() {
     <form onSubmit={handleSubmit} className="flex gap-2 w-full max-w-md">
       <Input
         type="text"
-        placeholder="搜索归档..."
+        placeholder={t('search.placeholder')}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         className="flex-1"

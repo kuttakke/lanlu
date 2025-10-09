@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Eye, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { ArchiveService } from '@/lib/archive-service';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ArchiveCardProps {
   archive: Archive;
 }
 
 export function ArchiveCard({ archive }: ArchiveCardProps) {
+  const { t } = useLanguage();
   const tags = archive.tags ? archive.tags.split(',').slice(0, 3).map(tag => tag.trim()).filter(tag => tag) : [];
   
   return (
@@ -27,11 +29,11 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
           }}
         />
         <div className="hidden w-full h-full bg-muted flex items-center justify-center">
-          <span className="text-muted-foreground">无封面</span>
+          <span className="text-muted-foreground">{t('archive.noCover')}</span>
         </div>
         {archive.isnew === 'true' && (
           <Badge className="absolute top-2 right-2 bg-red-500">
-            新
+            {t('archive.new')}
           </Badge>
         )}
       </div>
@@ -52,8 +54,8 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
         )}
         
         <div className="text-xs text-muted-foreground">
-          {archive.pagecount} 页
-          {archive.progress > 0 && ` • 已读 ${archive.progress}/${archive.pagecount}`}
+          {t('archive.pages').replace('{count}', String(archive.pagecount))}
+          {archive.progress > 0 && ` • ${t('archive.progressRead').replace('{progress}', String(archive.progress)).replace('{total}', String(archive.pagecount))}`}
         </div>
       </CardContent>
       
@@ -61,13 +63,13 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
         <Button asChild size="sm" className="flex-1">
           <Link href={`/archive?id=${archive.arcid}`}>
             <Eye className="w-4 h-4 mr-2" />
-            详情
+            {t('archive.details')}
           </Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="flex-1">
           <Link href={`/reader?id=${archive.arcid}`}>
             <BookOpen className="w-4 h-4 mr-2" />
-            阅读
+            {t('archive.read')}
           </Link>
         </Button>
       </CardFooter>

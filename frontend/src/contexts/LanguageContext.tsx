@@ -1,0 +1,93 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import zhMessages from '../../messages/zh.json';
+import enMessages from '../../messages/en.json';
+
+type Language = 'zh' | 'en';
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+  messages: any;
+}
+
+const messages = {
+  zh: zhMessages,
+  en: enMessages,
+};
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguage] = useState<Language>('zh');
+
+  useEffect(() => {
+    // 从 localStorage 读取保存的语言设置
+    const savedLanguage = localStorage.getItem('language') as Language;
+    if (savedLanguage && (savedLanguage === 'zh' || savedLanguage === 'en')) {
+      setLanguage(savedLanguage);
+    } else {
+      // 尝试从浏览器语言检测
+      const browserLanguage = navigator.language.toLowerCase();
+      if (browserLanguage.startsWith('en')) {
+        setLanguage('en');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // 保存语言设置到 localStorage
+    localStorage.setItem('language', language);
+    // 更新 HTML lang 属性
+    document.documentElement.lang = language;
+  }, [language]);
+
+  const t = (key: string, params?: Record<string, any>): string => {
+    const keys = key.split('.');
+    let value: any = messages[language];
+    
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k];
+      } else {
+        // 如果在当前语言中找不到，尝试使用默认语言（中文）
+        value = messages.zh;
+        for (const k of keys) {
+          if (value && typeof value === 'object' && k in value) {
+            value = value[k];
+          } else {
+            return key; // 如果都找不到，返回 key 本身
+          }
+        }
+        break;
+      }
+    }
+    
+    let result = typeof value === 'string' ? value : key;
+    
+    // 处理参数插值
+    if (params && typeof result === 'string') {
+      Object.keys(params).forEach(param => {
+        result = result.replace(new RegExp(`{${param}}`, 'g'), String(params[param]));
+      });
+    }
+    
+    return result;
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t, messages: messages[language] }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (context === undefined) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+}

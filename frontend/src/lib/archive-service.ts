@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import { Archive, SearchResponse, SearchParams, RandomParams, ArchiveMetadata } from '@/types/archive';
+import { ServerInfo } from '@/types/server';
 
 export class ArchiveService {
   static async search(params: SearchParams): Promise<SearchResponse> {
@@ -55,5 +56,10 @@ export class ArchiveService {
 
   static getDownloadUrl(id: string): string {
     return `/api/archives/${id}/download`;
+  }
+
+  static async getServerInfo(): Promise<ServerInfo> {
+    const response = await apiClient.get('/api/info');
+    return response.data;
   }
 }

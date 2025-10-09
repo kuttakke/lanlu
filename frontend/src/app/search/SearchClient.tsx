@@ -5,13 +5,16 @@ import { useSearchParams } from 'next/navigation';
 import { ArchiveService } from '@/lib/archive-service';
 import { Archive } from '@/types/archive';
 import { ArchiveGrid } from '@/components/archive/ArchiveGrid';
-import { SearchBar } from '@/components/search/SearchBar';
+import { Header } from '@/components/layout/Header';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get('q') || '';
+  const { t } = useLanguage();
   
   const [archives, setArchives] = useState<Archive[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,7 +45,7 @@ function SearchContent() {
       setHasMore(result.data.length > 0);
       setPage(pageNum);
     } catch (error) {
-      console.error('搜索失败:', error);
+      console.error(t('search.error'), error);
     } finally {
       setLoading(false);
     }
@@ -55,66 +58,75 @@ function SearchContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            搜索结果
-          </h1>
-          <SearchBar />
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <div className="flex min-h-screen">
+        {/* 侧栏 - 桌面端显示 */}
+        <div className="hidden lg:block flex-shrink-0 border-r border-border">
+          <Sidebar />
         </div>
-
-        {query && (
-          <div className="mb-4">
-            <p className="text-gray-600">
-              搜索关键词: <span className="font-medium">{query}</span>
-            </p>
+        
+        {/* 主内容区 */}
+        <main className="flex-1 min-w-0 px-4 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-4">
+              {t('search.results')}
+            </h1>
           </div>
-        )}
 
-        {loading && page === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <>
-            {archives.length > 0 ? (
-              <>
-                <ArchiveGrid archives={archives} />
-                
-                {hasMore && (
-                  <div className="mt-8 text-center">
-                    <Button
-                      onClick={loadMore}
-                      disabled={loading}
-                      variant="outline"
-                    >
-                      {loading ? '加载中...' : '加载更多'}
-                    </Button>
-                  </div>
-                )}
-              </>
-            ) : query ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">
-                  没有找到与 "{query}" 相关的结果
-                </p>
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">
-                  请输入搜索关键词
-                </p>
-              </div>
-            )}
-          </>
-        )}
+          {query && (
+            <div className="mb-6">
+              <p className="text-muted-foreground">
+                {t('search.keyword')}: <span className="font-medium">{query}</span>
+              </p>
+            </div>
+          )}
+
+          {loading && page === 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="h-64 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {archives.length > 0 ? (
+                <>
+                  <ArchiveGrid archives={archives} />
+                  
+                  {hasMore && (
+                    <div className="mt-8 text-center">
+                      <Button
+                        onClick={loadMore}
+                        disabled={loading}
+                        variant="outline"
+                      >
+                        {loading ? t('common.loading') : t('search.loadMore')}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : query ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground text-lg">
+                    {t('search.noResults').replace('{query}', query)}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground text-lg">
+                    {t('search.enterKeyword')}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </main>
       </div>
     </div>
   );
@@ -123,7 +135,7 @@ function SearchContent() {
 export default function SearchPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Skeleton className="h-8 w-64 mb-4 mx-auto" />
           <Skeleton className="h-96 w-full max-w-4xl" />
