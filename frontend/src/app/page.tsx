@@ -1,6 +1,7 @@
 'use client';
 
 import { ArchiveGrid } from '@/components/archive/ArchiveGrid';
+import { HomeArchiveCard } from '@/components/archive/HomeArchiveCard';
 import { Pagination } from '@/components/ui/pagination';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,6 @@ import { Header } from '@/components/layout/Header';
 import { SearchSidebar } from '@/components/layout/SearchSidebar';
 import { ArchiveService } from '@/lib/archive-service';
 import { Shuffle, RefreshCw } from 'lucide-react';
-import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -133,42 +133,7 @@ export default function HomePage() {
               <div className="overflow-x-auto pb-4">
                 <div className="flex gap-4 min-w-max">
                   {randomArchives.map((archive) => (
-                    <div key={archive.arcid} className="flex-shrink-0 w-40">
-                      {/* 单个档案卡片 */}
-                      <div className="bg-card rounded-lg border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                        <div className="aspect-[3/4] bg-muted relative">
-                          <img
-                            src={ArchiveService.getThumbnailUrl(archive.arcid)}
-                            alt={archive.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = '/placeholder-cover.jpg';
-                            }}
-                          />
-                        </div>
-                        <div className="p-3">
-                          <h3 className="font-medium text-sm line-clamp-2 mb-2 min-h-[2.5rem]">
-                            {archive.title}
-                          </h3>
-                          <div className="text-xs text-muted-foreground mb-3">
-                            {archive.pagecount} {t('home.pages')}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button asChild size="sm" className="flex-1 text-xs h-7">
-                              <Link href={`/archive?id=${archive.arcid}`}>
-                                {t('common.details')}
-                              </Link>
-                            </Button>
-                            <Button asChild size="sm" variant="outline" className="flex-1 text-xs h-7">
-                              <Link href={`/reader?id=${archive.arcid}`}>
-                                {t('common.read')}
-                              </Link>
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <HomeArchiveCard key={archive.arcid} archive={archive} />
                   ))}
                 </div>
               </div>

@@ -35,6 +35,8 @@
     "view": "查看",
     "read": "阅读",
     "details": "详情",
+    "favorite": "收藏",
+    "unfavorite": "取消收藏",
     "selectDate": "选择日期"
   },
   "navigation": {

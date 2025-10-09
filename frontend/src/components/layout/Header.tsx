@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/search/SearchBar';
 import { ArchiveService } from '@/lib/archive-service';
-import { ThemeToggle } from '@/components/theme/theme-toggle';
+import { ThemeToggle, ThemeButton } from '@/components/theme/theme-toggle';
 import { LanguageButton } from '@/components/language/LanguageToggle';
 import { Menu, X, Home, Search, BookOpen, Shuffle } from 'lucide-react';
 import Link from 'next/link';
@@ -166,11 +166,8 @@ export function Header() {
                 </Link>
               );
             })}
-            <div className="flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors w-full justify-start">
-              <ThemeToggle />
-              <span>{t('navigation.themeToggle')}</span>
-            </div>
-            <div className="flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors w-full justify-start">
+            <div className="flex items-center justify-center space-x-2 px-3 py-3">
+              <ThemeButton />
               <LanguageButton />
             </div>
           </nav>

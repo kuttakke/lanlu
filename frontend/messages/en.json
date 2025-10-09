@@ -35,6 +35,8 @@
     "view": "View",
     "read": "Read",
     "details": "Details",
+    "favorite": "Favorite",
+    "unfavorite": "Unfavorite",
     "selectDate": "Select date"
   },
   "navigation": {
