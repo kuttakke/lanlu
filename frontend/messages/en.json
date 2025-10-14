@@ -5,6 +5,7 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "save": "Save",
+    "saving": "Saving...",
     "delete": "Delete",
     "edit": "Edit",
     "search": "Search",
@@ -58,7 +59,6 @@
     "noMatchingArchives": "No matching archives found",
     "noArchives": "No archives",
     "sortBy": "Sort by:",
-    "title": "Title",
     "lastRead": "Last Read",
     "dateAdded": "Date Added",
     "pageCount": "Page Count",
@@ -141,7 +141,13 @@
     "noPreviewPages": "No pages available for preview",
     "loadMore": "Load More",
     "pageThumbnails": "Page Thumbnails",
-    "clickToRead": "Click to read this page"
+    "clickToRead": "Click to read this page",
+    "editMetadata": "Edit Metadata",
+    "editMetadataDescription": "Edit archive title, tags and summary information",
+    "updateFailed": "Update failed, please try again",
+    "tagsPlaceholder": "Enter tags separated by commas",
+    "summary": "Summary",
+    "summaryPlaceholder": "Enter archive summary"
   },
   "reader": {
     "page": "Page {current} / {total}",
@@ -172,5 +178,49 @@
     "hideToolbar": "Hide Toolbar",
     "showToolbar": "Show Toolbar",
     "autoHide": "Auto Hide"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "loginTitle": "Authentication",
+    "loginDescription": "Please enter your access token to continue",
+    "token": "Token",
+    "tokenPlaceholder": "Enter access token",
+    "loggingIn": "Logging in..."
+  },
+  "upload": {
+    "title": "Upload Archive",
+    "selectFile": "Select File",
+    "dragOrClick": "Drag and drop a file here, or click to browse",
+    "browse": "Browse Files",
+    "supportedFormats": "Supported formats",
+    "titlePlaceholder": "Enter archive title",
+    "tags": "Tags",
+    "tagsPlaceholder": "Enter tags separated by commas",
+    "summary": "Summary",
+    "summaryPlaceholder": "Enter archive summary",
+    "category": "Category",
+    "categoryPlaceholder": "Enter category ID",
+    "upload": "Upload",
+    "uploading": "Uploading...",
+    "cancel": "Cancel",
+    "noFile": "Please select a file to upload",
+    "unsupportedFormat": "Unsupported file format: {format}",
+    "uploadFailed": "Upload failed. Please try again.",
+    "fileList": "File List",
+    "pending": "Pending",
+    "success": "Success",
+    "error": "Error",
+    "addFiles": "Add Files",
+    "uploadAll": "Upload All",
+    "clearCompleted": "Clear Completed",
+    "clearAll": "Clear All",
+    "close": "Close"
+  },
+  "user": {
+    "menu": "User Menu",
+    "loggedIn": "Logged In",
+    "settings": "Settings",
+    "logout": "Logout"
   }
 }

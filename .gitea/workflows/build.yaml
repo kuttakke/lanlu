@@ -1,0 +1,57 @@
+name: Build
+run-name: ${{ github.actor }} is trying to auto compile with Actions 🚀
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Setup Cangjie
+        uses: Zxilly/setup-cangjie@v2
+        with:
+        channel: lts
+        version: auto
+      - name: Set Up Cangjie and build
+        run: |
+          cjc -v
+          cjpm build -V
+      - name: Add useful lib
+        run: |
+          mv cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-runtime.so target/release/bin/
+          mv cangjie/runtime/lib/linux_x86_64_llvm/libsecurec.so target/release/bin/
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release
+          path: |
+            target/release/bin/main
+            target/release/bin/lib*
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: release
+          path: ./app/
+      - name: Set execute permissions
+        run: chmod +x ./app/main
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Gitea Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ github.server_url }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ vars.DOMAIN }}/${{ github.repository }}:latest

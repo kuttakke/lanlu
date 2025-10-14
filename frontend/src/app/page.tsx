@@ -112,16 +112,18 @@ export default function HomePage() {
           <section className="mb-12">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-semibold">{t('home.randomRecommendations')}</h2>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchRandomArchives}
-                disabled={randomLoading}
-                className="border-border bg-background hover:bg-accent hover:text-accent-foreground"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${randomLoading ? 'animate-spin' : ''}`} />
-                {t('common.refresh')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchRandomArchives}
+                  disabled={randomLoading}
+                  className="border-border bg-background hover:bg-accent hover:text-accent-foreground"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${randomLoading ? 'animate-spin' : ''}`} />
+                  {t('common.refresh')}
+                </Button>
+              </div>
             </div>
             
             {randomLoading ? (

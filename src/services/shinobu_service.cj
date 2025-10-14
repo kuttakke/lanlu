@@ -12,6 +12,7 @@ import stdx.encoding.hex.*
 import cjoy.json.*
 import lrr4cj.config.*
 import lrr4cj.dao.*
+import lrr4cj.utils.*
 import dotenv.Dotenv
 
 // 简单的日志记录器
@@ -104,6 +105,15 @@ public class ShinobuService {
         archivePath = canonicalize(archivePathStr)
         thumbnailPath = canonicalize(thumbnailPathStr)
         cachePath = canonicalize(cachePathStr)
+        
+        // 确保必要的目录存在
+        FileUtils.ensureDirectoryExists(archivePath)
+        FileUtils.ensureDirectoryExists(thumbnailPath)
+        FileUtils.ensureDirectoryExists(cachePath)
+        
+        // 创建上传缓存目录
+        let uploadsPath = cachePath.join("uploads")
+        FileUtils.ensureDirectoryExists(uploadsPath)
 
         // 读取扫描和缩略图配置
         let autoScanStr = getVariable("ENABLE_AUTO_SCAN") ?? "true"
@@ -385,6 +395,27 @@ public class ShinobuService {
         }
         
         return result
+    }
+    
+    /**
+     * 处理单个压缩包文件（公共方法，用于上传功能）
+     */
+    public func processUploadedArchiveFile(filePath: String): ProcessResultData {
+        return processArchiveFile(filePath)
+    }
+    
+    /**
+     * 检查文件是否存在（公共方法）
+     */
+    public func checkFileExists(path: String): Bool {
+        return fileExists(path)
+    }
+    
+    /**
+     * 生成文件哈希（公共方法）
+     */
+    public func generateFileHashForUpload(filePath: String): String {
+        return generateFileHash(filePath)
     }
     
     /**

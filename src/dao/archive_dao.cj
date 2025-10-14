@@ -394,7 +394,8 @@ public class ArchiveDao {
                 
                 let result = stmt.update()
                 conn.close()
-                return true  // 简化实现，假设更新成功
+                // 简化实现，假设没有异常就是成功
+                return true
             } catch (e: Exception) {
                 println("更新归档失败: ${e}")
                 conn.close()

@@ -9,14 +9,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { ArrowLeft, BookOpen, Download, Tag, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, Tag, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { EditMetadataDialog } from '@/components/archive/EditMetadataDialog';
 
 function ArchiveDetailContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // 提取 fetchMetadata 函数到顶层
+  const fetchMetadata = useCallback(async () => {
+    if (!id) return;
+    
+    try {
+      const data = await ArchiveService.getMetadata(id);
+      setMetadata(data);
+    } catch (error) {
+      console.error('Failed to fetch metadata:', error);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchMetadata();
+  }, [fetchMetadata]);
   
   const [metadata, setMetadata] = useState<ArchiveMetadata | null>(null);
   const [loading, setLoading] = useState(true);
@@ -206,14 +226,19 @@ function ArchiveDetailContent() {
               </Button>
             </Link>
             
-            {/* 为将来的编辑功能预留空间 */}
+            {/* 编辑功能 */}
             <div className="flex items-center gap-2">
-              {/* 将来可以添加编辑按钮，例如：
-              <Button variant="outline" size="sm">
-                <Edit className="w-4 h-4 mr-2" />
-                编辑
-              </Button>
-              */}
+              {isAuthenticated ? (
+                <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  {t('common.edit')}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" disabled title="需要登录才能编辑">
+                  <Edit className="w-4 h-4 mr-2" />
+                  {t('common.edit')}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -552,6 +577,14 @@ function ArchiveDetailContent() {
         </div>
       </div>
       </main>
+      
+      {/* 编辑元数据对话框 */}
+      <EditMetadataDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        metadata={metadata}
+        onMetadataUpdated={fetchMetadata}
+      />
     </div>
   );
 }

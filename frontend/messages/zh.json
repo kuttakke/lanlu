@@ -5,6 +5,7 @@
     "confirm": "确认",
     "cancel": "取消",
     "save": "保存",
+    "saving": "保存中...",
     "delete": "删除",
     "edit": "编辑",
     "search": "搜索",
@@ -58,7 +59,6 @@
     "noMatchingArchives": "没有找到匹配的档案",
     "noArchives": "暂无档案",
     "sortBy": "排序:",
-    "title": "标题",
     "lastRead": "最后阅读",
     "dateAdded": "添加时间",
     "pageCount": "页数",
@@ -81,7 +81,6 @@
     "doujinshi": "同人志",
     "other": "其他",
     "sortBy": "排序方式",
-    "title": "标题",
     "lastRead": "最后阅读",
     "dateAdded": "添加时间",
     "pageCount": "页数",
@@ -102,7 +101,6 @@
     "unreadTag": "未读",
     "favoriteTag": "收藏",
     "error": "搜索失败",
-    "keyword": "搜索关键词",
     "results": "搜索结果"
   },
   "archive": {
@@ -147,7 +145,13 @@
     "noPreviewPages": "没有可预览的页面",
     "loadMore": "加载更多",
     "pageThumbnails": "页面缩略图",
-    "clickToRead": "点击阅读此页"
+    "clickToRead": "点击阅读此页",
+    "editMetadata": "编辑元数据",
+    "editMetadataDescription": "编辑档案的标题、标签和摘要信息",
+    "updateFailed": "更新失败，请重试",
+    "tagsPlaceholder": "请输入标签，用逗号分隔",
+    "summary": "摘要",
+    "summaryPlaceholder": "请输入档案摘要"
   },
   "reader": {
     "page": "页面 {current} / {total}",
@@ -178,5 +182,49 @@
     "hideToolbar": "隐藏工具栏",
     "showToolbar": "显示工具栏",
     "autoHide": "自动隐藏"
+  },
+  "auth": {
+    "login": "登录",
+    "logout": "登出",
+    "loginTitle": "身份验证",
+    "loginDescription": "请输入您的访问令牌以继续",
+    "token": "令牌",
+    "tokenPlaceholder": "请输入访问令牌",
+    "loggingIn": "登录中..."
+  },
+  "upload": {
+    "title": "上传档案",
+    "selectFile": "选择文件",
+    "dragOrClick": "拖拽文件到此处，或点击浏览",
+    "browse": "浏览文件",
+    "supportedFormats": "支持的格式",
+    "titlePlaceholder": "输入档案标题",
+    "tags": "标签",
+    "tagsPlaceholder": "输入标签，用逗号分隔",
+    "summary": "摘要",
+    "summaryPlaceholder": "输入档案摘要",
+    "category": "分类",
+    "categoryPlaceholder": "输入分类ID",
+    "upload": "上传",
+    "uploading": "上传中...",
+    "cancel": "取消",
+    "noFile": "请选择要上传的文件",
+    "unsupportedFormat": "不支持的文件格式: {format}",
+    "uploadFailed": "上传失败，请重试",
+    "fileList": "文件列表",
+    "pending": "等待",
+    "success": "成功",
+    "error": "错误",
+    "addFiles": "添加文件",
+    "uploadAll": "全部上传",
+    "clearCompleted": "清除已完成",
+    "clearAll": "清除全部",
+    "close": "关闭"
+  },
+  "user": {
+    "menu": "用户菜单",
+    "loggedIn": "已登录",
+    "settings": "设置",
+    "logout": "退出登录"
   }
 }

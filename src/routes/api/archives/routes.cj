@@ -1,7 +1,9 @@
 package lrr4cj.routes.api.archives
 
 import cjoy.*
+import cjoy.multipart.*
 import lrr4cj.controllers.*
+import lrr4cj.controllers.ChunkedUploadController
 import lrr4cj.middleware.*
 
 /**
@@ -77,6 +79,42 @@ public class ArchiveRoutes {
         router.delete("/api/archives/{id}", { ctx =>
             AuthMiddleware.requiredAuth(ctx)
             ArchiveController.deleteArchive(ctx)
+        })
+
+        // 上传归档
+        router.put("/api/archives/upload", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ArchiveController.uploadArchive(ctx)
+        })
+
+        // 分片上传 - 初始化上传会话
+        router.post("/api/archives/upload/init", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ChunkedUploadController.initUpload(ctx)
+        })
+
+        // 分片上传 - 上传分片
+        router.put("/api/archives/upload/chunk", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ChunkedUploadController.uploadChunk(ctx)
+        })
+
+        // 分片上传 - 获取上传状态
+        router.get("/api/archives/upload/status/{uploadId}", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ChunkedUploadController.getUploadStatus(ctx)
+        })
+
+        // 分片上传 - 完成上传
+        router.post("/api/archives/upload/complete", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ChunkedUploadController.completeUpload(ctx)
+        })
+
+        // 分片上传 - 取消上传
+        router.delete("/api/archives/upload/{uploadId}", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ChunkedUploadController.cancelUpload(ctx)
         })
     }
 }

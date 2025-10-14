@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { ArchiveService } from '@/lib/archive-service';
+import { imageCacheService } from '@/lib/image-cache';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Slider } from '@/components/ui/slider';
@@ -25,6 +26,7 @@ function ReaderContent() {
   const { t } = useReaderLanguage();
   
   const [pages, setPages] = useState<string[]>([]);
+  const [cachedPages, setCachedPages] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,6 +127,35 @@ function ReaderContent() {
     }
   }, [currentPage, pages.length]);
 
+
+  const handleImageError = useCallback((pageIndex: number) => {
+    setImagesLoading(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(pageIndex);
+      return newSet;
+    });
+  }, []);
+
+  // 缓存图片
+  const cacheImage = useCallback(async (url: string, index: number) => {
+    try {
+      const cachedUrl = await imageCacheService.getOrCacheImage(url);
+      setCachedPages(prev => {
+        const newCachedPages = [...prev];
+        newCachedPages[index] = cachedUrl;
+        return newCachedPages;
+      });
+    } catch (error) {
+      console.error('Error caching image:', error);
+      // 如果缓存失败，使用原始URL
+      setCachedPages(prev => {
+        const newCachedPages = [...prev];
+        newCachedPages[index] = url;
+        return newCachedPages;
+      });
+    }
+  }, []);
+
   const handleImageLoad = useCallback((pageIndex: number, imgElement?: HTMLImageElement) => {
     setImagesLoading(prev => {
       const newSet = new Set(prev);
@@ -140,7 +171,7 @@ function ReaderContent() {
     
     // 如果是条漫模式且提供了图片元素，记录图片高度
     if (readingMode === 'webtoon' && imgElement) {
-      const containerWidth = webtoonContainerRef.current?.clientWidth || window.innerWidth;
+      const containerWidth = Math.min(webtoonContainerRef.current?.clientWidth || window.innerWidth, window.innerWidth * 0.9);
       const aspectRatio = imgElement.naturalHeight / imgElement.naturalWidth;
       const imageHeight = containerWidth * aspectRatio;
       
@@ -149,16 +180,26 @@ function ReaderContent() {
         newHeights[pageIndex] = imageHeight;
         return newHeights;
       });
+      
+      // 预加载相邻图片
+      const preloadAdjacent = (index: number) => {
+        // 预加载前一张和后一张图片
+        [index - 1, index + 1].forEach(adjacentIndex => {
+          if (adjacentIndex >= 0 && adjacentIndex < pages.length && !loadedImages.has(adjacentIndex) && !imagesLoading.has(adjacentIndex)) {
+            setImagesLoading(prev => {
+              const updated = new Set(prev);
+              updated.add(adjacentIndex);
+              return updated;
+            });
+            cacheImage(pages[adjacentIndex], adjacentIndex);
+          }
+        });
+      };
+      
+      // 延迟预加载，避免影响当前图片加载
+      setTimeout(() => preloadAdjacent(pageIndex), 100);
     }
-  }, [readingMode]);
-
-  const handleImageError = useCallback((pageIndex: number) => {
-    setImagesLoading(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(pageIndex);
-      return newSet;
-    });
-  }, []);
+  }, [readingMode, loadedImages, imagesLoading, pages, cacheImage]);
 
   // 计算可见范围的函数
   const calculateVisibleRange = useCallback((scrollTop: number, containerHeight: number) => {
@@ -169,36 +210,41 @@ function ReaderContent() {
     let accumulatedHeight = 0;
     let startIndex = 0;
     let endIndex = 0;
-    const bufferHeight = containerHeight * 3; // 增加缓冲区到3倍屏幕高度，提高快速滑动体验
+    const bufferHeight = containerHeight * 1.5; // 减少缓冲区到1.5倍屏幕高度，减少页面长度
 
     // 找到开始索引
     for (let i = 0; i < imageHeights.length; i++) {
       const imageHeight = imageHeights[i] || containerHeight; // 使用容器高度作为默认值
       if (accumulatedHeight + imageHeight > scrollTop - bufferHeight / 2) {
-        startIndex = Math.max(0, i - 2); // 前置两个页面
+        startIndex = Math.max(0, i - 1); // 减少前置页面数量
         break;
       }
-      accumulatedHeight += imageHeight; // 移除页面间距
+      accumulatedHeight += imageHeight;
     }
 
     // 找到结束索引
     accumulatedHeight = 0;
     for (let i = 0; i < imageHeights.length; i++) {
       const imageHeight = imageHeights[i] || containerHeight;
-      accumulatedHeight += imageHeight; // 移除页面间距
+      accumulatedHeight += imageHeight;
       if (accumulatedHeight > scrollTop + containerHeight + bufferHeight / 2) {
-        endIndex = Math.min(imageHeights.length - 1, i + 2); // 后置两个页面
+        endIndex = Math.min(imageHeights.length - 1, i + 1); // 减少后置页面数量
         break;
       }
     }
 
     // 如果没有找到结束索引，说明到了底部
     if (endIndex === 0) {
-      endIndex = Math.min(imageHeights.length - 1, startIndex + 5); // 增加默认范围
+      endIndex = Math.min(imageHeights.length - 1, startIndex + 3); // 减少默认范围
     }
 
+    // 确保至少渲染当前页和前后各一页
+    const currentPageIndex = Math.floor(scrollTop / (containerHeight * 0.8));
+    startIndex = Math.min(startIndex, Math.max(0, currentPageIndex - 1));
+    endIndex = Math.max(endIndex, Math.min(pages.length - 1, currentPageIndex + 1));
+
     return { start: startIndex, end: endIndex };
-  }, [pages.length, imageHeights.length]); // 只依赖长度，不依赖整个数组
+  }, [pages.length, imageHeights.length]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement) return;
@@ -397,8 +443,9 @@ function ReaderContent() {
   // 初始化图片高度数组和容器高度
   useEffect(() => {
     if (pages.length > 0 && imageHeights.length !== pages.length) {
-      // 使用默认高度初始化数组
-      const defaultHeight = window.innerHeight * 1.5; // 默认高度为1.5倍屏幕高度
+      // 使用更合理的默认高度初始化数组
+      const containerWidth = Math.min(window.innerWidth * 0.9, window.innerWidth);
+      const defaultHeight = Math.min(window.innerHeight * 0.8, containerWidth * 1.2); // 减少默认高度
       setImageHeights(new Array(pages.length).fill(defaultHeight));
       
       // 设置初始容器高度
@@ -406,7 +453,7 @@ function ReaderContent() {
       setContainerHeight(viewportHeight);
       
       // 设置初始可见范围
-      setVisibleRange({ start: 0, end: 2 });
+      setVisibleRange({ start: 0, end: 1 }); // 减少初始渲染范围
     }
   }, [pages.length, imageHeights.length]);
 
@@ -501,6 +548,9 @@ function ReaderContent() {
     }
   }, [currentPage, readingMode, pages.length, loadedImages]); // 依赖项已经正确
 
+  // 滚动事件防抖处理
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // 设置Intersection Observer用于懒加载
   useEffect(() => {
     if (readingMode === 'webtoon') {
@@ -514,7 +564,9 @@ function ReaderContent() {
               // 如果图片进入视窗，开始加载
               setImagesLoading(prev => {
                 const updated = new Set(prev);
-                updated.add(index);
+                if (!loadedImages.has(index)) {
+                  updated.add(index);
+                }
                 return updated;
               });
               
@@ -524,13 +576,13 @@ function ReaderContent() {
           });
         },
         {
-          rootMargin: '500px' // 提前500px开始加载，提高快速滑动体验
+          rootMargin: '800px' // 增加预加载距离到800px，防止快速翻页时出现白色区域
         }
       );
 
       // 只观察可见范围内的图片元素
       imageRefs.current.forEach((img, index) => {
-        if (img && !imagesLoading.has(index) && index >= visibleRange.start && index <= visibleRange.end) {
+        if (img && !imagesLoading.has(index) && !loadedImages.has(index) && index >= visibleRange.start && index <= visibleRange.end) {
           img.dataset.index = index.toString();
           observerRef.current?.observe(img);
         }
@@ -540,7 +592,16 @@ function ReaderContent() {
     return () => {
       observerRef.current?.disconnect();
     };
-  }, [readingMode, imagesLoading, visibleRange]);
+  }, [readingMode, imagesLoading, visibleRange, loadedImages]);
+
+  // 清理防抖定时器
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 处理已经加载完成的图片
   useEffect(() => {
@@ -548,7 +609,7 @@ function ReaderContent() {
       imageRefs.current.forEach((img, index) => {
         if (img && img.complete && img.naturalHeight > 0 && !imageHeights[index]) {
           // 如果图片已经加载完成但还没有记录高度，计算高度
-          const containerWidth = webtoonContainerRef.current?.clientWidth || window.innerWidth;
+          const containerWidth = Math.min(webtoonContainerRef.current?.clientWidth || window.innerWidth, window.innerWidth * 0.9);
           const aspectRatio = img.naturalHeight / img.naturalWidth;
           const imageHeight = containerWidth * aspectRatio;
           
@@ -693,7 +754,7 @@ function ReaderContent() {
                 <img
                   key={`page-${currentPage}`}
                   ref={el => { imageRefs.current[0] = el; }}
-                  src={pages[currentPage]}
+                  src={cachedPages[currentPage] || pages[currentPage]}
                   alt={t('reader.pageAlt').replace('{page}', String(currentPage + 1))}
                   className={`
                     object-contain select-none touch-none
@@ -704,7 +765,11 @@ function ReaderContent() {
                     maxHeight: '100%',
                     height: '100%'
                   }}
-                  onLoad={() => handleImageLoad(currentPage)}
+                  onLoad={() => {
+                    handleImageLoad(currentPage);
+                    // 图片加载完成后缓存它
+                    cacheImage(pages[currentPage], currentPage);
+                  }}
                   onError={() => handleImageError(currentPage)}
                   onDoubleClick={(e) => handleDoubleClick(e, 0)}
                   onDragStart={handleImageDragStart}
@@ -722,32 +787,41 @@ function ReaderContent() {
             className="h-full overflow-y-auto overflow-x-hidden"
             onScroll={(e) => {
               const container = e.currentTarget;
-              const scrollPercentage = container.scrollTop / (container.scrollHeight - container.clientHeight);
-              const pageIndex = Math.floor(scrollPercentage * pages.length);
-              if (pageIndex !== currentPage && pageIndex >= 0 && pageIndex < pages.length) {
-                setCurrentPage(pageIndex);
+              
+              // 防抖处理滚动事件
+              if (scrollTimeoutRef.current) {
+                clearTimeout(scrollTimeoutRef.current);
               }
               
-              // 更新可见范围
-              const newVisibleRange = calculateVisibleRange(container.scrollTop, container.clientHeight);
-              setVisibleRange(newVisibleRange);
-              
-              // 更新容器高度
-              setContainerHeight(container.clientHeight);
+              scrollTimeoutRef.current = setTimeout(() => {
+                const scrollPercentage = container.scrollTop / (container.scrollHeight - container.clientHeight);
+                const pageIndex = Math.floor(scrollPercentage * pages.length);
+                if (pageIndex !== currentPage && pageIndex >= 0 && pageIndex < pages.length) {
+                  setCurrentPage(pageIndex);
+                }
+                
+                // 更新可见范围
+                const newVisibleRange = calculateVisibleRange(container.scrollTop, container.clientHeight);
+                setVisibleRange(newVisibleRange);
+                
+                // 更新容器高度
+                setContainerHeight(container.clientHeight);
+              }, 50); // 50ms防抖延迟
             }}
           >
             <div
               className="flex flex-col items-center max-w-none mx-auto relative"
               style={{
-                // 设置总高度，确保滚动条正常工作
-                minHeight: `${imageHeights.length > 0 ? imageHeights.reduce((sum, height) => sum + (height || containerHeight || window.innerHeight), 0) : pages.length * (containerHeight || window.innerHeight) * 1.5}px`
+                // 设置更精确的总高度，减少页面长度异常
+                minHeight: `${imageHeights.length > 0 ? imageHeights.reduce((sum, height) => sum + (height || containerHeight || window.innerHeight * 0.8), 0) : pages.length * (containerHeight || window.innerHeight * 0.8)}px`
               }}
             >
               {/* 上方占位符 */}
               {visibleRange.start > 0 && (
                 <div
                   style={{
-                    height: `${Array.from({length: visibleRange.start}, (_, i) => imageHeights[i] || containerHeight || window.innerHeight).reduce((sum, height) => sum + height, 0)}px`
+                    height: `${Array.from({length: visibleRange.start}, (_, i) => imageHeights[i] || containerHeight || window.innerHeight * 0.8).reduce((sum, height) => sum + height, 0)}px`,
+                    minHeight: '1px' // 确保占位符至少有1px高度
                   }}
                   className="w-full"
                 />
@@ -763,17 +837,22 @@ function ReaderContent() {
                     {imagesLoading.has(actualIndex) && !loadedImages.has(actualIndex) && (
                       <div
                         className="absolute inset-0 flex items-center justify-center bg-black/50 z-20"
-                        style={{ height: `${imageHeight}px` }}
+                        style={{
+                          height: imageHeights[actualIndex] ? `${imageHeights[actualIndex]}px` : 'auto',
+                          minHeight: '200px' // 确保加载指示器有足够高度
+                        }}
                       >
                         <Spinner size="lg" />
                       </div>
                     )}
                     
                     <div
-                      className="relative flex justify-center"
+                      className="relative flex justify-center w-full"
                       style={{
                         cursor: scale > 1 ? 'grab' : 'default',
-                        height: imageHeights[actualIndex] ? `${imageHeight}px` : 'auto'
+                        // 完全自适应高度，让图片内容决定容器高度
+                        height: 'auto',
+                        minHeight: loadedImages.has(actualIndex) ? 'auto' : '200px' // 只有未加载时设置最小高度
                       }}
                     >
                       <img
@@ -781,21 +860,31 @@ function ReaderContent() {
                         ref={el => {
                           imageRefs.current[actualIndex] = el;
                         }}
-                        src={imagesLoading.has(actualIndex) || loadedImages.has(actualIndex) ? page : undefined}
+                        src={cachedPages[actualIndex] || page}
                         alt={t('reader.pageAlt').replace('{page}', String(actualIndex + 1))}
                         className={`
-                          object-contain select-none w-full
-                          max-w-full h-auto
+                          object-contain select-none
                           ${imagesLoading.has(actualIndex) && !loadedImages.has(actualIndex) ? 'opacity-0' : 'opacity-100'}
                         `}
                         style={{
                           // 保存图片的变换状态，避免模式切换时重置
                           transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
                           transition: 'transform 0.1s ease-out',
-                          // 设置初始最大高度，避免布局跳动
-                          maxHeight: imageHeight ? `${imageHeight}px` : `${containerHeight || window.innerHeight}px`
+                          // 确保图片不超出视图宽度和高度
+                          maxWidth: '100vw',
+                          width: 'auto',
+                          height: 'auto',
+                          // 限制最大高度为视口高度的90%，避免超出视图
+                          maxHeight: '90vh',
+                          // 确保图片按比例显示且紧密贴合
+                          display: 'block',
+                          objectFit: 'contain'
                         }}
-                        onLoad={(e) => handleImageLoad(actualIndex, e.currentTarget)}
+                        onLoad={(e) => {
+                          handleImageLoad(actualIndex, e.currentTarget);
+                          // 图片加载完成后缓存它
+                          cacheImage(page, actualIndex);
+                        }}
                         onError={() => handleImageError(actualIndex)}
                         onDoubleClick={(e) => handleDoubleClick(e, actualIndex)}
                         onDragStart={handleImageDragStart}
@@ -812,8 +901,9 @@ function ReaderContent() {
                   style={{
                     height: `${Array.from({length: pages.length - visibleRange.end - 1}, (_, i) => {
                       const index = visibleRange.end + 1 + i;
-                      return imageHeights[index] || containerHeight || window.innerHeight;
-                    }).reduce((sum, height) => sum + height, 0)}px`
+                      return imageHeights[index] || containerHeight || window.innerHeight * 0.8;
+                    }).reduce((sum, height) => sum + height, 0)}px`,
+                    minHeight: '1px' // 确保占位符至少有1px高度
                   }}
                   className="w-full"
                 />

@@ -48,9 +48,6 @@ public class Routes {
         // 注册前端页面路由
         registerFrontendRoutes(router)
         
-        // 注册根路由
-        registerRootRoute(router)
-        
         // 未来可以添加更多路由模块
         // AdminRoutes.configure(router)
         // ProductRoutes.configure(router)
@@ -84,13 +81,5 @@ public class Routes {
         router.get("/*", { ctx =>
             FrontendController.serveStatic(ctx)
         })
-    }
-    
-    
-    /**
-     * 注册根路由
-     */
-    private static func registerRootRoute(router: JoyRouters) {
-        // 根路由已经在 registerFrontendRoutes 中处理
     }
 }

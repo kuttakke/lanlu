@@ -6,6 +6,8 @@ import { SearchBar } from '@/components/search/SearchBar';
 import { ArchiveService } from '@/lib/archive-service';
 import { ThemeToggle, ThemeButton } from '@/components/theme/theme-toggle';
 import { LanguageButton } from '@/components/language/LanguageToggle';
+import { LoginDialog } from '@/components/auth/LoginDialog';
+import { UserMenu } from '@/components/user/UserMenu';
 import { Menu, X, Home, Search, BookOpen, Shuffle } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -111,9 +113,17 @@ export function Header() {
                 </Link>
               );
             })}
+            <UserMenu />
             <LanguageButton />
             <ThemeToggle />
           </nav>
+
+          {/* 移动端右侧按钮组 - 用户头像、主题、语言 */}
+          <div className="md:hidden flex items-center space-x-1">
+            <UserMenu />
+            <ThemeButton />
+            <LanguageButton />
+          </div>
         </div>
 
         {/* 搜索栏 - 移动端显示 */}
@@ -167,6 +177,7 @@ export function Header() {
               );
             })}
             <div className="flex items-center justify-center space-x-2 px-3 py-3">
+              <LoginDialog />
               <ThemeButton />
               <LanguageButton />
             </div>
