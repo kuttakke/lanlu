@@ -6,7 +6,7 @@ import { ArchiveService } from '@/lib/archive-service';
 import { Archive } from '@/types/archive';
 import { ArchiveGrid } from '@/components/archive/ArchiveGrid';
 import { Header } from '@/components/layout/Header';
-import { Sidebar } from '@/components/layout/Sidebar';
+import { SearchStatsSidebar } from '@/components/layout/SearchStatsSidebar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -20,6 +20,7 @@ function SearchContent() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [searchStats, setSearchStats] = useState({ totalResults: 0, filteredResults: 0 });
 
   useEffect(() => {
     if (query) {
@@ -38,6 +39,10 @@ function SearchContent() {
       
       if (pageNum === 0) {
         setArchives(result.data);
+        setSearchStats({
+          totalResults: result.recordsTotal || 0,
+          filteredResults: result.recordsFiltered || 0
+        });
       } else {
         setArchives(prev => [...prev, ...result.data]);
       }
@@ -64,7 +69,12 @@ function SearchContent() {
       <div className="flex min-h-screen">
         {/* 侧栏 - 桌面端显示 */}
         <div className="hidden lg:block flex-shrink-0 border-r border-border">
-          <Sidebar />
+          <SearchStatsSidebar
+            totalResults={searchStats.totalResults}
+            filteredResults={searchStats.filteredResults}
+            query={query}
+            loading={loading}
+          />
         </div>
         
         {/* 主内容区 */}

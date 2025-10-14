@@ -30,7 +30,7 @@ export function Sidebar() {
 
   if (loading) {
     return (
-      <div className="w-64 bg-background p-4">
+      <div className="w-80 bg-background p-4">
         <div className="animate-pulse space-y-4">
           <div className="h-4 bg-muted rounded w-3/4"></div>
           <div className="h-4 bg-muted rounded w-1/2"></div>
@@ -42,14 +42,14 @@ export function Sidebar() {
 
   if (!serverInfo) {
     return (
-      <div className="w-64 bg-background p-4">
+      <div className="w-80 bg-background p-4">
         <p className="text-muted-foreground">{t('sidebar.loadError')}</p>
       </div>
     );
   }
 
   return (
-    <div className="w-64 bg-background p-4">
+    <div className="w-80 bg-background p-4">
       <div className="space-y-6">
         {/* 服务器基本信息 */}
         <Card>
@@ -152,7 +152,10 @@ export function Sidebar() {
             <div className="text-sm">
               <p className="font-medium mb-1">{t('sidebar.lastCleared')}</p>
               <p className="text-muted-foreground">
-                {new Date(serverInfo.cache_last_cleared * 1000).toLocaleString()}
+                {serverInfo.cache_last_cleared
+                  ? new Date(serverInfo.cache_last_cleared * 1000).toLocaleString()
+                  : t('common.unknown')
+                }
               </p>
             </div>
           </CardContent>
