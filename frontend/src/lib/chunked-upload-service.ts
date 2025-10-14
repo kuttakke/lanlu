@@ -90,9 +90,8 @@ export class ChunkedUploadService {
         return { success: false, error: 'Failed to initialize upload session' };
       }
 
-      // 5. 检查是否可以断点续传
-      const existingStatus = await this.getUploadStatus(uploadId);
-      const completedChunks = existingStatus?.completedChunks || [];
+      // 5. 不再检查断点续传，直接上传所有分片
+      const completedChunks: number[] = [];
       const remainingChunks = this.getRemainingChunks(totalChunks, completedChunks);
 
       // 6. 上传剩余分片
@@ -261,106 +260,6 @@ export class ChunkedUploadService {
     }
   }
 
-  /**
-   * 获取上传状态
-   */
-  static async getUploadStatus(uploadId: string): Promise<UploadStatus | null> {
-    try {
-      // 首先尝试从服务器获取状态
-      try {
-        const response = await apiClient.get(`/api/archives/upload/status/${uploadId}`);
-        
-        // 调试：打印服务器响应
-        console.log('服务器状态响应:', response.data);
-        
-        if (response.data.success === 1) {
-          // 从localStorage获取基本信息
-          const sessionData = localStorage.getItem(`upload_${uploadId}`);
-          let fileName = '', fileSize = 0, fileHash = '', createdAt = new Date().toISOString();
-          
-          if (sessionData) {
-            const session = JSON.parse(sessionData);
-            fileName = session.fileName || '';
-            fileSize = session.fileSize || 0;
-            fileHash = session.fileHash || '';
-            createdAt = session.createdAt || new Date().toISOString();
-            
-            // 同步服务器状态到localStorage
-            let serverCompletedChunks = [];
-            if (response.data.completedChunks) {
-              if (typeof response.data.completedChunks === 'string') {
-                try {
-                  serverCompletedChunks = JSON.parse(response.data.completedChunks);
-                } catch (parseError) {
-                  console.warn('Failed to parse completedChunks from server:', parseError);
-                  serverCompletedChunks = [];
-                }
-              } else if (Array.isArray(response.data.completedChunks)) {
-                serverCompletedChunks = response.data.completedChunks;
-              }
-            }
-            const serverStatus = response.data.status;
-            
-            // 只有当服务器状态更新时才同步到localStorage
-            if (serverCompletedChunks.length > (session.completedChunks || []).length ||
-                serverStatus !== session.status) {
-              session.completedChunks = serverCompletedChunks;
-              session.status = serverStatus;
-              localStorage.setItem(`upload_${uploadId}`, JSON.stringify(session));
-            }
-          }
-          
-          // 处理服务器返回的completedChunks，它可能是JSON字符串或数组
-          let completedChunks = [];
-          if (response.data.completedChunks) {
-            if (typeof response.data.completedChunks === 'string') {
-              try {
-                completedChunks = JSON.parse(response.data.completedChunks);
-              } catch (parseError) {
-                console.warn('Failed to parse completedChunks from server:', parseError);
-                completedChunks = [];
-              }
-            } else if (Array.isArray(response.data.completedChunks)) {
-              completedChunks = response.data.completedChunks;
-            }
-          }
-          
-          return {
-            uploadId: response.data.uploadId,
-            fileName,
-            fileSize,
-            fileHash,
-            totalChunks: response.data.totalChunks,
-            completedChunks, // 解析后的分片数组
-            status: response.data.status,
-            createdAt
-          };
-        }
-      } catch (serverError) {
-        console.warn('Failed to get status from server, falling back to localStorage:', serverError);
-      }
-      
-      // 从localStorage获取上传状态（备用方案）
-      const sessionData = localStorage.getItem(`upload_${uploadId}`);
-      if (sessionData) {
-        const session = JSON.parse(sessionData);
-        return {
-          uploadId: session.uploadId,
-          fileName: session.fileName,
-          fileSize: session.fileSize,
-          totalChunks: session.totalChunks,
-          completedChunks: session.completedChunks,
-          status: session.status,
-          createdAt: session.createdAt,
-          fileHash: session.fileHash
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Failed to get upload status:', error);
-      return null;
-    }
-  }
 
   /**
    * 获取剩余需要上传的分片
@@ -462,7 +361,9 @@ export class ChunkedUploadService {
       
       // 计算进度：包括之前已完成的分片和本次新完成的分片
       const allCompletedChunks = [...previouslyCompletedChunks, ...completedChunkIndices];
-      const uploadedBytes = allCompletedChunks.reduce((total, chunkIndex) => {
+      // 去重并排序，确保分片索引不重复
+      const uniqueCompletedChunks = Array.from(new Set(allCompletedChunks)).sort((a, b) => a - b);
+      const uploadedBytes = uniqueCompletedChunks.reduce((total, chunkIndex) => {
         const start = chunkIndex * this.CHUNK_SIZE;
         const end = Math.min(start + this.CHUNK_SIZE, totalBytes);
         return total + (end - start);
@@ -470,7 +371,7 @@ export class ChunkedUploadService {
       
       const progress = Math.round((uploadedBytes / totalBytes) * 100);
       callbacks.onProgress(progress);
-      callbacks.onChunkComplete?.(-1, totalChunks, allCompletedChunks.length);
+      callbacks.onChunkComplete?.(-1, totalChunks, uniqueCompletedChunks.length);
     }
 
     return { successCount: completedChunkIndices.length, failedChunks };
@@ -625,18 +526,24 @@ export class ChunkedUploadService {
    */
   static async resumeUpload(uploadId: string, file: File, metadata: UploadMetadata, callbacks: UploadProgressCallback): Promise<UploadResult> {
     try {
-      // 检查上传状态
-      const status = await this.getUploadStatus(uploadId);
-      if (!status) {
+      // 不再检查上传状态，直接从localStorage获取基本信息
+      const sessionData = localStorage.getItem(`upload_${uploadId}`);
+      if (!sessionData) {
         return { success: false, error: 'Upload session not found' };
       }
+      
+      const session = JSON.parse(sessionData);
+      const completedChunks = session.completedChunks || [];
+      const totalChunks = session.totalChunks || 0;
+      const fileHash = session.fileHash || '';
+      const fileName = session.fileName || '';
 
-      if (status.status === 'completed') {
+      if (session.status === 'completed') {
         return { success: false, error: 'Upload already completed' };
       }
 
       // 继续上传剩余分片
-      const remainingChunks = this.getRemainingChunks(status.totalChunks, status.completedChunks);
+      const remainingChunks = this.getRemainingChunks(totalChunks, completedChunks);
       
       // 创建包装的回调，以正确计算总的已上传分片数
       const wrappedCallbacks: UploadProgressCallback = {
@@ -645,7 +552,7 @@ export class ChunkedUploadService {
           // 计算总的已上传分片数（包括之前已上传的）
           // 注意：newlyUploadedChunks 是本次上传中成功完成的分片数量
           // 我们需要加上之前已经完成的分片数量
-          const totalUploadedChunks = status.completedChunks.length + newlyUploadedChunks;
+          const totalUploadedChunks = completedChunks.length + newlyUploadedChunks;
           callbacks.onChunkComplete?.(chunkIndex, totalChunks, totalUploadedChunks);
         },
         onError: callbacks.onError
@@ -655,12 +562,12 @@ export class ChunkedUploadService {
         file,
         uploadId,
         remainingChunks,
-        status.totalChunks,
+        totalChunks,
         wrappedCallbacks
       );
 
       // 计算总的已上传分片数（包括之前已上传的）
-      let totalCompletedChunks = status.completedChunks.length + uploadResult.successCount;
+      let totalCompletedChunks = completedChunks.length + uploadResult.successCount;
       
       // 如果有失败的分片，进行重传
       if (uploadResult.failedChunks.length > 0) {
@@ -671,7 +578,7 @@ export class ChunkedUploadService {
           file,
           uploadId,
           uploadResult.failedChunks,
-          status.totalChunks,
+          totalChunks,
           callbacks
         );
         
@@ -687,22 +594,22 @@ export class ChunkedUploadService {
           };
         }
         
-        console.log(`恢复上传所有分片上传成功: ${totalCompletedChunks}/${status.totalChunks}`);
+        console.log(`恢复上传所有分片上传成功: ${totalCompletedChunks}/${totalChunks}`);
       } else {
-        console.log(`恢复上传所有分片上传成功: ${totalCompletedChunks}/${status.totalChunks}`);
+        console.log(`恢复上传所有分片上传成功: ${totalCompletedChunks}/${totalChunks}`);
       }
 
       // 验证所有分片都已上传完成
-      if (totalCompletedChunks !== status.totalChunks) {
-        console.error(`恢复上传分片数量不匹配: 期望 ${status.totalChunks}, 实际 ${totalCompletedChunks}`);
+      if (totalCompletedChunks !== totalChunks) {
+        console.error(`恢复上传分片数量不匹配: 期望 ${totalChunks}, 实际 ${totalCompletedChunks}`);
         return {
           success: false,
-          error: `恢复上传分片数量不匹配: 期望 ${status.totalChunks}, 实际 ${totalCompletedChunks}`
+          error: `恢复上传分片数量不匹配: 期望 ${totalChunks}, 实际 ${totalCompletedChunks}`
         };
       }
 
       // 完成上传
-      return await this.completeUpload(uploadId, status.fileHash, metadata, status.fileName);
+      return await this.completeUpload(uploadId, fileHash, metadata, fileName);
 
     } catch (error) {
       return {

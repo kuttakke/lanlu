@@ -99,11 +99,7 @@ public class ArchiveRoutes {
             ChunkedUploadController.uploadChunk(ctx)
         })
 
-        // 分片上传 - 获取上传状态
-        router.get("/api/archives/upload/status/{uploadId}", { ctx =>
-            AuthMiddleware.requiredAuth(ctx)
-            ChunkedUploadController.getUploadStatus(ctx)
-        })
+        
 
         // 分片上传 - 完成上传
         router.post("/api/archives/upload/complete", { ctx =>

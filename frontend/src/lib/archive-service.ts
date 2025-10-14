@@ -149,12 +149,6 @@ export class ArchiveService {
     );
   }
 
-  /**
-   * 获取上传状态
-   */
-  static async getUploadStatus(uploadId: string) {
-    return await ChunkedUploadService.getUploadStatus(uploadId);
-  }
 
   /**
    * 取消上传

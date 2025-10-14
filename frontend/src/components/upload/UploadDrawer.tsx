@@ -21,6 +21,7 @@ interface UploadFile {
   progress: number
   status: "idle" | "uploading" | "success" | "error"
   error?: string
+  collapsed?: boolean
 }
 
 interface UploadDrawerProps {
@@ -110,17 +111,6 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
     updateFileData(uploadFile.id, "error", undefined)
 
     try {
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setUploadFiles(prev => prev.map(file => {
-          if (file.id === uploadFile.id) {
-            const newProgress = Math.min(file.progress + 10, 90)
-            return { ...file, progress: newProgress }
-          }
-          return file
-        }))
-      }, 200)
-
       const result = await ArchiveService.uploadArchiveWithChunks(uploadFile.file, {
         title: uploadFile.title || undefined,
         tags: uploadFile.tags || undefined,
@@ -138,8 +128,6 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
           updateFileData(uploadFile.id, "error", `分片 ${chunkIndex} 上传失败: ${error.message}`)
         }
       })
-
-      clearInterval(progressInterval)
       
       setUploadFiles(prev => prev.map(file => {
         if (file.id === uploadFile.id) {
@@ -187,9 +175,9 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       {trigger && <SheetTrigger asChild>{trigger}</SheetTrigger>}
-      <SheetContent 
-        side="right" 
-        className="w-full sm:w-[600px] md:w-[700px] lg:w-[800px] overflow-y-auto"
+      <SheetContent
+        side="right"
+        className="w-full sm:w-[600px] md:w-[700px] lg:w-[900px] xl:w-[1200px] overflow-y-auto"
         onInteractOutside={(e) => {
           const uploadingFiles = uploadFiles.filter(file => file.status === "uploading")
           if (uploadingFiles.length > 0) {
@@ -262,9 +250,10 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
                 </Button>
               </div>
               
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                {uploadFiles.map((uploadFile) => (
-                  <div key={uploadFile.id} className="border rounded-lg p-4 space-y-3">
+              <div className="max-h-[60vh] overflow-y-auto pr-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {uploadFiles.map((uploadFile) => (
+                    <div key={uploadFile.id} className="border rounded-lg p-4 space-y-3">
                     {/* File Header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -284,60 +273,27 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => updateFileData(uploadFile.id, "collapsed", !uploadFile.collapsed)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {uploadFile.collapsed ?
+                            <Plus className="h-4 w-4 rotate-45" /> :
+                            <Plus className="h-4 w-4" />
+                          }
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => removeFile(uploadFile.id)}
                           disabled={uploadFile.status === "uploading"}
+                          className="h-8 w-8 p-0"
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
 
-                    {/* Metadata Fields */}
-                    <div className="grid grid-cols-1 gap-3">
-                      <div>
-                        <Label htmlFor={`title-${uploadFile.id}`}>{t("upload.title")}</Label>
-                        <Input
-                          id={`title-${uploadFile.id}`}
-                          value={uploadFile.title}
-                          onChange={(e) => updateFileData(uploadFile.id, "title", e.target.value)}
-                          placeholder={t("upload.titlePlaceholder")}
-                          disabled={uploadFile.status !== "idle"}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`tags-${uploadFile.id}`}>{t("upload.tags")}</Label>
-                        <Input
-                          id={`tags-${uploadFile.id}`}
-                          value={uploadFile.tags}
-                          onChange={(e) => updateFileData(uploadFile.id, "tags", e.target.value)}
-                          placeholder={t("upload.tagsPlaceholder")}
-                          disabled={uploadFile.status !== "idle"}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`summary-${uploadFile.id}`}>{t("upload.summary")}</Label>
-                        <Textarea
-                          id={`summary-${uploadFile.id}`}
-                          value={uploadFile.summary}
-                          onChange={(e) => updateFileData(uploadFile.id, "summary", e.target.value)}
-                          placeholder={t("upload.summaryPlaceholder")}
-                          rows={2}
-                          disabled={uploadFile.status !== "idle"}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`category-${uploadFile.id}`}>{t("upload.category")}</Label>
-                        <Input
-                          id={`category-${uploadFile.id}`}
-                          value={uploadFile.categoryId}
-                          onChange={(e) => updateFileData(uploadFile.id, "categoryId", e.target.value)}
-                          placeholder={t("upload.categoryPlaceholder")}
-                          disabled={uploadFile.status !== "idle"}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
+                    {/* Progress Bar - Always visible when uploading */}
                     {uploadFile.status === "uploading" && (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
@@ -348,22 +304,73 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
                       </div>
                     )}
 
-                    {/* Error Message */}
-                    {uploadFile.status === "error" && uploadFile.error && (
-                      <div className="text-sm text-red-600">{uploadFile.error}</div>
-                    )}
+                    {/* Collapsible Content */}
+                    {!uploadFile.collapsed && (
+                      <>
+                        {/* Metadata Fields */}
+                        <div className="grid grid-cols-1 gap-3">
+                          <div>
+                            <Label htmlFor={`title-${uploadFile.id}`}>{t("upload.title")}</Label>
+                            <Input
+                              id={`title-${uploadFile.id}`}
+                              value={uploadFile.title}
+                              onChange={(e) => updateFileData(uploadFile.id, "title", e.target.value)}
+                              placeholder={t("upload.titlePlaceholder")}
+                              disabled={uploadFile.status !== "idle"}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`tags-${uploadFile.id}`}>{t("upload.tags")}</Label>
+                            <Input
+                              id={`tags-${uploadFile.id}`}
+                              value={uploadFile.tags}
+                              onChange={(e) => updateFileData(uploadFile.id, "tags", e.target.value)}
+                              placeholder={t("upload.tagsPlaceholder")}
+                              disabled={uploadFile.status !== "idle"}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`summary-${uploadFile.id}`}>{t("upload.summary")}</Label>
+                            <Textarea
+                              id={`summary-${uploadFile.id}`}
+                              value={uploadFile.summary}
+                              onChange={(e) => updateFileData(uploadFile.id, "summary", e.target.value)}
+                              placeholder={t("upload.summaryPlaceholder")}
+                              rows={2}
+                              disabled={uploadFile.status !== "idle"}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`category-${uploadFile.id}`}>{t("upload.category")}</Label>
+                            <Input
+                              id={`category-${uploadFile.id}`}
+                              value={uploadFile.categoryId}
+                              onChange={(e) => updateFileData(uploadFile.id, "categoryId", e.target.value)}
+                              placeholder={t("upload.categoryPlaceholder")}
+                              disabled={uploadFile.status !== "idle"}
+                            />
+                          </div>
+                        </div>
 
-                    {/* Upload Button */}
-                    {uploadFile.status === "idle" && (
-                      <Button 
-                        onClick={() => uploadSingleFile(uploadFile)}
-                        className="w-full"
-                      >
-                        {t("upload.upload")}
-                      </Button>
+                        {/* Error Message */}
+                        {uploadFile.status === "error" && uploadFile.error && (
+                          <div className="text-sm text-red-600">{uploadFile.error}</div>
+                        )}
+
+                        {/* Upload Button */}
+                        {uploadFile.status === "idle" && (
+                          <Button
+                            onClick={() => uploadSingleFile(uploadFile)}
+                            className="w-full"
+                          >
+                            {t("upload.upload")}
+                          </Button>
+                        )}
+                      </>
                     )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

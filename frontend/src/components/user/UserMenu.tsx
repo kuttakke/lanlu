@@ -24,7 +24,8 @@ export function UserMenu() {
 
   const handleUploadComplete = () => {
     // 上传完成后的回调
-    setUploadDialogOpen(false)
+    // 不再自动关闭抽屉，让用户可以继续上传更多文件
+    // setUploadDialogOpen(false)
     // 可以在这里添加刷新逻辑
   }
 

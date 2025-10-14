@@ -125,65 +125,6 @@ public class ChunkedUploadController {
     }
 
     /**
-     * 获取上传状态
-     * GET /api/archives/upload/status/:uploadId
-     */
-    public static func getUploadStatus(ctx: JoyContext): Unit {
-        try {
-            let uploadId = ctx.getParam("uploadId") ?? ""
-
-            if (uploadId.size == 0) {
-                let errorResponse = "{\"success\":0,\"error\":\"Upload ID is required\"}"
-                ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
-                ctx.json(errorResponse)
-                return
-            }
-
-            let uploadDir = Path("${CHUNK_DIR}/${uploadId}")
-
-            if (!exists(uploadDir)) {
-                let errorResponse = "{\"success\":0,\"error\":\"Upload session not found\"}"
-                ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
-                ctx.json(errorResponse)
-                return
-            }
-
-            // 统计已上传的分片数量和具体的分片索引
-            var uploadedCount = 0
-            var totalChunks = 0
-            var completedChunks = "["
-
-            // 简化处理：假设最多100个分片
-            for (i in 0..100) {
-                let chunkFile = Path("${uploadDir}/chunk_${i}.bin")
-                if (exists(chunkFile)) {
-                    uploadedCount++
-                    totalChunks = i + 1
-                    if (completedChunks.size > 1) {
-                        completedChunks += ","
-                    }
-                    completedChunks += "${i}"
-                } else if (i > 0 && uploadedCount == 0) {
-                    break
-                }
-            }
-            completedChunks += "]"
-
-            let status = if (uploadedCount == totalChunks && totalChunks > 0) {
-                "completed"
-            } else {
-                "uploading"
-            }
-            let response = "{\"success\":1,\"uploadId\":\"${uploadId}\",\"uploadedChunks\":${uploadedCount},\"totalChunks\":${totalChunks},\"completedChunks\":${completedChunks},\"status\":\"${status}\"}"
-            ctx.json(response)
-        } catch (e: Exception) {
-            let errorResponse = "{\"success\":0,\"error\":\"${e.message}\"}"
-            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
-            ctx.json(errorResponse)
-        }
-    }
-
-    /**
      * 完成上传
      * POST /api/archives/upload/complete
      */
