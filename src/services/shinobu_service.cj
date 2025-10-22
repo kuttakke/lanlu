@@ -1645,38 +1645,43 @@ public class ShinobuService {
     private func checkDatabaseFiles() {
         let archives = ArchiveDao.getAllArchives()
         var deletedCount: Int64 = 0
-        
+
+        println("Starting database file check for ${archives.size} archives...")
+
         for (archive in archives) {
-            let relativePath = archive.relative_path
-            if (relativePath.size == 0) {
-                continue
-            }
-            
-            // 构建完整路径：archivePath + relativePath + filename
+            // 正确构建完整路径：archivePath + relativePath + filename
             let archiveBasePath = ShinobuService.getArchivePath().toString()
-            let fullPath = joinPath(archiveBasePath, relativePath)
-            let fullFilePath = joinPath(fullPath, archive.filename)
-            
-            println("检查文件: ${fullFilePath}")
-            
+            let fullFilePath: String
+
+            if (archive.relative_path.size > 0 && archive.relative_path != "") {
+                // 如果有相对路径，构建：archivePath/relativePath/filename
+                let dirPath = joinPath(archiveBasePath, archive.relative_path)
+                fullFilePath = joinPath(dirPath, archive.filename)
+            } else {
+                // 如果没有相对路径，构建：archivePath/filename
+                fullFilePath = joinPath(archiveBasePath, archive.filename)
+            }
+
+            println("Checking file: ${fullFilePath}")
+
             // 检查文件是否存在（支持软链接）
             if (!fileExists(fullFilePath)) {
-                println("文件不存在，从数据库中删除: ${fullFilePath}")
+                println("File not found, deleting from database: ${fullFilePath}")
                 if (ArchiveDao.delete(archive.id)) {
                     deletedCount++
-                    println("已删除数据库记录: ${archive.id} - ${archive.title}")
+                    println("Deleted database record: ${archive.id} - ${archive.title}")
                 } else {
-                    println("删除数据库记录失败: ${archive.id} - ${archive.title}")
+                    println("Failed to delete database record: ${archive.id} - ${archive.title}")
                 }
             } else {
-                println("文件存在: ${fullFilePath}")
+                println("File exists: ${fullFilePath}")
             }
         }
-        
+
         if (deletedCount > 0) {
-            println("数据库检查完成，共删除 ${deletedCount} 个不存在的文件记录")
+            println("Database check completed, deleted ${deletedCount} records for non-existent files")
         } else {
-            println("数据库检查完成，所有文件都存在")
+            println("Database check completed, all files exist")
         }
     }
     
