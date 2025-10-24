@@ -4,7 +4,9 @@ import std.collection.*
 import std.env.*
 import std.fs.*
 import std.io.*
-import std.regex.*
+
+// 全局变量，存储解析后的环境变量
+public let envMap: HashMap<String, String> = HashMap<String, String>()
 
 internal enum ReadUntilMode {
 
@@ -80,6 +82,32 @@ internal class TextReader {
 /// Dotenv 类，用于加载 .env 文件中的环境变量
 /// 类似于 Node.js 的 require('dotenv').config()
 public class Dotenv {
+    private var configMap: Map<String, String>
+    
+    public init(map: Map<String, String>) {
+        this.configMap = map
+    }
+    
+    /// 读取配置项
+    /// @param key 配置项的键名
+    /// @return 配置项的值，如果不存在则返回None
+    public func read(key: String): Option<String> {
+        match (configMap.get(key)) {
+            case Some(value) => Some(value)
+            case None => None
+        }
+    }
+    
+    /// 读取配置项，如果不存在则返回默认值
+    /// @param key 配置项的键名
+    /// @param defaultValue 默认值
+    /// @return 配置项的值
+    public func read(key: String, defaultValue: String): String {
+        match (configMap.get(key)) {
+            case Some(value) => value
+            case None => defaultValue
+        }
+    }
     
     /// 从 .env 文件加载环境变量
     public static func config(): Map<String, String> {
@@ -90,15 +118,35 @@ public class Dotenv {
     /// @param path .env 文件的路径
     /// @return 加载的环境变量
     public static func config(path: String): Map<String, String> {
+        let loaded = parse(path)
+        
+        // 将解析的变量设置到环境变量中
+        for ((key, value) in loaded) {
+            setVariable(key, value)
+        }
+        
+        return loaded
+    }
+    
+    /// 解析 .env 文件并返回环境变量Map，但不设置到系统环境变量
+    /// @param path .env 文件的路径
+    /// @return 解析的环境变量
+    public static func parse(): Map<String, String> {
+        return parse(".env")
+    }
+    
+    /// 解析指定路径的 .env 文件并返回环境变量Map，但不设置到系统环境变量
+    /// @param path .env 文件的路径
+    /// @return 解析的环境变量
+    public static func parse(path: String): Map<String, String> {
         let envPath = Path(path)
-
         let loaded = HashMap<String, String>()
         
         try {
             let file = File(envPath, OpenMode.Read)
             let content = StringReader(file).readToEnd()
             
-            println("Loading environment variables from ${path}...")
+            
 
             let reader = TextReader(content)
 
@@ -124,7 +172,7 @@ public class Dotenv {
                     reader.skip()
                     if (!reader.readable()) {
                         break
-                    }   
+                    }
                     var foundQuote = false
                     while(reader.readable()) {
                         let rune = reader.read()
@@ -156,7 +204,7 @@ public class Dotenv {
                     let result = reader.readUntil(r'\n', mode: ReadUntilMode.Skip)
                     let commentIndex = result.indexOf('#')
                     match (commentIndex) {
-                        case Some(index) => 
+                        case Some(index) =>
                             result[..index]
                         case None => result
                     }
@@ -178,17 +226,31 @@ public class Dotenv {
                     }
                 }
 
-                setVariable(key, value)
                 loaded[key] = value
+                // 同时更新全局变量
+                envMap[key] = value
             }
             
-            println("Environment variables loaded successfully!")
+            // 环境变量解析成功
             
             file.close()
         } catch (e: Exception) {
-            println("Warning: .env file not found at ${path} or error loading .env file: ${e}")
+            
         }
 
         return loaded
+    }
+    
+    /// 获取配置实例
+    /// @return Dotenv实例，可以通过read方法访问配置
+    public static func createConfig(): Dotenv {
+        return Dotenv(parse())
+    }
+    
+    /// 从指定路径获取配置实例
+    /// @param path .env 文件的路径
+    /// @return Dotenv实例，可以通过read方法访问配置
+    public static func createConfig(path: String): Dotenv {
+        return Dotenv(parse(path))
     }
 }

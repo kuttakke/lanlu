@@ -78,14 +78,14 @@ public class ShinobuService {
     
     // 静态初始化器 - 用于初始化静态成员和读取环境变量
     static init() {
-        // 确保先加载 .env 文件
-        Dotenv.config()
+        // 使用新的dotenv API获取配置
+        let config = Dotenv.createConfig()
         
         // 读取配置
-        let archivePathStr = getVariable("ARCHIVE_PATH") ?? "./data/archive"
-        let thumbnailPathStr = getVariable("THUMBNAIL_PATH") ?? "./data/thumb"
-        let cachePathStr = getVariable("CACHE_PATH") ?? "./data/cache"
-        bsdtarPath = getVariable("BSDTAR_PATH") ?? "bsdtar"
+        let archivePathStr = config.read("ARCHIVE_PATH", "./data/archive")
+        let thumbnailPathStr = config.read("THUMBNAIL_PATH", "./data/thumb")
+        let cachePathStr = config.read("CACHE_PATH", "./data/cache")
+        bsdtarPath = config.read("BSDTAR_PATH", "bsdtar")
 
         // 转换为 Path 类型并规范化
         archivePath = canonicalize(archivePathStr)
@@ -102,32 +102,32 @@ public class ShinobuService {
         FileUtils.ensureDirectoryExists(uploadsPath)
 
         // 读取扫描和缩略图配置
-        let autoScanStr = getVariable("ENABLE_AUTO_SCAN") ?? "true"
+        let autoScanStr = config.read("ENABLE_AUTO_SCAN", "true")
         enableAutoScan = autoScanStr == "true"
         
-        let initialScanStr = getVariable("ENABLE_INITIAL_SCAN") ?? "false"
+        let initialScanStr = config.read("ENABLE_INITIAL_SCAN", "false")
         enableInitialScan = initialScanStr == "true"
         
-        scanIntervalCron = getVariable("SCAN_INTERVAL_CRON") ?? "0 0 * * *"
+        scanIntervalCron = config.read("SCAN_INTERVAL_CRON", "0 0 * * *")
         
-        let autoThumbnailStr = getVariable("ENABLE_AUTO_THUMBNAIL") ?? "true"
+        let autoThumbnailStr = config.read("ENABLE_AUTO_THUMBNAIL", "true")
         enableAutoThumbnail = autoThumbnailStr == "true"
         
-        thumbnailIntervalCron = getVariable("THUMBNAIL_INTERVAL_CRON") ?? "0 0 * * *"
+        thumbnailIntervalCron = config.read("THUMBNAIL_INTERVAL_CRON", "0 0 * * *")
         
-        let maxJobsStr = getVariable("MAX_CONCURRENT_JOBS") ?? "8"
+        let maxJobsStr = config.read("MAX_CONCURRENT_JOBS", "8")
         maxConcurrentJobs = Int32.parse(maxJobsStr)
         
-        let fallbackIntervalStr = getVariable("SCAN_FALLBACK_INTERVAL_MS") ?? "300000"
+        let fallbackIntervalStr = config.read("SCAN_FALLBACK_INTERVAL_MS", "300000")
         scanFallbackIntervalMs = Int64.parse(fallbackIntervalStr)
         
         // 数据库检查配置
-        let dbCheckStr = getVariable("ENABLE_DB_CHECK") ?? "true"
+        let dbCheckStr = config.read("ENABLE_DB_CHECK", "true")
         enableDbCheck = dbCheckStr == "true"
         
-        dbCheckIntervalCron = getVariable("DB_CHECK_INTERVAL_CRON") ?? "0 2 * * *"  // 默认每天凌晨2点
+        dbCheckIntervalCron = config.read("DB_CHECK_INTERVAL_CRON", "0 2 * * *")  // 默认每天凌晨2点
         
-        let initialDbCheckStr = getVariable("ENABLE_INITIAL_DB_CHECK") ?? "true"
+        let initialDbCheckStr = config.read("ENABLE_INITIAL_DB_CHECK", "true")
         enableInitialDbCheck = initialDbCheckStr == "true"
         
         enableFileWatcher = true
@@ -2381,15 +2381,16 @@ public class ShinobuConfiguration {
      * 转换为JSON字符串
      */
     public func toJson(): String {
-        return "{"
-            + "\"enableAutoScan\":${enableAutoScan},"
-            + "\"enableInitialScan\":${enableInitialScan},"
-            + "\"scanIntervalCron\":\"${scanIntervalCron}\","
-            + "\"enableAutoThumbnail\":${enableAutoThumbnail},"
-            + "\"thumbnailIntervalCron\":\"${thumbnailIntervalCron}\","
-            + "\"maxConcurrentJobs\":${maxConcurrentJobs},"
-            + "\"scanFallbackIntervalMs\":${scanFallbackIntervalMs}"
-            + "}"
+        return """
+            {
+            \"enableAutoScan\":${enableAutoScan},
+            \"enableInitialScan\":${enableInitialScan},
+            \"scanIntervalCron\":\"${scanIntervalCron}\",
+            \"enableAutoThumbnail\":${enableAutoThumbnail},
+            \"thumbnailIntervalCron\":\"${thumbnailIntervalCron}\",
+            \"maxConcurrentJobs\":${maxConcurrentJobs},
+            \"scanFallbackIntervalMs\":${scanFallbackIntervalMs}
+            }"""
     }
 }
 
@@ -2450,14 +2451,15 @@ public class FileWatcherStatusData {
      * 转换为JSON字符串
      */
     public func toJson(): String {
-        return "{"
-            + "\"isActive\":${isActive},"
-            + "\"watcherCount\":${watcherCount},"
-            + "\"lastEventTime\":\"${lastEventTime}\","
-            + "\"totalEvents\":${totalEvents},"
-            + "\"errorCount\":${errorCount},"
-            + "\"lastError\":\"${lastError}\""
-            + "}"
+        return """
+            {
+            \"isActive\":${isActive},
+            \"watcherCount\":${watcherCount},
+            \"lastEventTime\":\"${lastEventTime}\",
+            \"totalEvents\":${totalEvents},
+            \"errorCount\":${errorCount},
+            \"lastError\":\"${lastError}\"
+            }"""
     }
 }
 

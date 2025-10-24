@@ -28,19 +28,19 @@ public class DatabaseConfig {
      */
     static init() {
         // 确保先加载 .env 文件
-        Dotenv.config()
+        let config = Dotenv.createConfig()
         
-        // 从环境变量读取配置
-        dbType = getVariable("DB_TYPE") ?? "postgres"
-        host = getVariable("DB_HOST") ?? "127.0.0.1"
+        // 从配置中读取数据库配置
+        dbType = config.read("DB_TYPE", "postgres")
+        host = config.read("DB_HOST", "127.0.0.1")
         
-        let portStr = getVariable("DB_PORT") ?? "5432"
+        let portStr = config.read("DB_PORT", "5432")
         port = Int32.parse(portStr)
         
-        database = getVariable("DB_NAME") ?? "lgr"
-        username = getVariable("DB_USER") ?? "lgr"
-        password = getVariable("DB_PASSWORD") ?? "lgr"
-        ssl = getVariable("DB_SSL") ?? "disable"
+        database = config.read("DB_NAME", "lgr")
+        username = config.read("DB_USER", "lgr")
+        password = config.read("DB_PASSWORD", "lgr")
+        ssl = config.read("DB_SSL", "disable")
     }
     
     /**

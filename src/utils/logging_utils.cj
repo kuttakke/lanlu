@@ -7,13 +7,14 @@ import stdx.logger.*
 import std.fs.*
 import dotenv.Dotenv
 
-public func initializeLogging(): Unit {
-    // 确保先加载 .env 文件
-    Dotenv.config()
 
-    let logLevel = getLogLevel()
-    let logFormat = getLogFormat()
-    let output = getLogOutput()
+public func initializeLogging(): Unit {
+    // 使用新的dotenv API获取配置
+    let config = Dotenv.createConfig()
+
+    let logLevel = getLogLevel(config)
+    let logFormat = getLogFormat(config)
+    let output = getLogOutput(config)
 
     let logger: Logger
     match (logFormat) {
@@ -40,8 +41,8 @@ public func getLogger(attrs: Array<Attr>): Logger {
     getGlobalLogger(attrs)
 }
 
-private func getLogLevel(): LogLevel {
-    let levelStr = getVariable("LOG_LEVEL") ?? "INFO"
+private func getLogLevel(config: Dotenv): LogLevel {
+    let levelStr = config.read("LOG_LEVEL", "INFO")
     match (levelStr) {
         case "TRACE" => LogLevel.TRACE
         case "DEBUG" => LogLevel.DEBUG
@@ -52,19 +53,19 @@ private func getLogLevel(): LogLevel {
     }
 }
 
-private func getLogFormat(): String {
-    getVariable("LOG_FORMAT") ?? "simple"
+private func getLogFormat(config: Dotenv): String {
+    config.read("LOG_FORMAT", "simple")
 }
 
-private func getLogOutput(): OutputStream {
-    let logFile = getVariable("LOG_FILE") ?? ""
+private func getLogOutput(config: Dotenv): OutputStream {
+    let logFile = config.read("LOG_FILE", "")
     if (logFile.size > 0) {
         try {
-            let file = File(logFile, Append)
-            return BufferedOutputStream<OutputStream>(file)
+            let file = File(logFile, OpenMode.Append)
+            return BufferedOutputStream(file)
         } catch (e: Exception) {
             let stderr = getStdErr()
-            stderr.write("Failed to create log file ${logFile}: ${e.toString()}".toArray())
+            stderr.write("Failed to create log file ${logFile}: ${e.toString()}")
             stderr.flush()
             return getStdOut()
         }

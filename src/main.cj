@@ -18,11 +18,14 @@ main(): Int64 {
 
     logger.info("Starting LRR4CJ server", ("version", "1.0.0"))
 
+    // 使用新的dotenv API加载配置
+    let config = Dotenv.createConfig()
+    
     // 引用 DatabaseConfig 以触发其静态初始化器，加载环境变量
     let _ = DatabaseConfig.host
 
-    let host = getVariable("HOST") ?? "0.0.0.0"
-    let portStr = getVariable("PORT") ?? "8084"
+    let host = config.read("HOST", "0.0.0.0")
+    let portStr = config.read("PORT", "8084")
     let port = UInt16.parse(portStr)
 
     logger.info("Server configuration", ("host", host), ("port", portStr))
