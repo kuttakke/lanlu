@@ -29,14 +29,14 @@ public class DatabaseConfig {
     static init() {
         // 确保先加载 .env 文件
         let config = Dotenv.createConfig()
-        
+
         // 从配置中读取数据库配置
         dbType = config.read("DB_TYPE", "postgres")
         host = config.read("DB_HOST", "127.0.0.1")
-        
+
         let portStr = config.read("DB_PORT", "5432")
         port = Int32.parse(portStr)
-        
+
         database = config.read("DB_NAME", "lgr")
         username = config.read("DB_USER", "lgr")
         password = config.read("DB_PASSWORD", "lgr")
@@ -47,7 +47,12 @@ public class DatabaseConfig {
      * 获取数据库连接字符串
      */
     public static func getConnectionString(): String {
-        return dbType + "://" + username + ":" + password + "@" + host + ":" + port.toString() + "/" + database + "?sslmode=" + ssl
+        let logger = getLogger("database")
+        logger.info("Creating database connection string")
+        logger.info("DB config: type=${dbType}, host=${host}, port=${port.toString()}, database=${database}, user=${username}")
+        let connStr = dbType + "://" + username + ":" + password + "@" + host + ":" + port.toString() + "/" + database + "?sslmode=" + ssl
+        // logger.info("Connection string created: ${connStr}")
+        return connStr
     }
     
     /**
@@ -69,7 +74,9 @@ public class DatabaseConfig {
                     let conn = ds.connect()
                     return Some(conn)
                 } catch (e: Exception) {
-                    getLogger("database").error("数据库连接失败")
+                    let logger = getLogger("database")
+                    logger.error("数据库连接失败: ${e.toString()}")
+                    logger.error("连接异常详细信息: ${e.message}")
                     return None
                 }
             case None =>
@@ -82,104 +89,107 @@ public class DatabaseConfig {
      * 初始化数据库表结构
      */
     public static func initializeDatabase(): Bool {
+        let logger = getLogger("database")
+        logger.info("开始初始化数据库")
+
         let connOpt = createConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
-                    // 创建归档表
-                    let createArchivesTable = "CREATE TABLE IF NOT EXISTS archives (id SERIAL PRIMARY KEY, arcid VARCHAR(40) NOT NULL UNIQUE, filename TEXT NOT NULL, title TEXT, summary TEXT, thumbhash VARCHAR(40), created_at TIMESTAMP DEFAULT now(), updated_at TIMESTAMP DEFAULT now(), relative_path TEXT, file_size BIGINT, isnew BOOLEAN DEFAULT false, pagecount INTEGER, last_read_time TIMESTAMP WITH TIME ZONE, progress INTEGER DEFAULT 0)"
-                    
-                    // 创建分类表
-                    let createCategoriesTable = "CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, catid VARCHAR(20) NOT NULL UNIQUE, name VARCHAR(255) NOT NULL, search TEXT, is_static BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT now(), pinned BOOLEAN DEFAULT false, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)"
-                    
-                    // 创建标签表
-                    let createTagsTable = "CREATE TABLE IF NOT EXISTS tags (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, namespace VARCHAR(100), value TEXT, weight INTEGER DEFAULT 1)"
-                    
-                    // 创建归档分类关联表
-                    let createArchiveCategoriesTable = "CREATE TABLE IF NOT EXISTS archive_categories (archive_id INTEGER REFERENCES archives(id) ON DELETE CASCADE, category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE, PRIMARY KEY (archive_id, category_id))"
-                    
-                    // 创建归档标签关联表
-                    let createArchiveTagsTable = "CREATE TABLE IF NOT EXISTS archive_tags (archive_id INTEGER REFERENCES archives(id) ON DELETE CASCADE, tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (archive_id, tag_id))"
-                    
-                    // 创建单行本表
-                    let createTankoubonsTable = "CREATE TABLE IF NOT EXISTS tankoubons (id SERIAL PRIMARY KEY, tankid VARCHAR(40) NOT NULL UNIQUE, name VARCHAR(255) NOT NULL, summary TEXT, tags TEXT, locked BOOLEAN DEFAULT false, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)"
-                    
-                    // 创建单行本归档关联表
-                    let createTankoubonArchivesTable = "CREATE TABLE IF NOT EXISTS tankoubon_archives (tankoubon_id INTEGER REFERENCES tankoubons(id) ON DELETE CASCADE, archive_id INTEGER REFERENCES archives(id) ON DELETE CASCADE, position INTEGER NOT NULL, PRIMARY KEY (tankoubon_id, archive_id))"
-                    
-                    // 创建任务队列表
-                    let createMinionJobsTable = "CREATE TABLE IF NOT EXISTS minion_jobs (id VARCHAR(40) PRIMARY KEY, task VARCHAR(50) NOT NULL, state VARCHAR(20) DEFAULT 'inactive', notes TEXT, error TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
-                    
-                    // 执行建表语句
-                    let stmt1 = conn.prepareStatement(createArchivesTable)
-                    stmt1.update()
-                    
-                    let stmt2 = conn.prepareStatement(createCategoriesTable)
-                    stmt2.update()
-                    
-                    let stmt3 = conn.prepareStatement(createTagsTable)
-                    stmt3.update()
-                    
-                    let stmt4 = conn.prepareStatement(createArchiveCategoriesTable)
-                    stmt4.update()
-                    
-                    let stmt5 = conn.prepareStatement(createArchiveTagsTable)
-                    stmt5.update()
-                    
-                    let stmt6 = conn.prepareStatement(createTankoubonsTable)
-                    stmt6.update()
-                    
-                    let stmt7 = conn.prepareStatement(createTankoubonArchivesTable)
-                    stmt7.update()
-                    
-                    let stmt8 = conn.prepareStatement(createMinionJobsTable)
-                    stmt8.update()
-                    
-                    // 创建archives_with_tags视图
-                    let createArchivesWithTagsView = """
-                    CREATE OR REPLACE VIEW archives_with_tags AS
-                    SELECT
-                        a.arcid,
-                        a.filename,
-                        a.title,
-                        a.summary,
-                        a.thumbhash,
-                        a.created_at,
-                        a.updated_at,
-                        a.relative_path,
-                        a.file_size,
-                        a.isnew,
-                        a.pagecount,
-                        a.last_read_time,
-                        a.progress,
-                        COALESCE(
-                            STRING_AGG(
-                                CASE
-                                    WHEN t.namespace IS NOT NULL AND t.namespace != ''
-                                    THEN t.namespace || ':' || t.value
-                                    ELSE t.value
-                                END,
-                                ', '
-                            ),
-                            ''
-                        ) as tags
-                    FROM archives a
-                    LEFT JOIN archive_tags at ON a.id = at.archive_id
-                    LEFT JOIN tags t ON at.tag_id = t.id
-                    GROUP BY a.arcid, a.filename, a.title, a.summary, a.thumbhash, a.created_at, a.updated_at, a.relative_path, a.file_size, a.isnew, a.pagecount, a.last_read_time, a.progress
-                    """
-                    
-                    let stmt9 = conn.prepareStatement(createArchivesWithTagsView)
-                    stmt9.update()
-                    
+                    logger.info("数据库连接成功，跳过测试查询直接创建表")
+
+                    logger.info("开始创建或更新插件表")
+                    // 检查插件表是否存在
+                    let checkTable = conn.prepareStatement("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'plugins')")
+                    let rs = checkTable.query()
+                    var tableExists = false
+                    if (rs.next()) {
+                        tableExists = rs.getOrNull<Bool>(0) ?? false
+                    }
+                    rs.close()
+                    checkTable.close()
+
+                    if (!tableExists) {
+                        logger.info("插件表不存在，创建新的插件表")
+                        // 创建基础表结构，不使用SERIAL
+                        let createPluginsTable = "CREATE TABLE plugins (id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name VARCHAR(255) NOT NULL, version VARCHAR(50) NOT NULL)"
+
+                        logger.info("准备执行插件表创建语句")
+                        let stmt = conn.prepareStatement(createPluginsTable)
+                        let result = stmt.update()
+                        stmt.close()
+                        logger.info("插件表创建成功")
+                    } else {
+                        logger.info("插件表已存在，跳过创建")
+                    }
+
+                    // 检查并添加缺失的列
+                    logger.info("检查并添加缺失的列")
+
+                    // 检查 namespace 列
+                    try {
+                        let checkNamespace = conn.prepareStatement("SELECT column_name FROM information_schema.columns WHERE table_name = 'plugins' AND column_name = 'namespace'")
+                        let rsNamespace = checkNamespace.query()
+                        if (!rsNamespace.next()) {
+                            logger.info("添加 namespace 列")
+                            let addNamespace = conn.prepareStatement("ALTER TABLE plugins ADD COLUMN namespace VARCHAR(100) NOT NULL DEFAULT ''")
+                            addNamespace.update()
+                            logger.info("namespace 列添加成功")
+                        }
+                        rsNamespace.close()
+                        checkNamespace.close()
+                    } catch (e: Exception) {
+                        logger.error("检查或添加 namespace 列失败: ${e.message}")
+                    }
+
+                    // 添加其他缺失的列
+                    let columnsToAdd = [
+                        ("description", "TEXT DEFAULT ''"),
+                        ("author", "VARCHAR(255) DEFAULT ''"),
+                        ("entry", "VARCHAR(255) DEFAULT ''"),
+                        ("plugin_type", "VARCHAR(50) DEFAULT ''"),
+                        ("tags", "TEXT DEFAULT ''"),
+                        ("permissions", "TEXT DEFAULT ''"),
+                        ("icon", "TEXT DEFAULT ''"),  // 插件图标，Base64编码的图片数据
+                        ("enabled", "BOOLEAN DEFAULT false"),
+                        ("installed", "BOOLEAN DEFAULT false"),
+                        ("has_schema", "BOOLEAN DEFAULT false"),
+                        ("parameters", "TEXT DEFAULT '[]'"),  // 存储带value的参数数组
+                        ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+                        ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                    ]
+
+                    for ((column, definition) in columnsToAdd) {
+                        try {
+                            let checkColumn = conn.prepareStatement("SELECT column_name FROM information_schema.columns WHERE table_name = 'plugins' AND column_name = '${column}'")
+                            let rs = checkColumn.query()
+                            if (!rs.next()) {
+                                logger.info("添加 ${column} 列")
+                                let addColumn = conn.prepareStatement("ALTER TABLE plugins ADD COLUMN ${column} ${definition}")
+                                addColumn.update()
+                                logger.info("${column} 列添加成功")
+                            }
+                            rs.close()
+                            checkColumn.close()
+                        } catch (e: Exception) {
+                            logger.error("检查或添加 ${column} 列失败: ${e.message}")
+                        }
+                    }
+
+                    // 约束修复已完成，跳过约束修改逻辑以避免启动时阻塞
+                    logger.info("约束配置检查跳过 - 假设约束已正确配置为namespace唯一键")
+
+                    logger.info("插件表结构更新完成")
+
                     conn.close()
                     return true
                 } catch (e: Exception) {
-                    getLogger("database").error("数据库初始化失败")
+                    logger.error("数据库初始化失败: ${e.toString()}")
+                    logger.error("异常详细信息: ${e.message}")
                     return false
                 }
             case None =>
-                getLogger("database").error("无法连接到数据库")
+                logger.error("无法连接到数据库")
                 return false
         }
     }

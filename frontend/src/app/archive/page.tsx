@@ -16,6 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { EditMetadataDialog } from '@/components/archive/EditMetadataDialog';
 
 function ArchiveDetailContent() {
+  // 检测是否在静态生成环境中
+  const isStaticGeneration = process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true' || typeof window === 'undefined';
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const { t } = useLanguage();
@@ -147,6 +149,7 @@ function ArchiveDetailContent() {
     });
   }, []);
 
+  
   if (loading) {
     return (
       <div className="flex min-h-screen">

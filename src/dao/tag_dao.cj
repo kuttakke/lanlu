@@ -9,6 +9,21 @@ import std.time.*
 import stdx.log.*
 
 /**
+ * 标签数据结构
+ */
+public class TagData {
+    public var id: Int64 = 0
+    public var name: String = ""
+    public var namespace: String = ""
+    public var value: String = ""
+    public var weight: Int32 = 1
+    public var created_at: String = ""
+    public var updated_at: String = ""
+
+    public init() {}
+}
+
+/**
  * 标签数据访问对象
  */
 public class TagDao {
@@ -139,12 +154,77 @@ public class TagDao {
                 if (result.next()) {
                     return result.getOrNull<String>(0) ?? ""
                 }
-                
+
                 ""
             } catch (e: Exception) {
                 getLogger("tag_dao").error("Error getting archive tags", ("error", e.message))
                 ""
             }
+        }
+    }
+
+    /**
+     * 根据名称获取标签
+     */
+    public static func getTagByName(name: String): TagData {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) => try {
+                let stmt = conn.prepareStatement(
+                    "SELECT id, name, namespace, value, weight, created_at, updated_at FROM tags WHERE name = ?")
+                stmt.set(0, name)
+                let rs = stmt.query()
+
+                if (rs.next()) {
+                    let tag = TagData()
+                    tag.id = rs.getOrNull<Int64>(0) ?? 0
+                    tag.name = rs.getOrNull<String>(1) ?? ""
+                    tag.namespace = rs.getOrNull<String>(2) ?? ""
+                    tag.value = rs.getOrNull<String>(3) ?? ""
+                    tag.weight = rs.getOrNull<Int32>(4) ?? 1
+                    tag.created_at = rs.getOrNull<String>(5) ?? ""
+                    tag.updated_at = rs.getOrNull<String>(6) ?? ""
+
+                    conn.close()
+                    return tag
+                }
+
+                conn.close()
+            } catch (e: Exception) {
+                getLogger("tag_dao").error("查询标签失败", ("error", e.message), ("name", name))
+                conn.close()
+            }
+            case None => getLogger("tag_dao").error("无法连接到数据库")
+        }
+        return TagData()
+    }
+
+    /**
+     * 创建标签
+     */
+    public static func create(tag: TagData): Bool {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) => try {
+                let stmt = conn.prepareStatement(
+                    "INSERT INTO tags (name, namespace, value, weight) VALUES (?, ?, ?, ?)")
+
+                stmt.set(0, tag.name)
+                stmt.set(1, tag.namespace)
+                stmt.set(2, tag.value)
+                stmt.set(3, tag.weight)
+
+                let result = stmt.update()
+                conn.close()
+                return true
+            } catch (e: Exception) {
+                getLogger("tag_dao").error("创建标签失败", ("error", e.message), ("name", tag.name))
+                conn.close()
+                return false
+            }
+            case None =>
+                getLogger("tag_dao").error("无法连接到数据库")
+                return false
         }
     }
 }

@@ -9,6 +9,7 @@ import std.convert.*
 import std.crypto.digest.*
 import stdx.crypto.digest.*
 import stdx.encoding.hex.*
+import stdx.encoding.json.*
 import stdx.log.*
 import cjoy.json.*
 import lrr4cj.config.*
@@ -37,6 +38,7 @@ public class ShinobuService {
     private static var archivePath: Path
     private static var thumbnailPath: Path
     private static var cachePath: Path
+    private static var pluginPath: Path
     private static var bsdtarPath: String
     
     // 扫描和缩略图配置 - 使用静态变量存储配置
@@ -85,17 +87,20 @@ public class ShinobuService {
         let archivePathStr = config.read("ARCHIVE_PATH", "./data/archive")
         let thumbnailPathStr = config.read("THUMBNAIL_PATH", "./data/thumb")
         let cachePathStr = config.read("CACHE_PATH", "./data/cache")
+        let pluginPathStr = config.read("PLUGIN_PATH", "./plugins")
         bsdtarPath = config.read("BSDTAR_PATH", "bsdtar")
 
         // 转换为 Path 类型并规范化
         archivePath = canonicalize(archivePathStr)
         thumbnailPath = canonicalize(thumbnailPathStr)
         cachePath = canonicalize(cachePathStr)
+        pluginPath = canonicalize(pluginPathStr)
         
         // 确保必要的目录存在
         FileUtils.ensureDirectoryExists(archivePath)
         FileUtils.ensureDirectoryExists(thumbnailPath)
         FileUtils.ensureDirectoryExists(cachePath)
+        FileUtils.ensureDirectoryExists(pluginPath)
         
         // 创建上传缓存目录
         let uploadsPath = cachePath.join("uploads")
@@ -210,6 +215,14 @@ public class ShinobuService {
         if (enableInitialScan) {
             logger.debug("Starting initial archive scan...")
             spawnScanThread()
+
+            // 同时进行插件扫描
+            logger.debug("Starting initial plugin scan...")
+            let pluginResult = scanPlugins()
+            logger.info("Initial plugin scan completed",
+                ("processed", pluginResult.processedCount.toString()),
+                ("total_found", pluginResult.totalFound.toString()),
+                ("errors", pluginResult.errorCount.toString()))
         } else {
             logger.info("Initial scan is disabled")
         }
@@ -410,7 +423,7 @@ public class ShinobuService {
         
         let duration = getCurrentTimeMillis() - startTime
         logger.info("Archive scan completed", ("processed", processedCount.toString()), ("errors", errorCount.toString()), ("duration_ms", duration.toString()))
-        return ScanResultData(processedCount, errorCount, duration, errors)
+        return ScanResultData(processedCount, archiveFiles.size, errorCount, errors)
     }
     
     /**
@@ -491,7 +504,301 @@ public class ShinobuService {
 
         return result
     }
+
+    /**
+     * 扫描插件文件
+     */
+    public func scanPlugins(): ScanResultData {
+        let startTime = getCurrentTimeMillis()
+        var processedCount: Int64 = 0
+        var errorCount: Int64 = 0
+        var errors: Array<String> = Array<String>()
+
+        logger.debug("Starting plugin scan")
+        logger.debug("Plugin path", ("path", ShinobuService.pluginPath.toString()))
+
+        // 检查目录是否存在
+        if (!directoryExists(ShinobuService.pluginPath.toString())) {
+            logger.error("Plugin directory does not exist", ("path", ShinobuService.pluginPath.toString()))
+            return ScanResultData(0, 0, 1, ["Plugin directory does not exist: ${ShinobuService.pluginPath.toString()}"])
+        }
+
+        // 扫描插件文件
+        let pluginFiles = findPluginFiles(ShinobuService.pluginPath.toString())
+        logger.info("Found plugin files to process", ("count", pluginFiles.size.toString()))
+
+        // 处理每个插件文件
+        for (pluginFile in pluginFiles) {
+            try {
+                logger.debug("Processing plugin", ("file", pluginFile))
+                let result = processPluginFile(pluginFile)
+
+                if (result.success) {
+                    processedCount++
+                    logger.debug("Successfully processed plugin", ("file", pluginFile), ("archive_id", result.archiveId))
+                } else {
+                    errorCount++
+                    let errorMsg = "Failed to process plugin ${pluginFile}: ${result.error}"
+                    errors = addError(errors, errorMsg)
+                    logger.error(errorMsg)
+                }
+            } catch (e: Exception) {
+                errorCount++
+                let errorMsg = "Error processing plugin ${pluginFile}: ${e.message}"
+                errors = addError(errors, errorMsg)
+                logger.error(errorMsg)
+            }
+        }
+
+        let endTime = getCurrentTimeMillis()
+        let duration = endTime - startTime
+
+        logger.info("Plugin scan completed",
+            ("processed", processedCount.toString()),
+            ("errors", errorCount.toString()),
+            ("duration_ms", duration.toString()))
+
+        return ScanResultData(processedCount, pluginFiles.size, 0, errors)
+    }
+
+    /**
+     * 查找插件文件
+     */
+    private func findPluginFiles(dirPath: String): Array<String> {
+        var result: Array<String> = Array<String>()
+
+        try {
+            if (!directoryExists(dirPath)) {
+                return result
+            }
+
+            let entries = listDirectory(dirPath)
+            logger.debug("Scanning plugin directory", ("directory", dirPath), ("entries", entries.size.toString()))
+
+            // 扫描EHentai相关的插件类型目录
+            let pluginTypes = ["Metadata", "Login", "Download"]
+
+            for (entry in entries) {
+                let fullPath = joinPath(dirPath, entry)
+
+                if (directoryExists(fullPath)) {
+                    // 检查是否是插件类型目录
+                    for (pluginType in pluginTypes) {
+                        if (entry == pluginType) {
+                            let pluginFiles = findPluginFilesInType(fullPath)
+                            result = combineArrays(result, pluginFiles)
+                            break
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error scanning plugin directory", ("directory", dirPath), ("error", e.message))
+        }
+
+        return result
+    }
+
+    /**
+     * 在指定类型目录中查找插件文件
+     */
+    private func findPluginFilesInType(typeDirPath: String): Array<String> {
+        var result: Array<String> = Array<String>()
+
+        try {
+            let entries = listDirectory(typeDirPath)
+
+            for (entry in entries) {
+                let fullPath = joinPath(typeDirPath, entry)
+
+                if (fileExists(fullPath) && entry.endsWith(".pm") && entry.contains("EHentai")) {
+                    result = addFile(result, fullPath)
+                    logger.debug("Found EHentai plugin", ("file", fullPath))
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error scanning plugin type directory", ("directory", typeDirPath), ("error", e.message))
+        }
+
+        return result
+    }
+
+    /**
+     * 处理插件文件
+     */
+    private func processPluginFile(filePath: String): ProcessResultData {
+        try {
+            // 解析插件路径获取类型和文件名
+            let pathParts = filePath.split("/")
+            let fileName = pathParts[pathParts.size - 1]
+            let pluginType = if (pathParts.size >= 2) { pathParts[pathParts.size - 2] } else { "Unknown" }
+
+            logger.debug("Processing plugin file", ("file", fileName), ("type", pluginType), ("path", filePath))
+
+            // 使用Perl解析插件元数据
+            let pluginMetadata = parsePluginMetadataWithPerl(filePath, pluginType)
+
+            // 检查插件是否已存在（通过namespace检查）
+            if (PluginDao.exists(pluginMetadata.namespace)) {
+                logger.debug("Plugin already exists", ("namespace", pluginMetadata.namespace))
+                return ProcessResultData(true, pluginMetadata.namespace, "")
+            }
+
+            if (pluginMetadata.name.size == 0) {
+                return ProcessResultData(false, "", "Failed to parse plugin metadata")
+            }
+
+            // 创建插件数据记录
+            var pluginData = PluginData()
+            // id会由数据库自动生成
+            pluginData.name = pluginMetadata.name
+            pluginData.namespace = pluginMetadata.namespace
+            pluginData.version = pluginMetadata.version
+            pluginData.description = pluginMetadata.description
+            pluginData.author = pluginMetadata.author
+            pluginData.entry = fileName
+            pluginData.plugin_type = pluginType
+            pluginData.tags = pluginMetadata.tags
+            pluginData.permissions = pluginMetadata.permissions
+            pluginData.enabled = true
+            pluginData.installed = true
+            // config字段已移除，现在配置存储在parameters中
+            pluginData.created_at = DateTime.now().toUnixTimeStamp().toSeconds().toString()
+            pluginData.updated_at = pluginData.created_at
+
+            // 保存到数据库
+            if (PluginDao.create(pluginData)) {
+                logger.info("Successfully registered plugin",
+                    ("namespace", pluginData.namespace),
+                    ("name", pluginData.name),
+                    ("type", pluginData.plugin_type))
+                return ProcessResultData(true, pluginData.namespace, "")
+            } else {
+                return ProcessResultData(false, "", "Failed to save plugin to database")
+            }
+        } catch (e: Exception) {
+            return ProcessResultData(false, "", "Error processing plugin file: ${e.message}")
+        }
+    }
+
     
+    /**
+     * 使用Perl解析插件元数据
+     */
+    private func parsePluginMetadataWithPerl(filePath: String, pluginType: String): PluginMetadata {
+        var metadata = PluginMetadata()
+
+        try {
+            let perlScript = """
+            use strict;
+            use warnings;
+            use JSON;
+
+            my \$plugin_file = '${filePath}';
+            my \$plugin_class = '';
+
+            # 从文件路径推断类名
+            \$plugin_file =~ s.*/([^/]+)\\.pm.\\$1.;
+            my \$full_class = "LANraragi::Plugin::${pluginType}::\$plugin_file";
+
+            eval {
+                require \$plugin_file;
+                import \$full_class;
+                if (\$full_class->can('plugin_info')) {
+                    my %info = \$full_class->plugin_info();
+                    print encode_json(\\%info);
+                } else {
+                    # 如果没有plugin_info方法，使用文件名作为默认信息
+                    print '{"name":"' . \$plugin_file . '","namespace":"lanraragi.ehentai.' . lc(\$plugin_file) . '","version":"1.0","description":"EHentai plugin","author":"Unknown","tags":"","permissions":""}';
+                }
+            };
+
+            if (\$@) {
+                print STDERR "Error loading plugin: \$@";
+                # 即使出错也返回基本信息
+                print '{"name":"' . \$plugin_file . '","namespace":"lanraragi.ehentai.' . lc(\$plugin_file) . '","version":"1.0","description":"EHentai plugin","author":"Unknown","tags":"","permissions":""}';
+            }
+            """
+
+            let (exitCode, stdout, stderr) = executeWithOutput("perl", ["-e", perlScript], ProcessRedirect.Pipe, ProcessRedirect.Pipe)
+
+            if (exitCode == 0 && stdout.size > 0) {
+                let jsonStr = String.fromUtf8(stdout)
+                let json = JsonValue.fromStr(jsonStr)
+                match (json) {
+                    case jsonObj: JsonObject =>
+                        let nameValue = getJsonString(jsonObj, "name")
+                        metadata.name = if (nameValue.size > 0) { nameValue } else { Path(filePath).fileName.toString() }
+                        metadata.namespace = getJsonString(jsonObj, "namespace")
+                        metadata.version = getJsonString(jsonObj, "version")
+                        metadata.description = getJsonString(jsonObj, "description")
+                        metadata.author = getJsonString(jsonObj, "author")
+                        metadata.tags = getJsonString(jsonObj, "tags")
+                        metadata.permissions = getJsonString(jsonObj, "permissions")
+                    case _ =>
+                        // 解析失败，使用文件名作为默认信息
+                        let fileName = Path(filePath).fileName.toString()
+                        metadata.name = fileName
+                        metadata.namespace = "lanraragi.ehentai." + fileName
+                        metadata.version = "1.0"
+                        metadata.description = "EHentai plugin"
+                        metadata.author = "Unknown"
+                }
+            } else {
+                // 执行失败，使用文件名作为默认信息
+                let fileName = Path(filePath).fileName.toString()
+                metadata.name = fileName
+                metadata.namespace = "lanraragi.ehentai." + fileName
+                metadata.version = "1.0"
+                metadata.description = "EHentai plugin"
+                metadata.author = "Unknown"
+                logger.warn("Failed to execute plugin metadata parsing", ("file", filePath), ("stderr", String.fromUtf8(stderr)))
+            }
+        } catch (e: Exception) {
+            logger.error("Error parsing plugin metadata", ("file", filePath), ("error", e.message))
+            // 异常情况下，使用文件名作为默认信息
+            let fileName = Path(filePath).fileName.toString()
+            metadata.name = fileName
+            metadata.namespace = "lanraragi.ehentai." + fileName
+            metadata.version = "1.0"
+            metadata.description = "EHentai plugin"
+            metadata.author = "Unknown"
+        }
+
+        return metadata
+    }
+
+    /**
+     * 添加错误信息到数组
+     */
+    private func addError(errors: Array<String>, error: String): Array<String> {
+        let result = Array<String>(errors.size + 1, { i =>
+            if (i < errors.size) {
+                errors[i]
+            } else {
+                error
+            }
+        })
+        return result
+    }
+
+    /**
+     * 从JsonObject获取字符串值的辅助函数
+     */
+    private func getJsonString(jsonObj: JsonObject, key: String): String {
+        let fields = jsonObj.getFields()
+        if (fields.contains(key)) {
+            let value = fields[key]
+            match (value) {
+                case jsonStr: JsonString =>
+                    return jsonStr.getValue()
+                case _ =>
+                    return value.toString()
+            }
+        }
+        return ""
+    }
+
     /**
      * 处理单个压缩包文件（公共方法，用于上传功能）
      */
@@ -1750,11 +2057,6 @@ public class ShinobuService {
         }
     }
 
-    private func addError(errors: Array<String>, error: String): Array<String> {
-        // 简单实现：返回原数组（实际应该添加错误）
-        return errors
-    }
-    
     private func combineArrays(arr1: Array<String>, arr2: Array<String>): Array<String> {
         // 合并两个数组
         let result = Array<String>(arr1.size + arr2.size, { i =>
@@ -2464,18 +2766,33 @@ public class FileWatcherStatusData {
 }
 
 /**
+ * 插件元数据
+ */
+public class PluginMetadata {
+    public var name: String = ""
+    public var namespace: String = ""
+    public var version: String = ""
+    public var description: String = ""
+    public var author: String = ""
+    public var tags: String = ""
+    public var permissions: String = ""
+
+    public init() {}
+}
+
+/**
  * 扫描结果数据
  */
 public class ScanResultData {
     public var processedCount: Int64
+    public var totalFound: Int64
     public var errorCount: Int64
-    public var duration: Int64
     public var errors: Array<String>
-    
-    public init(processedCount: Int64, errorCount: Int64, duration: Int64, errors: Array<String>) {
+
+    public init(processedCount: Int64, totalFound: Int64, errorCount: Int64, errors: Array<String>) {
         this.processedCount = processedCount
+        this.totalFound = totalFound
         this.errorCount = errorCount
-        this.duration = duration
         this.errors = errors
     }
 }

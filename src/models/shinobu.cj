@@ -95,7 +95,7 @@ public class ShinobuModel {
     public static func scanArchives(): String {
         let service = ShinobuService.getInstance()
         let result = service.scanArchives()
-        return "{\"processed_count\":${result.processedCount},\"error_count\":${result.errorCount},\"duration\":${result.duration}}"
+        return "{\"processed_count\":${result.processedCount},\"error_count\":${result.errorCount},\"total_found\":${result.totalFound}}"
     }
     
     /**

@@ -71,8 +71,11 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    fetchArchives(currentPage);
-    fetchRandomArchives();
+    // 只在客户端执行数据获取，避免静态生成时的API调用
+    if (typeof window !== 'undefined') {
+      fetchArchives(currentPage);
+      fetchRandomArchives();
+    }
   }, [currentPage, fetchArchives, fetchRandomArchives, sortBy, sortOrder]);
 
   const handleSearch = (params: {
@@ -96,10 +99,11 @@ export default function HomePage() {
     setCurrentPage(page);
   };
   
+  
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <div className="flex min-h-screen">
         {/* 侧栏 - 桌面端显示 */}
         <div className="hidden lg:block flex-shrink-0 border-r border-border">

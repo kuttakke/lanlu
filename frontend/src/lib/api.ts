@@ -6,14 +6,14 @@ const getApiConfig = () => {
   // 在静态生成期间，返回null避免API调用
   if (typeof window === 'undefined') {
     return {
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8084',
+      baseURL: process.env.NEXT_PUBLIC_API_URL || '',
       skipRequest: true
     };
   }
   
   // 客户端使用相对路径
   return {
-    baseURL: '', // 相对路径，会自动使用当前域名
+    baseURL: '', // 相对路径，会自动使用当前域名和端口
     skipRequest: false
   };
 };

@@ -65,6 +65,30 @@ export function ReaderLanguageProvider({ children }: { children: ReactNode }) {
 }
 
 export function useReaderLanguage() {
+  // 在静态导出环境中直接返回回退值，避免调用useContext
+  if (process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true' || typeof window === 'undefined') {
+    const fallbackT = (key: string): string => {
+      const keys = key.split('.');
+      let value: any = zhMessages;
+
+      for (const k of keys) {
+        if (value && typeof value === 'object' && k in value) {
+          value = value[k];
+        } else {
+          return key;
+        }
+      }
+
+      return typeof value === 'string' ? value : key;
+    };
+
+    return {
+      language: 'zh',
+      setLanguage: () => {},
+      t: fallbackT
+    };
+  }
+
   const context = useContext(ReaderLanguageContext);
   if (context === undefined) {
     throw new Error('useReaderLanguage must be used within a ReaderLanguageProvider');

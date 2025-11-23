@@ -9,12 +9,19 @@ import dotenv.Dotenv
 
 
 public func initializeLogging(): Unit {
-    // 使用新的dotenv API获取配置
-    let config = Dotenv.createConfig()
+    initializeLoggingWithConfig(None)
+}
 
-    let logLevel = getLogLevel(config)
-    let logFormat = getLogFormat(config)
-    let output = getLogOutput(config)
+public func initializeLoggingWithConfig(config: Option<Dotenv>): Unit {
+    // 使用提供的配置或创建新的配置
+    let actualConfig = match (config) {
+        case Some(c) => c
+        case None => Dotenv.createConfig()
+    }
+
+    let logLevel = getLogLevel(actualConfig)
+    let logFormat = getLogFormat(actualConfig)
+    let output = getLogOutput(actualConfig)
 
     let logger: Logger
     match (logFormat) {
@@ -31,6 +38,11 @@ public func initializeLogging(): Unit {
 
     let globalLogger = getGlobalLogger([("component", "logging")])
     globalLogger.info("Logging system initialized", ("level", logLevel.toString()), ("format", logFormat))
+
+    // 同时输出到控制台确认日志系统工作
+    let stdout = getStdOut()
+    stdout.write("✅ Logging system initialized - Level: ${logLevel.toString()}, Format: ${logFormat}\n")
+    stdout.flush()
 }
 
 public func getLogger(component: String): Logger {
@@ -43,6 +55,10 @@ public func getLogger(attrs: Array<Attr>): Logger {
 
 private func getLogLevel(config: Dotenv): LogLevel {
     let levelStr = config.read("LOG_LEVEL", "INFO")
+    // 输出调试信息到标准错误，这样我们可以看到实际读取的值
+    let stderr = getStdErr()
+    stderr.write("DEBUG: Log level from env: '${levelStr}'\n")
+    stderr.flush()
     match (levelStr) {
         case "TRACE" => LogLevel.TRACE
         case "DEBUG" => LogLevel.DEBUG
@@ -62,7 +78,8 @@ private func getLogOutput(config: Dotenv): OutputStream {
     if (logFile.size > 0) {
         try {
             let file = File(logFile, OpenMode.Append)
-            return BufferedOutputStream(file)
+            // 直接使用文件，不使用缓冲流，确保日志立即写入
+            return file
         } catch (e: Exception) {
             let stderr = getStdErr()
             stderr.write("Failed to create log file ${logFile}: ${e.toString()}")

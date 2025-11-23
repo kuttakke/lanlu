@@ -8,7 +8,7 @@ import { ThemeToggle, ThemeButton } from '@/components/theme/theme-toggle';
 import { LanguageButton } from '@/components/language/LanguageToggle';
 import { LoginDialog } from '@/components/auth/LoginDialog';
 import { UserMenu } from '@/components/user/UserMenu';
-import { Menu, X, Home, Search, BookOpen, Shuffle } from 'lucide-react';
+import { Menu, X, Home, Search, BookOpen, Shuffle, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -39,10 +39,16 @@ export function Header() {
     }
   };
 
+  
   const navigation = [
     { name: t('navigation.home'), href: '/', icon: Home },
     { name: t('navigation.search'), href: '/search', icon: Search },
     { name: t('navigation.random'), href: '#', icon: Shuffle, action: handleRandomRead },
+  ];
+
+  const mobileNavigation = [
+    ...navigation,
+    { name: t('navigation.settings'), href: '/settings', icon: Settings },
   ];
 
   return (
@@ -136,7 +142,7 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border bg-background">
           <nav className="container mx-auto px-0.5 py-2">
-            {navigation.map((item) => {
+            {mobileNavigation.map((item) => {
               const Icon = item.icon;
               if (item.action) {
                 return (

@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme/theme-provider';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { StaticGenerationProvider } from '@/contexts/StaticGenerationContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,21 +18,26 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // 检测是否在静态生成环境中
+  const isStaticGeneration = process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true' || typeof window === 'undefined';
+
   return (
     <html suppressHydrationWarning>
       <body className={inter.className}>
-        <LanguageProvider>
-          <AuthProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-            </ThemeProvider>
-          </AuthProvider>
-        </LanguageProvider>
+        <StaticGenerationProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+              </ThemeProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </StaticGenerationProvider>
       </body>
     </html>
   );

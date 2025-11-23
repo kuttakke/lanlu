@@ -58,7 +58,7 @@ export function UserMenu() {
                 <Upload className="mr-2 h-4 w-4" />
                 <span>{t("upload.title")}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.location.href = '/settings'}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>{t("user.settings")}</span>
               </DropdownMenuItem>
