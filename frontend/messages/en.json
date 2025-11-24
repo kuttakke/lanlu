@@ -217,7 +217,27 @@
     "uploadAll": "Upload All",
     "clearCompleted": "Clear Completed",
     "clearAll": "Clear All",
-    "close": "Close"
+    "close": "Close",
+    "tabs": {
+      "upload": "Upload Archive",
+      "download": "Download Online"
+    }
+  },
+  "download": {
+    "urlInput": "Download URLs (one per line)",
+    "urlPlaceholder": "Enter download URLs, one per line...",
+    "addUrls": "Add Download Tasks",
+    "taskList": "Download Task List",
+    "downloadAll": "Start Download",
+    "start": "Start Download",
+    "downloading": "Downloading",
+    "pending": "Pending",
+    "success": "Download Success",
+    "failed": "Download Failed",
+    "remove": "Remove",
+    "clearCompleted": "Clear Completed",
+    "clearAll": "Clear All",
+    "error": "Download failed. Please try again."
   },
   "user": {
     "menu": "User Menu",

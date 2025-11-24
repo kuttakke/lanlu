@@ -313,13 +313,11 @@ public class MinionController {
             return
         }
 
-        // 返回插件的parameters数组
-        let configResponse = HashMap<String, String>()
-        configResponse["has_schema"] = plugin.has_schema.toString()
-        configResponse["parameters"] = plugin.parameters
+        // 返回插件的parameters数组，直接构建正确的JSON响应
+        var response = "{\"success\": true, \"data\": {\"has_schema\": ${plugin.has_schema.toString()}, \"parameters\": ${plugin.parameters}}}"
 
         logger.info("获取插件配置", ("namespace", namespace), ("has_schema", plugin.has_schema.toString()))
-        ctx.json(buildJsonResponse(configResponse))
+        ctx.json(response)
     }
 
     /**

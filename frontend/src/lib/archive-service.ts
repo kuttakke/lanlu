@@ -3,6 +3,28 @@ import { Archive, SearchResponse, SearchParams, RandomParams, ArchiveMetadata } 
 import { ServerInfo } from '@/types/server';
 import { ChunkedUploadService, UploadMetadata, UploadProgressCallback, UploadResult } from './chunked-upload-service';
 
+// 下载相关接口定义
+export interface DownloadMetadata {
+  title?: string;
+  tags?: string;
+  summary?: string;
+  categoryId?: string;
+}
+
+export interface DownloadProgressCallback {
+  onProgress?: (progress: number) => void;
+  onComplete?: (result: DownloadResult) => void;
+  onError?: (error: string) => void;
+}
+
+export interface DownloadResult {
+  success: boolean;
+  id?: string;
+  error?: string;
+  filename?: string;
+  size?: number;
+}
+
 export class ArchiveService {
   static async search(params: SearchParams): Promise<SearchResponse> {
     const response = await apiClient.get('/api/search', { params });
@@ -192,5 +214,127 @@ export class ArchiveService {
    */
   static getUploadErrorMessage(error: any): string {
     return ChunkedUploadService.getErrorMessage(error);
+  }
+
+  // ==================== 下载相关方法 ====================
+
+  /**
+   * 从单个URL下载档案
+   * @param url 下载链接
+   * @param metadata 下载元数据
+   * @param callbacks 进度回调
+   */
+  static async downloadFromUrl(
+    url: string,
+    metadata?: DownloadMetadata,
+    callbacks?: DownloadProgressCallback
+  ): Promise<DownloadResult> {
+    try {
+      callbacks?.onProgress?.(0);
+
+      const response = await apiClient.post('/api/download_url', {
+        url,
+        title: metadata?.title,
+        tags: metadata?.tags,
+        summary: metadata?.summary,
+        category_id: metadata?.categoryId
+      });
+
+      callbacks?.onProgress?.(100);
+
+      const result: DownloadResult = {
+        success: response.data.success,
+        id: response.data.id,
+        error: response.data.error,
+        filename: response.data.filename,
+        size: response.data.size
+      };
+
+      callbacks?.onComplete?.(result);
+      return result;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'Download failed';
+      callbacks?.onError?.(errorMessage);
+
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
+
+  /**
+   * 批量下载URL
+   * @param urls 下载链接数组
+   * @param metadata 下载元数据
+   * @param callbacks 进度回调
+   */
+  static async downloadMultipleUrls(
+    urls: string[],
+    metadata?: DownloadMetadata,
+    callbacks?: DownloadProgressCallback
+  ): Promise<DownloadResult[]> {
+    const results: DownloadResult[] = [];
+
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i].trim();
+      if (!url) continue;
+
+      try {
+        const result = await this.downloadFromUrl(url, metadata, {
+          onProgress: (progress) => {
+            const overallProgress = ((i * 100) + progress) / urls.length;
+            callbacks?.onProgress?.(Math.round(overallProgress));
+          },
+          onComplete: callbacks?.onComplete,
+          onError: callbacks?.onError
+        });
+
+        results.push(result);
+      } catch (error: any) {
+        results.push({
+          success: false,
+          error: error.message || 'Download failed'
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 模拟下载进度（用于UI测试，实际会调用真实API）
+   * @param url 下载链接
+   * @param callbacks 进度回调
+   */
+  static async simulateDownload(
+    url: string,
+    callbacks?: DownloadProgressCallback
+  ): Promise<DownloadResult> {
+    try {
+      // 模拟下载进度
+      for (let i = 0; i <= 100; i += 10) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        callbacks?.onProgress?.(i);
+      }
+
+      const result: DownloadResult = {
+        success: true,
+        id: Math.random().toString(36).substr(2, 9),
+        filename: `archive_${Date.now()}.zip`,
+        size: Math.floor(Math.random() * 10000000) + 1000000
+      };
+
+      callbacks?.onComplete?.(result);
+      return result;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Download failed';
+      callbacks?.onError?.(errorMessage);
+
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
   }
 }

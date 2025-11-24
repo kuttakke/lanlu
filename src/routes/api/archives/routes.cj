@@ -112,5 +112,11 @@ public class ArchiveRoutes {
             AuthMiddleware.requiredAuth(ctx)
             ChunkedUploadController.cancelUpload(ctx)
         })
+
+        // 从URL下载档案
+        // router.post("/api/download_url", { ctx =>
+        //     AuthMiddleware.requiredAuth(ctx)
+        //     // TODO: 实现下载URL控制器
+        // })
     }
 }

@@ -222,7 +222,27 @@
     "uploadAll": "全部上传",
     "clearCompleted": "清除已完成",
     "clearAll": "清除全部",
-    "close": "关闭"
+    "close": "关闭",
+    "tabs": {
+      "upload": "上传档案",
+      "download": "在线下载"
+    }
+  },
+  "download": {
+    "urlInput": "下载链接（每行一个）",
+    "urlPlaceholder": "请输入下载链接，每行一个URL...",
+    "addUrls": "添加下载任务",
+    "taskList": "下载任务列表",
+    "downloadAll": "开始下载",
+    "start": "开始下载",
+    "downloading": "下载中",
+    "pending": "等待中",
+    "success": "下载成功",
+    "failed": "下载失败",
+    "remove": "移除",
+    "clearCompleted": "清除已完成",
+    "clearAll": "清除全部",
+    "error": "下载失败，请重试"
   },
   "user": {
     "menu": "用户菜单",

@@ -55,21 +55,28 @@ export class PluginSchemaService {
       const data = response.data;
       console.log('🔍 Raw response data:', data);
 
-      if (typeof data === 'string') {
-        const parsed = JSON.parse(data);
+      // 处理新的API响应格式：{success: true, data: {has_schema: true, parameters: [...], message: ...}}
+      let actualData = data;
+      if (data && typeof data === 'object' && data.data && typeof data.data === 'object') {
+        actualData = data.data;
+        console.log('🔄 Extracting nested data:', actualData);
+      }
+
+      if (typeof actualData === 'string') {
+        const parsed = JSON.parse(actualData);
         console.log('✅ Parsed data:', parsed);
         return {
           has_schema: parsed.has_schema === 'true' || parsed.has_schema === true,
-          parameters: parsed.parameters,  // parameters是字符串格式的JSON数组
+          parameters: parsed.parameters,  // parameters现在应该是数组
           message: parsed.message
         };
       }
 
-      console.log('✅ Object data:', data);
+      console.log('✅ Object data:', actualData);
       return {
-        has_schema: data.has_schema === 'true' || data.has_schema === true,
-        parameters: data.parameters,  // parameters是字符串格式的JSON数组
-        message: data.message
+        has_schema: actualData.has_schema === 'true' || actualData.has_schema === true,
+        parameters: actualData.parameters,  // parameters现在应该是数组
+        message: actualData.message
       };
     } catch (error) {
       console.error('Failed to fetch plugin schema:', error);
