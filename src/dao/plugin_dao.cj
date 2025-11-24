@@ -62,7 +62,11 @@ public class PluginDao {
                             plugin.entry = rs.getOrNull<String>(6) ?? ""
                             plugin.plugin_type = rs.getOrNull<String>(7) ?? ""
                             plugin.tags = rs.getOrNull<String>(8) ?? ""
-                            plugin.permissions = rs.getOrNull<String>(9) ?? ""
+                            let permissionsOpt = rs.getOrNull<String>(9)
+                            plugin.permissions = match (permissionsOpt) {
+                                case Some(value) => value
+                                case None => ""
+                            }
                             plugin.icon = rs.getOrNull<String>(10) ?? ""
                             plugin.enabled = rs.getOrNull<Bool>(11) ?? false
                             plugin.installed = rs.getOrNull<Bool>(12) ?? false
@@ -128,7 +132,11 @@ public class PluginDao {
                             plugin.entry = rs.getOrNull<String>(6) ?? ""
                             plugin.plugin_type = rs.getOrNull<String>(7) ?? ""
                             plugin.tags = rs.getOrNull<String>(8) ?? ""
-                            plugin.permissions = rs.getOrNull<String>(9) ?? ""
+                            let permissionsOpt = rs.getOrNull<String>(9)
+                            plugin.permissions = match (permissionsOpt) {
+                                case Some(value) => value
+                                case None => ""
+                            }
                             plugin.icon = rs.getOrNull<String>(10) ?? ""
                             plugin.enabled = rs.getOrNull<Bool>(11) ?? false
                             plugin.installed = rs.getOrNull<Bool>(12) ?? false
@@ -191,7 +199,11 @@ public class PluginDao {
                     plugin.entry = rs.getOrNull<String>(6) ?? ""
                     plugin.plugin_type = rs.getOrNull<String>(7) ?? ""
                     plugin.tags = rs.getOrNull<String>(8) ?? ""
-                    plugin.permissions = rs.getOrNull<String>(9) ?? ""
+                    let permissionsOpt = rs.getOrNull<String>(9)
+                            plugin.permissions = match (permissionsOpt) {
+                                case Some(value) => value
+                                case None => ""
+                            }
                     plugin.icon = rs.getOrNull<String>(10) ?? ""
                     plugin.enabled = rs.getOrNull<Bool>(11) ?? false
                     plugin.installed = rs.getOrNull<Bool>(12) ?? false
@@ -396,7 +408,11 @@ public class PluginDao {
                         plugin.entry = rs.getOrNull<String>(6) ?? ""
                         plugin.plugin_type = rs.getOrNull<String>(7) ?? ""
                         plugin.tags = rs.getOrNull<String>(8) ?? ""
-                        plugin.permissions = rs.getOrNull<String>(9) ?? ""
+                        let permissionsOpt = rs.getOrNull<String>(9)
+                            plugin.permissions = match (permissionsOpt) {
+                                case Some(value) => value
+                                case None => ""
+                            }
                         plugin.icon = rs.getOrNull<String>(10) ?? ""
                         plugin.enabled = rs.getOrNull<Bool>(11) ?? false
                         plugin.installed = rs.getOrNull<Bool>(12) ?? false

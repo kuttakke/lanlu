@@ -85,9 +85,10 @@ main(): Int64 {
             // 强制更新现有插件的schema，不管是否存在
             let existingPlugin = PluginDao.getPluginByNamespace(plugin.namespace)
             if (existingPlugin.namespace.size > 0) {
-                // 插件已存在，强制更新参数
+                // 插件已存在，强制更新参数和权限
                 existingPlugin.parameters = plugin.parameters
                 existingPlugin.has_schema = plugin.has_schema
+                existingPlugin.permissions = plugin.permissions
                 if (PluginDao.update(existingPlugin)) {
                     updatedCount += 1
                     logger.info("Force updated plugin schema: ${plugin.name}")

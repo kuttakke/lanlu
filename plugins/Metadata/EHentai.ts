@@ -27,6 +27,7 @@ class EHentaiMetadataPlugin extends BasePlugin {
       ],
       oneshot_arg: "E-H Gallery URL (Will attach tags matching this exact gallery to your archive)",
       cooldown: 4,
+      permissions: ["net=e-hentai.org", "net=exhentai.org", "net=api.e-hentai.org"],
       icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAAOASURBVDhPjVNbaFRXFF3n3puZyZ3EzJ1HkpIohthAP0InYMAKUUpfVFDylY9Bg1CJ+UllfLSEIoIEtBan7Y9t8KO0pSU0lH74oQZsMWImkSBalUADqR8mTVOTyXMymcfd7nPuNZpo2yzm3DmPfdZZZ+91MDyYJA0g+AMkStY3i8Brn392jjYKIclK7hP0rNzK7XkIIM8BdlRgkdYvvhya7bcUGT0ugKbXNZ4zcsCS+Qoycyl3y39DCL5qoJ+DpUKvM6mwzIcsFQCfjtmfL+LQX5cRa+9AOp12A57Btm1UV1ejoaHBIbTupDB/YB/yg5fcEKDo3VaUnPoWlLZBfg1zOwU6OjqQSr2o1DAMJJNJNDU1OYTBeynMNFbBPHoRwirnxOWgVW2DVhbh4wsQQR2p3VWgxXGX4uWQxJxyFyvLKHpzDzy7tsOz+w1olkMmQfKW+z/Gmc7javxvKC0t5SSywtCfRFplDYlNIRJlES65QYEbRNYQrf77bxFtKRauOYj6+vook8m4IweBAFtNXfl+CtP1FszD56VuLo6J/O/XYT98AL1+FwojQxChSuRuXsV3X55mywbR1taGlpYWlbfx8XHEYjFVFEfhQ2UyCriKAv2sapjIF/+agndZ3dmrZP1GpH/4Fb1eu0XF9vT0UHd3t+onEgkaGxuj8vJy+UieQfPzASxQNqxwyyyD2D5YmoU9PwfP3naETS+i0Siam5vBJOjq6kI8HkdNTQ2y2SzkVmZQXyydPMIEC+y/eRQfuQAU8mreznBVhIAvBFwb+YeLdA+6z0RFRQUmJiZUzFMohVKFr/UUq5jmAU/ofM5KGkWN74HY8MarnBtv8Wq1T350DLquw+PxyO1rIOC3KJicQbZ/SFpeKUGBvVfGchhaZDOEybnIs4U0HTYfOP+OABcVvb29qjCyL2FZlrysTqHJPBY+OMwbpGBJmIPx2g5FbuzYC30ze9KxJEQYmIlWclom1Xh0dBR1dXWKNBwOQxxtP0SJn/qBne+vGlmBXwtHATmujtfDP9nn3Hj9WBn4FefiB3Gi8xM32IFSKA05cvc2Jh894rysKbqCaZq48MWn+OaPrUBjTKUD37+Fqam/EYnwM30OklBK/V8spqYIRh3hB8evd4YH3ZW1YELaEKGE32sQKt6mK7/86M68CHnYhgkTifNqQ21trVKyvsm1gYEBegL+M2W04901FQAAAABJRU5ErkJggg=="
     };
   }
@@ -57,7 +58,8 @@ class EHentaiMetadataPlugin extends BasePlugin {
 
       this.outputResult(result);
     } catch (error) {
-      this.outputError(`Plugin execution failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.outputError(`Plugin execution failed: ${errorMessage}`);
     }
   }
 
@@ -197,7 +199,8 @@ class EHentaiMetadataPlugin extends BasePlugin {
 
       return await this.ehentaiParse(url);
     } catch (error) {
-      return { success: false, error: `Gallery lookup failed: ${error.message}` };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `Gallery lookup failed: ${errorMessage}` };
     }
   }
 
@@ -230,7 +233,8 @@ class EHentaiMetadataPlugin extends BasePlugin {
 
       return { success: false, error: 'No gallery found in search results' };
     } catch (error) {
-      return { success: false, error: `Search failed: ${error.message}` };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `Search failed: ${errorMessage}` };
     }
   }
 
@@ -290,7 +294,8 @@ class EHentaiMetadataPlugin extends BasePlugin {
         }
       };
     } catch (error) {
-      return { success: false, error: `API call failed: ${error.message}` };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `API call failed: ${errorMessage}` };
     }
   }
 

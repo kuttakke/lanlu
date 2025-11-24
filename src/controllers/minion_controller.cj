@@ -490,7 +490,21 @@ public class MinionController {
         json += "\"entry\":\"${plugin.entry}\","
         json += "\"plugin_type\":\"${plugin.plugin_type}\","
         json += "\"tags\":\"${plugin.tags}\","
-        json += "\"permissions\":\"${plugin.permissions}\","
+
+        // 处理权限字段 - 如果为空则返回空字符串，否则将逗号分隔的字符串转换为JSON数组
+        if (plugin.permissions.size == 0) {
+            json += "\"permissions\":\"\","
+        } else {
+            // 将逗号分隔的权限字符串转换为JSON数组格式
+            let permissionArray = plugin.permissions.split(",")
+            json += "\"permissions\":["
+            for (i in 0..permissionArray.size) {
+                if (i > 0) { json += "," }
+                json += "${permissionArray[i]}"
+            }
+            json += "],"
+        }
+
         json += "\"icon\":\"${plugin.icon}\","
         json += "\"enabled\":${plugin.enabled},"
         json += "\"installed\":${plugin.installed},"

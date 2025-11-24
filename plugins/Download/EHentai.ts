@@ -19,7 +19,8 @@ class EHentaiDownloadPlugin extends BasePlugin {
       parameters: [
         { type: "bool", desc: "Force resampled archive download", default_value: "0" }
       ],
-      url_regex: "https?://e(-|x)hentai.org/g/.*/.*"
+      url_regex: "https?://e(-|x)hentai.org/g/.*/.*",
+      permissions: ["net=e-hentai.org", "net=exhentai.org"]
     };
   }
 
@@ -39,7 +40,8 @@ class EHentaiDownloadPlugin extends BasePlugin {
 
       this.outputResult(result);
     } catch (error) {
-      this.outputError(`Plugin execution failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.outputError(`Plugin execution failed: ${errorMessage}`);
     }
   }
 
@@ -88,7 +90,8 @@ class EHentaiDownloadPlugin extends BasePlugin {
         }
       };
     } catch (error) {
-      return { success: false, error: `URL processing failed: ${error.message}` };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `URL processing failed: ${errorMessage}` };
     }
   }
 
@@ -119,7 +122,8 @@ class EHentaiDownloadPlugin extends BasePlugin {
 
       return { success: true };
     } catch (error) {
-      return { success: false, error: `Archiver check failed: ${error.message}` };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `Archiver check failed: ${errorMessage}` };
     }
   }
 
@@ -173,7 +177,8 @@ class EHentaiDownloadPlugin extends BasePlugin {
 
       return { success: true, data: { finalUrl } };
     } catch (error) {
-      return { success: false, error: `Download URL generation failed: ${error.message}` };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `Download URL generation failed: ${errorMessage}` };
     }
   }
 }

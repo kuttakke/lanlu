@@ -17,11 +17,12 @@ class EHentaiLoginPlugin extends BasePlugin {
       icon: "https://e-hentai.org/favicon.ico",
       description: "Handles login to E-H. If you have an account that can access fjorded content or exhentai, adding the credentials here will make more archives available for parsing.",
       parameters: [
-        { type: "int", desc: "ipb_member_id cookie" },
+        { type: "string", desc: "ipb_member_id cookie" },
         { type: "string", desc: "ipb_pass_hash cookie" },
         { type: "string", desc: "star cookie (optional, if present you can view fjorded content without exhentai)" },
         { type: "string", desc: "igneous cookie(optional, if present you can view exhentai without Europe and America IP)" }
-      ]
+      ],
+      permissions: ["net=exhentai.org", "net=e-hentai.org", "net=forums.e-hentai.org"]
     };
   }
 
@@ -38,7 +39,8 @@ class EHentaiLoginPlugin extends BasePlugin {
 
       this.outputResult(result);
     } catch (error) {
-      this.outputError(`Plugin execution failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.outputError(`Plugin execution failed: ${errorMessage}`);
     }
   }
 
@@ -79,7 +81,8 @@ class EHentaiLoginPlugin extends BasePlugin {
         }
       };
     } catch (error) {
-      return { success: false, error: `Login failed: ${error.message}` };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: `Login failed: ${errorMessage}` };
     }
   }
 
@@ -192,10 +195,11 @@ class EHentaiLoginPlugin extends BasePlugin {
       return { success: true };
     } catch (error) {
       // 如果网络检查失败，仍然返回成功，因为cookies可能是正确的
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         success: true,
         data: {
-          warning: `Could not validate cookies: ${error.message}. Assuming they are correct.`
+          warning: `Could not validate cookies: ${errorMessage}. Assuming they are correct.`
         }
       };
     }

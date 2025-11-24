@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { HtmlRenderer } from '@/components/ui/html-renderer';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Power, Settings as SettingsIcon, Package, User, Calendar } from 'lucide-react';
+import { Power, Settings as SettingsIcon, Package, User, Calendar, Shield } from 'lucide-react';
 
 interface PluginCardProps {
   plugin: Plugin;
@@ -108,6 +108,26 @@ export function PluginCard({
                     className="text-xs border-border/60 bg-muted/40 hover:bg-muted/60 text-foreground font-medium"
                   >
                     {tag.trim()}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {plugin.permissions && plugin.permissions.length > 0 && (
+            <div className="text-sm">
+              <p className="font-medium text-foreground mb-1 flex items-center space-x-1">
+                <Shield className="w-3 h-3" />
+                <span>权限:</span>
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {plugin.permissions.map((permission, index) => (
+                  <Badge
+                    key={index}
+                    variant="secondary"
+                    className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                  >
+                    {permission.trim()}
                   </Badge>
                 ))}
               </div>

@@ -23,6 +23,7 @@ export interface PluginInfo {
   cooldown?: number;
   url_regex?: string;
   icon?: string;
+  permissions?: string[];
 }
 
 /**

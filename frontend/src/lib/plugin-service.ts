@@ -11,7 +11,7 @@ export interface Plugin {
   author: string;
   description: string;
   tags: string;
-  permissions: string;
+  permissions: string[];  // 现在是权限字符串数组
   icon: string;         // 插件图标，Base64编码的图片数据
   enabled: boolean;
   installed: boolean;

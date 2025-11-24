@@ -7,6 +7,7 @@ import std.convert.*
 import std.collection.*
 import std.fs.*
 import std.env.*
+import std.unittest.*
 import stdx.encoding.json.*
 import lrr4cj.dao.*
 import lrr4cj.config.*
@@ -65,13 +66,79 @@ public class PluginService {
     }
 
     /**
+     * 根据插件权限构建Deno参数
+     */
+    private static func buildDenoPermissions(plugin: PluginData, pluginFile: String): ArrayList<String> {
+        var denoArgs = ArrayList<String>()
+
+        // 基本参数
+        denoArgs.add("run")
+        denoArgs.add(pluginFile)
+
+        // 默认给予插件目录的读写权限
+        let pluginDir = "./data/plugins/${plugin.namespace}"
+        denoArgs.add("--allow-read=${pluginDir}")
+        denoArgs.add("--allow-write=${pluginDir}")
+
+        // 解析插件声明的权限
+        let permissions = plugin.permissions.split(",")
+
+        for (permission in permissions) {
+            let perm = permission
+            if (perm.size == 0) {
+                continue
+            }
+
+            // 处理带参数的权限，如 net=domain.com
+            if (perm.contains("=")) {
+                let parts = perm.split("=", 2)
+                if (parts.size == 2) {
+                    let permType = parts[0]
+                    let permValue = parts[1]
+
+                    if (permType == "net") {
+                        denoArgs.add("--allow-net=${permValue}")
+                    } else if (permType == "read") {
+                        denoArgs.add("--allow-read=${permValue}")
+                    } else if (permType == "write") {
+                        denoArgs.add("--allow-write=${permValue}")
+                    } else if (permType == "env") {
+                        denoArgs.add("--allow-env=${permValue}")
+                    }
+                }
+                continue
+            }
+
+            // 处理简单权限
+            if (perm == "net") {
+                    denoArgs.add("--allow-net")
+                } else if (perm == "read") {
+                    denoArgs.add("--allow-read")
+                } else if (perm == "write") {
+                    denoArgs.add("--allow-write")
+                } else if (perm == "env") {
+                    denoArgs.add("--allow-env")
+                } else if (perm == "run") {
+                    denoArgs.add("--allow-run")
+                } else if (perm == "ffi") {
+                    denoArgs.add("--allow-ffi")
+                } else if (perm == "hrtime") {
+                    denoArgs.add("--allow-hrtime")
+                }
+        }
+
+        return denoArgs
+    }
+
+    /**
      * 执行命令并获取输出
      */
     private static func executeWithOutput(command: String, args: Array<String>): (Int32, Array<UInt8>, Array<UInt8>) {
         try {
             // 对于2个参数的情况，使用 launch 函数执行命令
             if (args.size == 2) {
-                let process = launch(command, args[0], args[1], stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+                let process = launch(command, args[0], args[1], stdOut: ProcessRedirect.Pipe,
+                    stdErr: ProcessRedirect.Pipe)
                 let (exitCode, stdout, stderr) = process.waitOutput()
                 return (Int32(exitCode), stdout, stderr)
             } else {
@@ -129,28 +196,15 @@ public class PluginService {
                         if (entry.endsWith(".ts") || entry.endsWith(".pm")) {
                             let pluginFile = pathJoin(typePath, entry)
 
-                            // 优先处理TypeScript插件
-                            if (entry.endsWith(".ts")) {
-                                logger.info("发现TypeScript插件文件: ${entry}, full_path: ${pluginFile}")
+                            logger.info("发现TypeScript插件文件: ${entry}, full_path: ${pluginFile}")
 
-                                let pluginData = createDenoPluginFromFile(pluginFile, pluginType)
-                                if (pluginData.namespace.size > 0) {
-                                    discoveredPlugins = addPluginToArray(discoveredPlugins, pluginData)
-                                    logger.info("成功解析TypeScript插件: ${pluginData.name}, namespace: ${pluginData.namespace}, type: ${pluginType}")
-                                } else {
-                                    logger.warn("解析TypeScript插件失败: ${entry}")
-                                }
+                            let pluginData = createDenoPluginFromFile(pluginFile, pluginType)
+                            if (pluginData.namespace.size > 0) {
+                                discoveredPlugins = addPluginToArray(discoveredPlugins, pluginData)
+                                logger.info(
+                                    "成功解析TypeScript插件: ${pluginData.name}, namespace: ${pluginData.namespace}, type: ${pluginType}")
                             } else {
-                                // 保留Perl插件支持作为备用
-                                logger.info("发现Perl插件文件: ${entry}, full_path: ${pluginFile}")
-
-                                let pluginData = createPluginFromFile(pluginFile, pluginType)
-                                if (pluginData.namespace.size > 0) {
-                                    discoveredPlugins = addPluginToArray(discoveredPlugins, pluginData)
-                                    logger.info("成功解析Perl插件: ${pluginData.name}, namespace: ${pluginData.namespace}, type: ${pluginType}")
-                                } else {
-                                    logger.warn("解析Perl插件失败: ${entry}")
-                                }
+                                logger.warn("解析TypeScript插件失败: ${entry}")
                             }
                         }
                     }
@@ -180,15 +234,17 @@ public class PluginService {
             // 构建Deno命令来获取插件信息
             let denoPath = "/config/.deno/bin/deno"
 
+            // 为插件信息获取构建最小权限参数
+            var denoArgs = ArrayList<String>()
+            denoArgs.add("run")
+            denoArgs.add(pluginFile)
+            denoArgs.add("--action=plugin_info")
+            // 获取插件信息只需要读取权限
+            denoArgs.add("--allow-read=${pluginFile}")
+
             // 执行Deno插件获取插件信息
             let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
-            let (exitCode, stdout, stderr) = executeWithOutput(denoPath, [
-                "run",
-                "--allow-net",
-                "--allow-read",
-                pluginFile,
-                "--action=plugin_info"
-            ])
+            let (exitCode, stdout, stderr) = executeWithOutput(denoPath, denoArgs.toArray())
             let executionTime = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
 
             if (exitCode == 0) {
@@ -206,7 +262,6 @@ public class PluginService {
                 let stderrStr = String.fromUtf8(stderr)
                 logger.error("执行Deno插件失败: ${fileName}, exit_code: ${exitCode.toString()}, stderr: ${stderrStr}")
             }
-
         } catch (e: Exception) {
             logger.error("解析Deno插件文件时发生异常: ${e.message}")
         }
@@ -294,7 +349,6 @@ if (eval { defined(&\$full_method) }) {
                 let stderrStr = String.fromUtf8(stderr)
                 logger.error("执行插件失败: ${fileName}, exit_code: ${exitCode.toString()}, stderr: ${stderrStr}")
             }
-
         } catch (e: Exception) {
             logger.error("解析插件文件时发生异常: ${e.message}")
         }
@@ -333,21 +387,68 @@ if (eval { defined(&\$full_method) }) {
                     pluginData.author = getJsonString(jsonObj, "author")
                     pluginData.icon = getJsonString(jsonObj, "icon")
 
-                    // 解析参数信息
+                    // 获取所有字段
                     let fields = jsonObj.getFields()
+
+                    // 解析权限字段
+                    if (fields.contains("permissions")) {
+                        let perms = fields["permissions"]
+                        logger.info("开始解析插件权限", ("plugin", pluginData.name), ("permissions_raw", perms.toString()))
+                        match (perms) {
+                            case array: JsonArray =>
+                                var permissionList = ArrayList<String>()
+                                let size = array.size()
+                                logger.info("权限数组大小", ("plugin", pluginData.name), ("array_size", size.toString()))
+                                for (i in 0..size) {
+                                    let itemOpt = array.get(i)
+                                    match (itemOpt) {
+                                        case Some(item) =>
+                                            let permValue = item
+                                            if (permValue is JsonString) {
+                                                let permission = permValue.toString()
+                                                permissionList.add(permission)
+                                                logger.info("添加权限", ("plugin", pluginData.name), ("permission", permission))
+                                            } else {
+                                                // 如果不是JsonString，尝试转换为字符串
+                                                let permission = permValue.toString()
+                                                permissionList.add(permission)
+                                                logger.info("添加权限(非JsonString)", ("plugin", pluginData.name), ("permission", permission))
+                                            }
+                                        case None =>
+                                            logger.info("数组元素为空", ("plugin", pluginData.name), ("index", i.toString()))
+                                    }
+                                }
+                                if (permissionList.size > 0) {
+                                    pluginData.permissions = String.join(permissionList.toArray(), delimiter: ",")
+                                    logger.info("权限解析完成", ("plugin", pluginData.name), ("permissions", pluginData.permissions))
+                                } else {
+                                    pluginData.permissions = ""
+                                    logger.info("权限列表为空", ("plugin", pluginData.name))
+                                }
+                            case str: JsonString =>
+                                pluginData.permissions = str.getValue()
+                                logger.info("权限字符串解析", ("plugin", pluginData.name), ("permissions", pluginData.permissions))
+                            case _ =>
+                                pluginData.permissions = perms.toString()
+                                logger.info("权限其他格式", ("plugin", pluginData.name), ("permissions", pluginData.permissions))
+                        }
+                    } else {
+                        logger.info("插件没有权限字段", ("plugin", pluginData.name))
+                    }
+
+                    // 解析参数信息
                     if (fields.contains("parameters")) {
                         let params = fields["parameters"]
                         pluginData.parameters = params.toString()
                         pluginData.has_schema = true
-                        logger.info("成功解析插件参数", ("plugin", pluginData.name), ("parameters_count", getParameterCount(params)))
+                        logger.info("成功解析插件参数", ("plugin", pluginData.name),
+                            ("parameters_count", getParameterCount(params)))
                     } else {
                         pluginData.has_schema = false
                         pluginData.parameters = "[]"
                     }
-                case _ =>
-                    throw Exception("Invalid JSON format: expected object")
+                case _ => throw Exception("Invalid JSON format: expected object")
             }
-
         } catch (e: Exception) {
             logger.error("解析插件JSON时发生异常", ("plugin", fileName), ("error", e.message))
             throw e
@@ -364,13 +465,34 @@ if (eval { defined(&\$full_method) }) {
         if (fields.contains(key)) {
             let value = fields[key]
             match (value) {
-                case jsonStr: JsonString =>
-                    return jsonStr.getValue()
-                case _ =>
-                    return value.toString()
+                case jsonStr: JsonString => return jsonStr.getValue()
+                case _ => return value.toString()
             }
         }
         return ""
+    }
+
+    /**
+     * 解析权限数组为逗号分隔字符串
+     */
+    private func parsePermissions(permissions: JsonValue): String {
+        match (permissions) {
+            case array: JsonArray =>
+                var permissionList = ArrayList<String>()
+                let size = array.size()
+                for (i in 0..size) {
+                    let item = array.get(i)
+                    if (let someValue <- item) {
+                        let value = someValue
+                        permissionList.add(value.toString())
+                    }
+                }
+                return String.join(permissionList.toArray(), delimiter: ",")
+            case str: JsonString =>
+                return str.getValue()
+            case _ =>
+                return ""
+        }
     }
 
     /**
@@ -381,12 +503,9 @@ if (eval { defined(&\$full_method) }) {
             case jsonArray: JsonArray =>
                 let size = jsonArray.size()
                 return "${size}"
-            case _ =>
-                return "0"
+            case _ => return "0"
         }
     }
-
-  
 
     /**
      * 执行元数据插件
@@ -395,10 +514,45 @@ if (eval { defined(&\$full_method) }) {
         let logger = getLogger("plugin_service")
         let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
 
-        logger.info("开始执行元数据插件")
+        logger.info("开始执行元数据插件: ${plugin.namespace}")
 
+        // 获取插件文件路径
+        let pluginFile = "./data/plugins/${plugin.namespace}/Metadata.ts"
+        if (!exists(pluginFile)) {
+            logger.error("插件文件不存在: ${pluginFile}")
+            return PluginExecutionResult(false, "Plugin file not found", HashMap<String, String>(), 0, 1)
+        }
+
+        // 构建Deno权限参数
+        let denoPath = "/config/.deno/bin/deno"
+        let denoArgs = buildDenoPermissions(plugin, pluginFile)
+
+        // 添加插件执行参数
+        denoArgs.add("--action=execute")
+        denoArgs.add("--archive_id=${archiveId}")
+
+        // 执行插件
+        let (exitCode, stdout, stderr) = executeWithOutput(denoPath, denoArgs.toArray())
         let executionTime = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
-        return PluginExecutionResult(true, "", HashMap<String, String>(), executionTime, 0)
+
+        if (exitCode == 0) {
+            let output = String.fromUtf8(stdout)
+            logger.info("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
+
+            // 解析输出结果
+            var resultData = HashMap<String, String>()
+            resultData["output"] = output
+
+            return PluginExecutionResult(true, output, resultData, executionTime, exitCode)
+        } else {
+            let errorOutput = String.fromUtf8(stderr)
+            logger.error("插件执行失败: ${plugin.namespace}, exit_code: ${exitCode}, error: ${errorOutput}")
+
+            var resultData = HashMap<String, String>()
+            resultData["error"] = errorOutput
+
+            return PluginExecutionResult(false, errorOutput, resultData, executionTime, exitCode)
+        }
     }
 
     /**
@@ -408,10 +562,51 @@ if (eval { defined(&\$full_method) }) {
         let logger = getLogger("plugin_service")
         let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
 
-        logger.info("开始执行登录插件")
+        logger.info("开始执行登录插件: ${plugin.namespace}")
 
+        // 获取插件文件路径
+        let pluginFile = "./data/plugins/${plugin.namespace}/Login.ts"
+        if (!exists(pluginFile)) {
+            logger.error("插件文件不存在: ${pluginFile}")
+            return PluginExecutionResult(false, "Plugin file not found", HashMap<String, String>(), 0, 1)
+        }
+
+        // 构建Deno权限参数
+        let denoPath = "/config/.deno/bin/deno"
+        let denoArgs = buildDenoPermissions(plugin, pluginFile)
+
+        // 添加插件执行参数
+        denoArgs.add("--action=execute")
+
+        // 添加参数
+        for ((key, value) in params) {
+            if (value.size > 0) {
+                denoArgs.add("--${key}=${value}")
+            }
+        }
+
+        // 执行插件
+        let (exitCode, stdout, stderr) = executeWithOutput(denoPath, denoArgs.toArray())
         let executionTime = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
-        return PluginExecutionResult(true, "", HashMap<String, String>(), executionTime, 0)
+
+        if (exitCode == 0) {
+            let output = String.fromUtf8(stdout)
+            logger.info("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
+
+            // 解析输出结果
+            var resultData = HashMap<String, String>()
+            resultData["output"] = output
+
+            return PluginExecutionResult(true, output, resultData, executionTime, exitCode)
+        } else {
+            let errorOutput = String.fromUtf8(stderr)
+            logger.error("插件执行失败: ${plugin.namespace}, exit_code: ${exitCode}, error: ${errorOutput}")
+
+            var resultData = HashMap<String, String>()
+            resultData["error"] = errorOutput
+
+            return PluginExecutionResult(false, errorOutput, resultData, executionTime, exitCode)
+        }
     }
 
     /**
@@ -421,10 +616,45 @@ if (eval { defined(&\$full_method) }) {
         let logger = getLogger("plugin_service")
         let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
 
-        logger.info("开始执行下载插件")
+        logger.info("开始执行下载插件: ${plugin.namespace}")
 
+        // 获取插件文件路径
+        let pluginFile = "./data/plugins/${plugin.namespace}/Download.ts"
+        if (!exists(pluginFile)) {
+            logger.error("插件文件不存在: ${pluginFile}")
+            return PluginExecutionResult(false, "Plugin file not found", HashMap<String, String>(), 0, 1)
+        }
+
+        // 构建Deno权限参数
+        let denoPath = "/config/.deno/bin/deno"
+        let denoArgs = buildDenoPermissions(plugin, pluginFile)
+
+        // 添加插件执行参数
+        denoArgs.add("--action=execute")
+        denoArgs.add("--url=${url}")
+
+        // 执行插件
+        let (exitCode, stdout, stderr) = executeWithOutput(denoPath, denoArgs.toArray())
         let executionTime = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
-        return PluginExecutionResult(true, "", HashMap<String, String>(), executionTime, 0)
+
+        if (exitCode == 0) {
+            let output = String.fromUtf8(stdout)
+            logger.info("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
+
+            // 解析输出结果
+            var resultData = HashMap<String, String>()
+            resultData["output"] = output
+
+            return PluginExecutionResult(true, output, resultData, executionTime, exitCode)
+        } else {
+            let errorOutput = String.fromUtf8(stderr)
+            logger.error("插件执行失败: ${plugin.namespace}, exit_code: ${exitCode}, error: ${errorOutput}")
+
+            var resultData = HashMap<String, String>()
+            resultData["error"] = errorOutput
+
+            return PluginExecutionResult(false, errorOutput, resultData, executionTime, exitCode)
+        }
     }
 
     /**
@@ -451,7 +681,8 @@ if (eval { defined(&\$full_method) }) {
         let path = Path(pluginFilePath)
         let fileExists = exists(path)
         let logger = getLogger("plugin_service")
-        logger.info("检查插件文件", ("plugin", plugin.namespace), ("path", pluginFilePath), ("exists", fileExists.toString()))
+        logger.info("检查插件文件", ("plugin", plugin.namespace), ("path", pluginFilePath),
+            ("exists", fileExists.toString()))
         return fileExists
     }
 
@@ -459,8 +690,8 @@ if (eval { defined(&\$full_method) }) {
      * 添加插件到数组
      */
     private func addPluginToArray(pluginArray: Array<PluginData>, plugin: PluginData): Array<PluginData> {
-        let result = Array<PluginData>(pluginArray.size + 1, { i =>
-            if (i < pluginArray.size) {
+        let result = Array<PluginData>(pluginArray.size + 1, {
+            i => if (i < pluginArray.size) {
                 pluginArray[i]
             } else {
                 plugin
@@ -506,8 +737,16 @@ if (eval { defined(&\$full_method) }) {
      * 连接路径
      */
     private func pathJoin(base: String, part: String): String {
-        let cleanBase = if (base.endsWith("/")) { base[0..base.size-1] } else { base }
-        let cleanPart = if (part.startsWith("/")) { part[1..] } else { part }
+        let cleanBase = if (base.endsWith("/")) {
+            base[0..base.size - 1]
+        } else {
+            base
+        }
+        let cleanPart = if (part.startsWith("/")) {
+            part[1..]
+        } else {
+            part
+        }
         return "${cleanBase}/${cleanPart}"
     }
 }
