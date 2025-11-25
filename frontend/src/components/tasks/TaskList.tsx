@@ -1,0 +1,441 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { MinionTask, MinionTaskPageResult } from '@/types/minion';
+import { MinionService } from '@/lib/minion-service';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Spinner } from '@/components/ui/spinner';
+import { Pagination } from '@/components/ui/pagination';
+import {
+  Play,
+  Square,
+  Trash2,
+  Eye,
+  Clock,
+  CheckCircle,
+  XCircle,
+  PauseCircle,
+  RefreshCw,
+  ListTodo
+} from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+interface TaskListProps {
+  className?: string;
+}
+
+export function TaskList({ className }: TaskListProps) {
+  const { t } = useLanguage();
+  const [tasks, setTasks] = useState<MinionTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  // Filter state
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  const fetchTasks = async (page: number = currentPage) => {
+    console.log('fetchTasks called, page:', page, 'activeFilter:', activeFilter);
+    try {
+      setError(null);
+      console.log('Calling MinionService.getTasks...');
+      const result: MinionTaskPageResult = await MinionService.getTasks(page, pageSize);
+      console.log('API response:', result);
+
+      // 确保 result.tasks 是数组
+      const tasksArray = Array.isArray(result.tasks) ? result.tasks : [];
+      console.log('tasksArray length:', tasksArray.length);
+
+      // Apply client-side filtering if needed
+      let filteredTasks = tasksArray;
+      if (activeFilter !== 'all') {
+        filteredTasks = tasksArray.filter(task => task && task.status === activeFilter);
+        console.log('filteredTasks length:', filteredTasks.length);
+      }
+
+      setTasks(filteredTasks);
+      setTotal(typeof result.total === 'number' ? result.total : 0);
+      setTotalPages(typeof result.totalPages === 'number' ? result.totalPages : 0);
+      setCurrentPage(page);
+      console.log('State updated - tasks:', filteredTasks.length, 'total:', result.total);
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
+      setTasks([]);
+      setTotal(0);
+      setTotalPages(0);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      console.log('fetchTasks completed');
+    }
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    fetchTasks(1);
+  }, [activeFilter]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTasks(currentPage);
+  };
+
+  const handleStartTask = async (taskId: number) => {
+    try {
+      const success = await MinionService.startTask(taskId);
+      if (success) {
+        await handleRefresh();
+      } else {
+        setError('Failed to start task');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start task');
+    }
+  };
+
+  const handleStopTask = async (taskId: number) => {
+    try {
+      const success = await MinionService.stopTask(taskId);
+      if (success) {
+        await handleRefresh();
+      } else {
+        setError('Failed to stop task');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop task');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    if (!confirm('确定要删除这个任务吗？')) return;
+
+    try {
+      const success = await MinionService.deleteTask(taskId);
+      if (success) {
+        await handleRefresh();
+      } else {
+        setError('Failed to delete task');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete task');
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return <Clock className="w-4 h-4" />;
+      case 'running':
+        return <RefreshCw className="w-4 h-4 animate-spin" />;
+      case 'completed':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'failed':
+        return <XCircle className="w-4 h-4" />;
+      case 'stopped':
+        return <PauseCircle className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const getStatusActionButtons = (task: MinionTask) => {
+    switch (task.status.toLowerCase()) {
+      case 'pending':
+        return (
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleStartTask(task.id)}
+              className="flex items-center space-x-1"
+            >
+              <Play className="w-3 h-3" />
+              <span>启动</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleDeleteTask(task.id)}
+              className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>删除</span>
+            </Button>
+          </div>
+        );
+      case 'running':
+        return (
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleStopTask(task.id)}
+              className="flex items-center space-x-1"
+            >
+              <Square className="w-3 h-3" />
+              <span>停止</span>
+            </Button>
+          </div>
+        );
+      case 'completed':
+      case 'failed':
+      case 'stopped':
+        return (
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleDeleteTask(task.id)}
+              className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>删除</span>
+            </Button>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Spinner size="lg" />
+        <span className="ml-2">{t('common.loading')}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`space-y-6 ${className || ''}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center space-x-2">
+            <ListTodo className="w-5 h-5" />
+            <span>任务列表</span>
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            共 {total} 个任务
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center space-x-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <span>{t('common.refresh')}</span>
+        </Button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Filters */}
+      <Tabs value={activeFilter} onValueChange={setActiveFilter}>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="all" className="flex items-center space-x-2">
+            <span>全部</span>
+            <Badge variant="secondary">{total}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="flex items-center space-x-2">
+            <Clock className="w-4 h-4" />
+            <span>待执行</span>
+          </TabsTrigger>
+          <TabsTrigger value="running" className="flex items-center space-x-2">
+            <RefreshCw className="w-4 h-4" />
+            <span>执行中</span>
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="flex items-center space-x-2">
+            <CheckCircle className="w-4 h-4" />
+            <span>已完成</span>
+          </TabsTrigger>
+          <TabsTrigger value="failed" className="flex items-center space-x-2">
+            <XCircle className="w-4 h-4" />
+            <span>失败</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* Task List */}
+      {tasks.length > 0 ? (
+        <div className="space-y-4">
+          {tasks.map((task) => (
+            <Card key={task.id} className="w-full">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <CardTitle className="text-base">{task.name}</CardTitle>
+                    <Badge
+                      className={MinionService.getStatusColor(task.status)}
+                      variant="secondary"
+                    >
+                      <div className="flex items-center space-x-1">
+                        {getStatusIcon(task.status)}
+                        <span>{MinionService.getStatusLabel(task.status)}</span>
+                      </div>
+                    </Badge>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge
+                      className={MinionService.getTaskTypeColor(task.taskType)}
+                      variant="secondary"
+                    >
+                      {MinionService.getTaskTypeLabel(task.taskType)}
+                    </Badge>
+                    {getStatusActionButtons(task)}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Progress */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>进度</span>
+                    <span>{task.progress}%</span>
+                  </div>
+                  <Progress value={task.progress} className="w-full" />
+                </div>
+
+                {/* Message */}
+                {task.message && (
+                  <div className="text-sm text-muted-foreground">
+                    <strong>状态:</strong> {task.message}
+                  </div>
+                )}
+
+                {/* Time Information */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                  <div>
+                    <strong>创建时间:</strong>
+                    <br />
+                    {new Date(task.createdAt).toLocaleString()}
+                  </div>
+                  {task.startedAt && (
+                    <div>
+                      <strong>开始时间:</strong>
+                      <br />
+                      {new Date(task.startedAt).toLocaleString()}
+                    </div>
+                  )}
+                  {task.completedAt && (
+                    <div>
+                      <strong>完成时间:</strong>
+                      <br />
+                      {new Date(task.completedAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Plugin Info */}
+                {task.pluginNamespace && (
+                  <div className="text-sm">
+                    <strong>插件:</strong> {task.pluginNamespace}
+                  </div>
+                )}
+
+                {/* Result (for completed/failed tasks) */}
+                {(task.status === 'completed' || task.status === 'failed') && task.result && (
+                  <div className="text-sm">
+                    <strong>结果:</strong>
+                    <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs max-h-20 overflow-y-auto whitespace-pre-wrap">
+                      {task.result}
+                    </div>
+                  </div>
+                )}
+
+                {/* File Upload Details */}
+                {task.taskType === 'upload' && task.parameters && (
+                  <div className="text-sm border-t pt-3">
+                    <strong>上传详情:</strong>
+                    {(() => {
+                      const params = MinionService.parseTaskParameters(task.parameters);
+                      return (
+                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                          {params.filename && (
+                            <div>
+                              <strong>文件名:</strong> {params.filename}
+                            </div>
+                          )}
+                          {params.filesize && (
+                            <div>
+                              <strong>文件大小:</strong> {MinionService.formatFileSize(params.filesize)}
+                            </div>
+                          )}
+                          {params.total_chunks && (
+                            <div>
+                              <strong>分片数量:</strong> {params.total_chunks}
+                            </div>
+                          )}
+                          {params.chunk_size && (
+                            <div>
+                              <strong>分片大小:</strong> {MinionService.formatFileSize(params.chunk_size)}
+                            </div>
+                          )}
+                          {params.title && params.title !== params.filename && (
+                            <div className="md:col-span-2">
+                              <strong>标题:</strong> {params.title}
+                            </div>
+                          )}
+                          {params.tags && (
+                            <div className="md:col-span-2">
+                              <strong>标签:</strong> {params.tags}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <ListTodo className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+                暂无任务
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {activeFilter === 'all' ? '还没有创建任何任务' : '该状态下没有任务'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => fetchTasks(page)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

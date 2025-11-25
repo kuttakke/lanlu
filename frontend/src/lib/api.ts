@@ -3,14 +3,14 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // 区分服务端和客户端的API配置
 const getApiConfig = () => {
-  // 在静态生成期间，返回null避免API调用
+  // 静态生成时也要调用API，使用环境变量配置的API地址
   if (typeof window === 'undefined') {
     return {
-      baseURL: process.env.NEXT_PUBLIC_API_URL || '',
-      skipRequest: true
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+      skipRequest: false // 静态生成时也要调用API
     };
   }
-  
+
   // 客户端使用相对路径
   return {
     baseURL: '', // 相对路径，会自动使用当前域名和端口
@@ -88,5 +88,74 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// API wrapper functions
+export const api = {
+  get: async (url: string) => {
+    console.log('API GET called:', url);
+    console.log('skipRequest:', skipRequest);
+    try {
+      const response = await apiClient.get(url);
+      console.log('API response status:', response.status);
+      console.log('API response data:', response.data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      console.error('API GET error:', error);
+      console.error('Error response:', error.response?.data);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Request failed'
+      };
+    }
+  },
+
+  post: async (url: string, data?: any) => {
+    try {
+      const response = await apiClient.post(url, data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Request failed'
+      };
+    }
+  },
+
+  put: async (url: string, data?: any) => {
+    try {
+      const response = await apiClient.put(url, data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Request failed'
+      };
+    }
+  },
+
+  delete: async (url: string) => {
+    try {
+      const response = await apiClient.delete(url);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Request failed'
+      };
+    }
+  }
+};
 
 export default apiClient;

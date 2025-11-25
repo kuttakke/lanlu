@@ -5,12 +5,13 @@ import { Header } from '@/components/layout/Header';
 import { PluginCard } from '@/components/settings/PluginCard';
 import { PluginConfigDialog } from '@/components/settings/PluginConfigDialog';
 import { PluginService, Plugin } from '@/lib/plugin-service';
+import { TaskList } from '@/components/tasks/TaskList';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import { Settings, RefreshCw, Package } from 'lucide-react';
+import { Settings, RefreshCw, Package, ListTodo } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function SettingsPage() {
@@ -133,10 +134,14 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="plugins" className="w-full">
-          <TabsList className="grid w-full grid-cols-1">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="plugins" className="flex items-center space-x-2">
               <Package className="w-4 h-4" />
               <span>{t('settings.plugins')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="flex items-center space-x-2">
+              <ListTodo className="w-4 h-4" />
+              <span>任务列表</span>
             </TabsTrigger>
           </TabsList>
 
@@ -178,6 +183,10 @@ export default function SettingsPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="tasks" className="mt-6">
+            <TaskList />
           </TabsContent>
         </Tabs>
 

@@ -50,19 +50,32 @@ public class MinionTask {
     public func toJson(): String {
         var json = "{"
         json += "\"id\":${id},"
-        json += "\"name\":\"${name}\","
-        json += "\"status\":\"${status}\","
+        json += "\"name\":\"${escapeJsonString(name)}\","
+        json += "\"status\":\"${escapeJsonString(status)}\","
         json += "\"progress\":${progress},"
-        json += "\"message\":\"${message}\","
-        json += "\"taskType\":\"${taskType}\","
-        json += "\"pluginNamespace\":\"${pluginNamespace}\","
-        json += "\"parameters\":\"${parameters}\","
-        json += "\"result\":\"${result}\","
-        json += "\"createdAt\":\"${createdAt}\","
-        json += "\"startedAt\":\"${startedAt}\","
-        json += "\"completedAt\":\"${completedAt}\""
+        json += "\"message\":\"${escapeJsonString(message)}\","
+        json += "\"taskType\":\"${escapeJsonString(taskType)}\","
+        json += "\"pluginNamespace\":\"${escapeJsonString(pluginNamespace)}\","
+        json += "\"parameters\":${parameters},"
+        json += "\"result\":\"${escapeJsonString(result)}\","
+        json += "\"createdAt\":\"${escapeJsonString(createdAt)}\","
+        json += "\"startedAt\":\"${escapeJsonString(startedAt)}\","
+        json += "\"completedAt\":\"${escapeJsonString(completedAt)}\""
         json += "}"
         return json
+    }
+
+    // 辅助函数：转义JSON字符串中的特殊字符
+    private static func escapeJsonString(str: String): String {
+        var escaped = str
+        escaped = escaped.replace("\\", "\\\\")  // 转义反斜杠
+        escaped = escaped.replace("\"", "\\\"")   // 转义双引号
+        escaped = escaped.replace("\b", "\\b")    // 转义退格
+        escaped = escaped.replace("\f", "\\f")    // 转义换页
+        escaped = escaped.replace("\n", "\\n")    // 转义换行
+        escaped = escaped.replace("\r", "\\r")    // 转义回车
+        escaped = escaped.replace("\t", "\\t")    // 转义制表符
+        return escaped
     }
 }
 
