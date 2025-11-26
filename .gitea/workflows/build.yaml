@@ -7,13 +7,18 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
-      - name: Setup Cangjie
-        uses: Zxilly/setup-cangjie@v2
-        with:
-        channel: lts
-        version: auto
+      # - name: Setup Cangjie
+      #   uses: Zxilly/setup-cangjie@v2
+      #   with:
+      #   channel: lts
+      #   version: auto
+      - name: Unzip Cangjie
+        run: |
+          wget -O c.tar.gz "${{ vars.CANGJIE_URL }}"
+          tar -xzvf c.tar.gz
       - name: Set Up Cangjie and build
         run: |
+          source cangjie/envsetup.sh
           cjc -v
           cjpm build -V
       - name: Add useful lib

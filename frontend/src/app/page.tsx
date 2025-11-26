@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Header } from '@/components/layout/Header';
 import { SearchSidebar } from '@/components/layout/SearchSidebar';
 import { ArchiveService } from '@/lib/archive-service';
+import { appEvents, AppEvents } from '@/lib/events';
 import { Shuffle, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -77,6 +78,29 @@ export default function HomePage() {
       fetchRandomArchives();
     }
   }, [currentPage, fetchArchives, fetchRandomArchives, sortBy, sortOrder]);
+
+  // 监听上传完成事件，刷新首页数据
+  useEffect(() => {
+    const handleUploadCompleted = () => {
+      console.log('Upload completed, refreshing homepage data');
+      fetchArchives(currentPage);
+      fetchRandomArchives();
+    };
+
+    const handleArchivesRefresh = () => {
+      console.log('Archives refresh event received');
+      fetchArchives(currentPage);
+      fetchRandomArchives();
+    };
+
+    appEvents.on(AppEvents.UPLOAD_COMPLETED, handleUploadCompleted);
+    appEvents.on(AppEvents.ARCHIVES_REFRESH, handleArchivesRefresh);
+
+    return () => {
+      appEvents.off(AppEvents.UPLOAD_COMPLETED, handleUploadCompleted);
+      appEvents.off(AppEvents.ARCHIVES_REFRESH, handleArchivesRefresh);
+    };
+  }, [currentPage, fetchArchives, fetchRandomArchives]);
 
   const handleSearch = (params: {
     query?: string;

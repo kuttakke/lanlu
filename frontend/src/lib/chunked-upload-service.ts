@@ -62,6 +62,8 @@ export class ChunkedUploadService {
     metadata: UploadMetadata,
     callbacks: UploadProgressCallback
   ): Promise<UploadResult> {
+    let taskId: string | null = null; // 跟踪taskId以便在错误时清理localStorage
+
     try {
       // 1. 文件验证
       const validation = this.validateFile(file);
@@ -80,12 +82,12 @@ export class ChunkedUploadService {
           fileHash = `${file.name}_${Date.now()}`;
         }
       }
-      
+
       // 3. 计算分片信息
       const totalChunks = Math.ceil(file.size / this.CHUNK_SIZE);
-      
+
       // 4. 初始化上传会话
-      const taskId = await this.initUploadSession(file.name, file.size, fileHash, totalChunks, metadata);
+      taskId = await this.initUploadSession(file.name, file.size, fileHash, totalChunks, metadata);
       if (!taskId) {
         return { success: false, error: 'Failed to initialize upload session' };
       }
@@ -150,6 +152,17 @@ export class ChunkedUploadService {
 
     } catch (error) {
       console.error('Chunked upload failed:', error);
+
+      // 如果有taskId，清理localStorage中的上传会话数据
+      if (taskId) {
+        try {
+          localStorage.removeItem(`upload_${taskId}`);
+          console.log(`Cleaned localStorage after upload failure: ${taskId}`);
+        } catch (cleanupError) {
+          console.warn('Failed to clean localStorage after upload failure:', cleanupError);
+        }
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Upload failed'
@@ -484,12 +497,47 @@ export class ChunkedUploadService {
       // 使用GET请求，通过查询参数传递taskId
       const response = await apiClient.get(`/api/archives/upload/complete?taskId=${taskId}`);
 
-      return {
+      const result = {
         success: response.data.success === 1,
         id: response.data.id,
         error: response.data.error
       };
+
+      // 如果上传成功，清理localStorage中的上传会话数据
+      if (result.success) {
+        try {
+          const sessionKey = `upload_${taskId}`;
+          const existingData = localStorage.getItem(sessionKey);
+
+          if (existingData) {
+            console.log(`Cleaning localStorage for successful upload: ${taskId}`);
+            localStorage.removeItem(sessionKey);
+
+            // 验证清理是否成功
+            const verifyCleanup = localStorage.getItem(sessionKey);
+            if (verifyCleanup === null) {
+              console.log(`✓ Successfully cleaned localStorage for completed upload: ${taskId}`);
+            } else {
+              console.warn(`⚠ Failed to clean localStorage for completed upload: ${taskId} - data still exists`);
+            }
+          } else {
+            console.warn(`⚠ No localStorage data found for completed upload: ${taskId}`);
+          }
+        } catch (cleanupError) {
+          console.warn('Failed to clean localStorage after successful upload:', cleanupError);
+        }
+      }
+
+      return result;
     } catch (error) {
+      // 即使complete操作失败，也尝试清理localStorage
+      try {
+        localStorage.removeItem(`upload_${taskId}`);
+        console.log(`Cleaned localStorage after failed complete operation: ${taskId}`);
+      } catch (cleanupError) {
+        console.warn('Failed to clean localStorage after failed complete:', cleanupError);
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to complete upload'
@@ -565,6 +613,15 @@ export class ChunkedUploadService {
         // 如果重传后仍有失败的分片，返回错误
         if (retryResult.failedChunks.length > 0) {
           console.log('恢复上传重传后仍有失败分片:', retryResult.failedChunks);
+
+          // 清理localStorage中的失败会话数据
+          try {
+            localStorage.removeItem(`upload_${taskId}`);
+            console.log(`Cleaned localStorage after failed resume upload: ${taskId}`);
+          } catch (cleanupError) {
+            console.warn('Failed to clean localStorage after failed resume upload:', cleanupError);
+          }
+
           return {
             success: false,
             error: `恢复上传时分片上传失败: ${retryResult.failedChunks.length} 个分片重传后仍然失败`
@@ -579,6 +636,15 @@ export class ChunkedUploadService {
       // 验证所有分片都已上传完成
       if (totalCompletedChunks !== totalChunks) {
         console.error(`恢复上传分片数量不匹配: 期望 ${totalChunks}, 实际 ${totalCompletedChunks}`);
+
+        // 清理localStorage中的失败会话数据
+        try {
+          localStorage.removeItem(`upload_${taskId}`);
+          console.log(`Cleaned localStorage after resume upload chunk count mismatch: ${taskId}`);
+        } catch (cleanupError) {
+          console.warn('Failed to clean localStorage after resume upload chunk count mismatch:', cleanupError);
+        }
+
         return {
           success: false,
           error: `恢复上传分片数量不匹配: 期望 ${totalChunks}, 实际 ${totalCompletedChunks}`
@@ -589,6 +655,14 @@ export class ChunkedUploadService {
       return await this.completeUpload(taskId);
 
     } catch (error) {
+      // 恢复上传失败时清理localStorage
+      try {
+        localStorage.removeItem(`upload_${taskId}`);
+        console.log(`Cleaned localStorage after resume upload failure: ${taskId}`);
+      } catch (cleanupError) {
+        console.warn('Failed to clean localStorage after resume upload failure:', cleanupError);
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to resume upload'
@@ -601,6 +675,89 @@ export class ChunkedUploadService {
    */
   private static delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 清理过期的上传会话数据
+   * @param maxAge 最大保留时间（毫秒），默认24小时
+   */
+  static cleanupExpiredUploadSessions(maxAge: number = 24 * 60 * 60 * 1000): void {
+    try {
+      const keysToRemove: string[] = [];
+      const now = Date.now();
+      let totalUploadKeys = 0;
+      let completedSessions = 0;
+      let expiredSessions = 0;
+      let corruptedSessions = 0;
+
+      // 遍历localStorage中所有键
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('upload_')) {
+          totalUploadKeys++;
+          try {
+            const sessionData = localStorage.getItem(key);
+            if (sessionData) {
+              const session = JSON.parse(sessionData);
+              const createdAt = new Date(session.createdAt).getTime();
+
+              // 如果会话过期或已经完成，添加到待清理列表
+              const isExpired = now - createdAt > maxAge;
+              const isCompleted = session.status === 'completed';
+
+              if (isCompleted) {
+                completedSessions++;
+                keysToRemove.push(key);
+              } else if (isExpired) {
+                expiredSessions++;
+                keysToRemove.push(key);
+              }
+
+              // 输出调试信息
+              console.log(`Upload session ${key}: status=${session.status}, age=${Math.round((now - createdAt) / (60 * 60 * 1000))}h, willClean=${isCompleted || isExpired}`);
+            }
+          } catch (parseError) {
+            // 如果数据损坏，也清理掉
+            corruptedSessions++;
+            keysToRemove.push(key);
+            console.warn(`Corrupted upload session data detected: ${key}`);
+          }
+        }
+      }
+
+      // 清理过期的会话数据
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log(`Cleaned upload session: ${key}`);
+      });
+
+      // 输出清理统计信息
+      console.log(`Upload session cleanup completed:
+- Total upload sessions found: ${totalUploadKeys}
+- Completed sessions cleaned: ${completedSessions}
+- Expired sessions cleaned: ${expiredSessions}
+- Corrupted sessions cleaned: ${corruptedSessions}
+- Total sessions cleaned: ${keysToRemove.length}`);
+
+      if (keysToRemove.length === 0 && totalUploadKeys > 0) {
+        console.log('No upload sessions needed cleanup - all sessions are active and valid');
+      }
+    } catch (error) {
+      console.warn('Failed to cleanup expired upload sessions:', error);
+    }
+  }
+
+  /**
+   * 清理指定的上传会话数据
+   * @param taskId 要清理的任务ID
+   */
+  static cleanupUploadSession(taskId: string): void {
+    try {
+      localStorage.removeItem(`upload_${taskId}`);
+      console.log(`Cleaned upload session: ${taskId}`);
+    } catch (error) {
+      console.warn(`Failed to cleanup upload session ${taskId}:`, error);
+    }
   }
 
   /**

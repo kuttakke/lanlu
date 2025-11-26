@@ -15,6 +15,7 @@ import { Upload, User, Settings, LogOut } from "lucide-react"
 import { UploadDrawer } from "@/components/upload/UploadDrawer"
 import { LoginDialog } from "@/components/auth/LoginDialog"
 import { useAuth } from "@/contexts/AuthContext"
+import { appEvents, AppEvents } from "@/lib/events"
 
 export function UserMenu() {
   const { t } = useLanguage()
@@ -22,11 +23,15 @@ export function UserMenu() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [loginDialogOpen, setLoginDialogOpen] = useState(false)
 
-  const handleUploadComplete = () => {
+  const handleUploadComplete = (archiveId: string) => {
     // 上传完成后的回调
+    console.log('Upload completed with archive ID:', archiveId);
+
+    // 触发首页数据刷新事件
+    appEvents.emit(AppEvents.UPLOAD_COMPLETED, archiveId);
+
     // 不再自动关闭抽屉，让用户可以继续上传更多文件
     // setUploadDialogOpen(false)
-    // 可以在这里添加刷新逻辑
   }
 
   return (
