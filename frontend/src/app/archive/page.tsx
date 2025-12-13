@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { TagInput } from '@/components/ui/tag-input';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit } from 'lucide-react';
+import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit, CheckCircle, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,6 +48,7 @@ function ArchiveDetailContent() {
   const [pages, setPages] = useState<string[]>([]);
   const [previewPage, setPreviewPage] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [isNewStatusLoading, setIsNewStatusLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [archivePages, setArchivePages] = useState<string[]>([]);
@@ -214,7 +215,37 @@ function ArchiveDetailContent() {
     }
   };
 
-  
+  // 处理设置为已读
+  const handleMarkAsRead = async () => {
+    if (!metadata) return;
+    setIsNewStatusLoading(true);
+    try {
+      await ArchiveService.clearIsNew(metadata.arcid);
+      await fetchMetadata(); // 重新获取元数据以更新UI
+    } catch (error) {
+      console.error('Failed to mark as read:', error);
+      alert(t('archive.markAsReadFailed'));
+    } finally {
+      setIsNewStatusLoading(false);
+    }
+  };
+
+  // 处理设置为新
+  const handleMarkAsNew = async () => {
+    if (!metadata) return;
+    setIsNewStatusLoading(true);
+    try {
+      await ArchiveService.setIsNew(metadata.arcid);
+      await fetchMetadata(); // 重新获取元数据以更新UI
+    } catch (error) {
+      console.error('Failed to mark as new:', error);
+      alert(t('archive.markAsNewFailed'));
+    } finally {
+      setIsNewStatusLoading(false);
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="flex min-h-screen">
@@ -452,7 +483,7 @@ function ArchiveDetailContent() {
 	                    </div>
 	
 	                    {/* 操作按钮：同一行 */}
-	                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+	                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
 	                      {isEditing ? (
 	                        <>
 	                          <Button className="w-full" onClick={saveEdit} disabled={isSaving}>
@@ -473,6 +504,28 @@ function ArchiveDetailContent() {
 	                            <Download className="w-4 h-4 mr-2" />
 	                            {t('archive.download')}
 	                          </Button>
+	                          {/* 已读/取消已读按钮 */}
+	                          {metadata.isnew === 'true' ? (
+	                            <Button
+	                              variant="outline"
+	                              className="w-full"
+	                              onClick={handleMarkAsRead}
+	                              disabled={isNewStatusLoading || isSaving}
+	                            >
+	                              <CheckCircle className="w-4 h-4 mr-2" />
+	                              {isNewStatusLoading ? t('common.loading') : t('archive.markAsRead')}
+	                            </Button>
+	                          ) : (
+	                            <Button
+	                              variant="outline"
+	                              className="w-full"
+	                              onClick={handleMarkAsNew}
+	                              disabled={isNewStatusLoading || isSaving}
+	                            >
+	                              <RotateCcw className="w-4 h-4 mr-2" />
+	                              {isNewStatusLoading ? t('common.loading') : t('archive.markAsNew')}
+	                            </Button>
+	                          )}
 	                        </>
 	                      ) : (
 	                        <>
@@ -493,6 +546,28 @@ function ArchiveDetailContent() {
 	                            <Download className="w-4 h-4 mr-2" />
 	                            {t('archive.download')}
 	                          </Button>
+	                          {/* 已读/取消已读按钮 */}
+	                          {metadata.isnew === 'true' ? (
+	                            <Button
+	                              variant="outline"
+	                              className="w-full"
+	                              onClick={handleMarkAsRead}
+	                              disabled={isNewStatusLoading}
+	                            >
+	                              <CheckCircle className="w-4 h-4 mr-2" />
+	                              {isNewStatusLoading ? t('common.loading') : t('archive.markAsRead')}
+	                            </Button>
+	                          ) : (
+	                            <Button
+	                              variant="outline"
+	                              className="w-full"
+	                              onClick={handleMarkAsNew}
+	                              disabled={isNewStatusLoading}
+	                            >
+	                              <RotateCcw className="w-4 h-4 mr-2" />
+	                              {isNewStatusLoading ? t('common.loading') : t('archive.markAsNew')}
+	                            </Button>
+	                          )}
 	                          {isAuthenticated ? (
 	                            <Button variant="outline" className="w-full" onClick={startEdit}>
 	                              <Edit className="w-4 h-4 mr-2" />

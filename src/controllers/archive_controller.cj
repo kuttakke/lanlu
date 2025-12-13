@@ -572,4 +572,76 @@ public class ArchiveController {
             return "application/octet-stream"
         }
     }
+
+    /**
+     * 设置归档的isNew标记（PUT /api/archives/{id}/isnew）
+     */
+    public static func setIsNew(ctx: JoyContext): Unit {
+        let id = ctx.getParam("id").getOrThrow()
+
+        // 检查ID是否为空
+        if (id.size == 0) {
+            let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"No archive ID specified.\",\"success\":0}"
+            ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+            ctx.json(errorResponse)
+            return
+        }
+
+        // 检查归档是否存在
+        let archive = ArchiveModel.getArchiveById(id)
+        if (archive.id.size == 0) {
+            let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"Archive not found\",\"success\":0}"
+            ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+            ctx.json(errorResponse)
+            return
+        }
+
+        // 更新isNew标记为true
+        let updateSuccess = ArchiveDao.setIsNew(id)
+
+        if (updateSuccess) {
+            let result = "{\"operation\":\"set_isnew\",\"success\":1}"
+            ctx.json(result)
+        } else {
+            let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"Failed to set isNew flag\",\"success\":0}"
+            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+            ctx.json(errorResponse)
+        }
+    }
+
+    /**
+     * 清除归档的isNew标记（DELETE /api/archives/{id}/isnew）
+     */
+    public static func clearIsNew(ctx: JoyContext): Unit {
+        let id = ctx.getParam("id").getOrThrow()
+
+        // 检查ID是否为空
+        if (id.size == 0) {
+            let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"No archive ID specified.\",\"success\":0}"
+            ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+            ctx.json(errorResponse)
+            return
+        }
+
+        // 检查归档是否存在
+        let archive = ArchiveModel.getArchiveById(id)
+        if (archive.id.size == 0) {
+            let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"Archive not found\",\"success\":0}"
+            ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+            ctx.json(errorResponse)
+            return
+        }
+
+        // 更新isNew标记为false
+        let updateSuccess = ArchiveDao.clearIsNew(id)
+
+        if (updateSuccess) {
+            let result = "{\"operation\":\"clear_isnew\",\"success\":1}"
+            ctx.json(result)
+        } else {
+            let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"Failed to clear isNew flag\",\"success\":0}"
+            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+            ctx.json(errorResponse)
+        }
+    }
 }

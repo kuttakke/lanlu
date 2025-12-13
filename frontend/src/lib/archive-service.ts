@@ -79,6 +79,20 @@ export class ArchiveService {
     return response.data;
   }
 
+  /**
+   * 设置归档为新状态（PUT /api/archives/:id/isnew）
+   */
+  static async setIsNew(id: string): Promise<void> {
+    await apiClient.put(`/api/archives/${id}/isnew`);
+  }
+
+  /**
+   * 清除归档的新标记（DELETE /api/archives/:id/isnew）
+   */
+  static async clearIsNew(id: string): Promise<void> {
+    await apiClient.delete(`/api/archives/${id}/isnew`);
+  }
+
   static getThumbnailUrl(id: string, page: number = 1): string {
     // 使用相对路径，因为前端和后端部署在一起
     return `/api/archives/${id}/thumbnail?page=${page}`;

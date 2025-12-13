@@ -154,7 +154,11 @@
     "updateFailed": "Update failed, please try again",
     "tagsPlaceholder": "Enter tags separated by commas",
     "summary": "Summary",
-    "summaryPlaceholder": "Enter archive summary"
+    "summaryPlaceholder": "Enter archive summary",
+    "markAsRead": "Mark as Read",
+    "markAsNew": "Mark as New",
+    "markAsReadFailed": "Failed to mark as read",
+    "markAsNewFailed": "Failed to mark as new"
   },
   "reader": {
     "page": "Page {current} / {total}",

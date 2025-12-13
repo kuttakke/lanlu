@@ -82,6 +82,17 @@ public class ArchiveRoutes {
             ArchiveController.deleteArchive(ctx)
         })
 
+        // 设置归档的isNew标记
+        router.put("/api/archives/{id}/isnew", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ArchiveController.setIsNew(ctx)
+        })
+
+        // 清除归档的isNew标记
+        router.delete("/api/archives/{id}/isnew", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            ArchiveController.clearIsNew(ctx)
+        })
 
         // 分片上传 - 初始化上传会话
         router.post("/api/archives/upload/init", { ctx =>

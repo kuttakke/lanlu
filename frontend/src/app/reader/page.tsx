@@ -70,6 +70,14 @@ function ReaderContent() {
       try {
         const data = await ArchiveService.getFiles(id);
         setPages(data);
+
+        // 自动清除isnew标记（标记为已读）
+        try {
+          await ArchiveService.clearIsNew(id);
+        } catch (err) {
+          console.error('Failed to clear isnew flag:', err);
+          // 不影响阅读体验，静默失败
+        }
       } catch (err) {
         console.error('Failed to fetch archive pages:', err);
         setError('Failed to fetch archive pages');

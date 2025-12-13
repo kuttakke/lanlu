@@ -854,4 +854,62 @@ public class ArchiveDao {
         }
         return ArchiveData()
     }
+
+    /**
+     * 设置归档的isNew标记
+     */
+    public static func setIsNew(id: String): Bool {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("UPDATE archives SET isnew = ? WHERE arcid = ?")
+                    try {
+                        stmt.set(0, true)
+                        stmt.set(1, id)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("archive_dao").error("设置isNew标记失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (closeException: Exception) {}
+                }
+            case None =>
+                getLogger("archive_dao").error("无法连接到数据库")
+                return false
+        }
+    }
+
+    /**
+     * 清除归档的isNew标记
+     */
+    public static func clearIsNew(id: String): Bool {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("UPDATE archives SET isnew = ? WHERE arcid = ?")
+                    try {
+                        stmt.set(0, false)
+                        stmt.set(1, id)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("archive_dao").error("清除isNew标记失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (closeException: Exception) {}
+                }
+            case None =>
+                getLogger("archive_dao").error("无法连接到数据库")
+                return false
+        }
+    }
 }
