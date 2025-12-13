@@ -8,7 +8,7 @@ import { ThemeToggle, ThemeButton } from '@/components/theme/theme-toggle';
 import { LanguageButton } from '@/components/language/LanguageToggle';
 import { LoginDialog } from '@/components/auth/LoginDialog';
 import { UserMenu } from '@/components/user/UserMenu';
-import { Menu, X, Home, Search, BookOpen, Shuffle, Settings } from 'lucide-react';
+import { Menu, X, Home, Search, Shuffle, Settings, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +19,15 @@ export function Header() {
   const [randomLoading, setRandomLoading] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const showBackButton = pathname !== '/';
+
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/');
+  };
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -65,6 +74,19 @@ export function Header() {
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
+
+            {showBackButton && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="px-2"
+                aria-label={t('common.back')}
+                title={t('common.back')}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             
             <Link href="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
