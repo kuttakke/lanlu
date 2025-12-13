@@ -2,6 +2,8 @@ import { apiClient } from './api';
 import { Archive, SearchResponse, SearchParams, RandomParams, ArchiveMetadata } from '@/types/archive';
 import { ServerInfo } from '@/types/server';
 import { ChunkedUploadService, UploadMetadata, UploadProgressCallback, UploadResult } from './chunked-upload-service';
+import { MinionService } from './minion-service';
+import type { MinionTask } from '@/types/minion';
 
 // 下载相关接口定义
 export interface DownloadMetadata {
@@ -23,6 +25,8 @@ export interface DownloadResult {
   error?: string;
   filename?: string;
   size?: number;
+  relativePath?: string;
+  pluginRelativePath?: string;
 }
 
 export class ArchiveService {
@@ -234,18 +238,59 @@ export class ArchiveService {
         category_id: metadata?.categoryId
       });
 
-      callbacks?.onProgress?.(100);
+      const rawSuccess = response.data?.success;
+      const enqueueSuccess =
+        rawSuccess === true ||
+        rawSuccess === 1 ||
+        rawSuccess === "1" ||
+        rawSuccess === "true";
 
-      const result: DownloadResult = {
-        success: response.data.success,
-        id: response.data.id,
-        error: response.data.error,
-        filename: response.data.filename,
-        size: response.data.size
+      if (!enqueueSuccess) {
+        const errorMessage = response.data?.error || 'Download failed';
+        callbacks?.onError?.(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+
+      const jobId = response.data?.job;
+      if (!jobId) {
+        // 兼容旧返回（若后端仍直接返回id等信息）
+        const result: DownloadResult = {
+          success: true,
+          id: response.data.id,
+          error: response.data.error,
+          filename: response.data.filename,
+          size: response.data.size,
+          relativePath: response.data.relative_path,
+          pluginRelativePath: response.data.plugin_relative_path
+        };
+        callbacks?.onProgress?.(100);
+        callbacks?.onComplete?.(result);
+        return result;
+      }
+
+      const finalTask = await this.waitForTaskCompletion(Number(jobId), (task) => {
+        const p = typeof task.progress === 'number' ? task.progress : 0;
+        callbacks?.onProgress?.(Math.max(0, Math.min(100, p)));
+      });
+
+      const parsed = this.parseTaskOutput(finalTask);
+      if (finalTask.status === 'failed' || parsed.success === false) {
+        const err = parsed.error || finalTask.result || finalTask.message || 'Download failed';
+        const failResult: DownloadResult = { success: false, error: err };
+        callbacks?.onComplete?.(failResult);
+        return failResult;
+      }
+
+      const okResult: DownloadResult = {
+        success: true,
+        id: parsed.id,
+        filename: parsed.filename,
+        relativePath: parsed.relativePath,
+        pluginRelativePath: parsed.pluginRelativePath
       };
-
-      callbacks?.onComplete?.(result);
-      return result;
+      callbacks?.onProgress?.(100);
+      callbacks?.onComplete?.(okResult);
+      return okResult;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || 'Download failed';
       callbacks?.onError?.(errorMessage);
@@ -254,6 +299,61 @@ export class ArchiveService {
         success: false,
         error: errorMessage
       };
+    }
+  }
+
+  private static async waitForTaskCompletion(
+    jobId: number,
+    onUpdate?: (task: MinionTask) => void,
+    options?: { intervalMs?: number; timeoutMs?: number }
+  ): Promise<MinionTask> {
+    const intervalMs = options?.intervalMs ?? 800;
+    const timeoutMs = options?.timeoutMs ?? 10 * 60 * 1000;
+    const start = Date.now();
+
+    while (true) {
+      const task = await MinionService.getTaskById(jobId);
+      onUpdate?.(task);
+
+      if (task.status === 'completed' || task.status === 'failed' || task.status === 'stopped') {
+        return task;
+      }
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`Task ${jobId} timeout`);
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
+
+  private static parseTaskOutput(task: MinionTask): {
+    success: boolean;
+    id?: string;
+    error?: string;
+    filename?: string;
+    relativePath?: string;
+    pluginRelativePath?: string;
+  } {
+    const raw = task.result;
+    if (!raw) return { success: task.status === 'completed' };
+    try {
+      const obj = JSON.parse(raw);
+      const rawSuccess = obj?.success;
+      const success =
+        rawSuccess === true ||
+        rawSuccess === 1 ||
+        rawSuccess === "1" ||
+        rawSuccess === "true";
+
+      return {
+        success,
+        id: obj?.id,
+        error: obj?.error,
+        filename: obj?.filename,
+        relativePath: obj?.relative_path,
+        pluginRelativePath: obj?.plugin_relative_path
+      };
+    } catch {
+      return { success: task.status === 'completed' };
     }
   }
 

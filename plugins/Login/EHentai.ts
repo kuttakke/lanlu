@@ -17,10 +17,10 @@ class EHentaiLoginPlugin extends BasePlugin {
       icon: "https://e-hentai.org/favicon.ico",
       description: "Handles login to E-H. If you have an account that can access fjorded content or exhentai, adding the credentials here will make more archives available for parsing.",
       parameters: [
-        { type: "string", desc: "ipb_member_id cookie" },
-        { type: "string", desc: "ipb_pass_hash cookie" },
-        { type: "string", desc: "star cookie (optional, if present you can view fjorded content without exhentai)" },
-        { type: "string", desc: "igneous cookie(optional, if present you can view exhentai without Europe and America IP)" }
+        { name: "ipb_member_id", type: "string", desc: "ipb_member_id cookie" },
+        { name: "ipb_pass_hash", type: "string", desc: "ipb_pass_hash cookie" },
+        { name: "star", type: "string", desc: "star cookie (optional, if present you can view fjorded content without exhentai)" },
+        { name: "igneous", type: "string", desc: "igneous cookie(optional, if present you can view exhentai without Europe and America IP)" }
       ],
       permissions: ["net=exhentai.org", "net=e-hentai.org", "net=forums.e-hentai.org"]
     };

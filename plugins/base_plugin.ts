@@ -3,8 +3,10 @@
  */
 export interface PluginParameter {
   type: 'string' | 'int' | 'bool';
+  name?: string;
   desc: string;
   default_value?: string;
+  value?: any;
 }
 
 /**
@@ -40,6 +42,43 @@ export interface PluginResult {
  */
 export abstract class BasePlugin {
   abstract getPluginInfo(): PluginInfo;
+
+  protected async log(level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR', message: string, meta?: unknown): Promise<void> {
+    try {
+      const ts = new Date().toISOString();
+      const namespace = this.getPluginInfo()?.namespace || 'unknown';
+      const metaStr = meta === undefined ? '' : ` meta=${this.safeJson(meta)}`;
+      const line = `${ts} ${level} namespace=${namespace} msg=${message}${metaStr}\n`;
+
+      try {
+        await Deno.writeTextFile('./data/logs/plugins.log', line, { append: true });
+        return;
+      } catch {
+        // ignore and fall back
+      }
+
+      try {
+        await Deno.writeTextFile(`./data/plugins/${namespace}/plugins.log`, line, { append: true });
+      } catch {
+        // ignore logging failures
+      }
+    } catch {
+      // ignore logging failures
+    }
+  }
+
+  protected logDebug(message: string, meta?: unknown): Promise<void> {
+    return this.log('DEBUG', message, meta);
+  }
+  protected logInfo(message: string, meta?: unknown): Promise<void> {
+    return this.log('INFO', message, meta);
+  }
+  protected logWarn(message: string, meta?: unknown): Promise<void> {
+    return this.log('WARN', message, meta);
+  }
+  protected logError(message: string, meta?: unknown): Promise<void> {
+    return this.log('ERROR', message, meta);
+  }
 
   /**
    * 处理命令行参数
@@ -100,6 +139,14 @@ export abstract class BasePlugin {
       }
     }
     return {};
+  }
+
+  private safeJson(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '"<unserializable>"';
+    }
   }
 
   /**

@@ -1,4 +1,4 @@
-package lrr4cj.controllers
+package lrr4cj.services
 
 import std.regex.*
 import std.fs.*
@@ -8,19 +8,198 @@ import std.convert.*
 import std.collection.*
 import stdx.encoding.json.*
 import stdx.log.*
-import cjoy.*
 import lrr4cj.dao.*
 import lrr4cj.models.*
-import lrr4cj.services.*
 import lrr4cj.utils.*
 
 /**
- * 处理下载URL的控制器
- * 负责匹配下载插件、调用插件并拉取文件到归档目录
+ * download_url 任务执行器（运行在TaskPool中）
  */
-public class DownloadController {
-    private static func escapeJsonString(str: String): String {
-        var escaped = str
+public class DownloadUrlTaskRunner {
+
+    public static func run(taskId: Int64, parameters: String): Unit {
+        let logger = getLogger("download_url_task")
+        TaskIO.appendLog(taskId, "download_url task started")
+        MinionModel.updateTaskProgress(taskId, 1, "下载任务开始")
+
+        let url = parseUrl(parameters)
+        if (url.size == 0) {
+            fail(taskId, "url is required")
+            return
+        }
+
+        try {
+            TaskIO.appendLog(taskId, "url=${url}")
+            MinionModel.updateTaskProgress(taskId, 5, "匹配下载插件")
+
+            let pluginOpt = findMatchingDownloadPlugin(url)
+            if (pluginOpt.isNone()) {
+                fail(taskId, "No download plugin matches provided url")
+                return
+            }
+            let plugin = pluginOpt.getOrThrow()
+            MinionTaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
+            TaskIO.appendLog(taskId, "matched plugin=${plugin.namespace}")
+
+            MinionModel.updateTaskProgress(taskId, 10, "准备插件脚本")
+            let pluginReady = ensurePluginScriptReady(plugin, "Download")
+            if (!pluginReady) {
+                fail(taskId, "Failed to prepare download plugin file")
+                return
+            }
+
+            // 兼容旧记录：若数据库缺少 login_from，则从插件脚本 plugin_info 中解析并回填
+            let pluginService = PluginService.getInstance()
+            pluginService.hydrateDownloadPluginRuntimeInfo(plugin)
+            let effectiveLoginFrom = plugin.login_from.trimAscii()
+            if (effectiveLoginFrom.size > 0) {
+                plugin.login_from = effectiveLoginFrom
+                let loginPlugin = PluginDao.getPluginByNamespace(effectiveLoginFrom)
+                if (loginPlugin.namespace.size == 0) {
+                    fail(taskId, "Login plugin ${plugin.login_from} not found")
+                    return
+                }
+                let loginReady = ensurePluginScriptReady(loginPlugin, "Login")
+                if (!loginReady) {
+                    fail(taskId, "Failed to prepare login plugin file")
+                    return
+                }
+            }
+
+            MinionModel.updateTaskProgress(taskId, 20, "执行下载插件")
+            let execResult = pluginService.executeDownloadPlugin(plugin, url)
+            if (!execResult.success) {
+                fail(taskId, "Plugin execution failed: ${execResult.error}")
+                return
+            }
+
+            let output = match (execResult.data.get("output")) {
+                case Some(v) => v
+                case None => ""
+            }
+            let loginCookiesJson = match (execResult.data.get("login_cookies")) {
+                case Some(v) => v
+                case None => ""
+            }
+            TaskIO.appendLog(taskId, "plugin output: ${output}")
+
+            // 插件自行下载并回传 relative_path（相对于 ./data）
+            let downloadedRelativePath = parseDownloadedRelativePath(output)
+            let usePluginDownloadedFile = downloadedRelativePath.size > 0
+            var downloadUrl = ""
+            if (!usePluginDownloadedFile) {
+                downloadUrl = parseDownloadUrl(output)
+                if (downloadUrl.size == 0) {
+                    fail(taskId, "Plugin did not return download_url or relative_path")
+                    return
+                }
+            }
+
+            MinionModel.updateTaskProgress(taskId, 35, "下载文件")
+
+            var fileName = ""
+            var pluginTarget = Path("")
+            var pluginRelativePath = ""
+
+            if (usePluginDownloadedFile) {
+                if (downloadedRelativePath.contains("..") || downloadedRelativePath.startsWith("/") ||
+                    !downloadedRelativePath.startsWith("plugins/${plugin.namespace}/")) {
+                    fail(taskId, "Plugin returned invalid relative_path")
+                    return
+                }
+
+                pluginRelativePath = downloadedRelativePath
+                pluginTarget = Path("./data/${downloadedRelativePath}")
+                if (!exists(pluginTarget)) {
+                    fail(taskId, "Plugin downloaded file not found")
+                    return
+                }
+                fileName = pluginTarget.fileName
+            } else {
+                fileName = deriveFileName(downloadUrl)
+                if (fileName.size == 0) {
+                    fileName = "download_${DateTime.now().toUnixTimeStamp().toSeconds().toString()}.bin"
+                }
+
+                let pluginDataDir = "./data/plugins/${plugin.namespace}"
+                pluginTarget = Path("${pluginDataDir}/${fileName}")
+                FileUtils.ensureDirectoryExists(Path(pluginDataDir))
+
+                let downloadOk = downloadToPath(downloadUrl, pluginTarget.toString(), loginCookiesJson)
+                if (!downloadOk) {
+                    fail(taskId, "Failed to download file from plugin url")
+                    return
+                }
+                pluginRelativePath = "plugins/${plugin.namespace}/${fileName}"
+            }
+
+            MinionModel.updateTaskProgress(taskId, 60, "移动到archive")
+
+            let archiveDir = Path("./data/archive")
+            FileUtils.ensureDirectoryExists(archiveDir)
+
+            let finalArchivePath = Path("${archiveDir.toString()}/${fileName}")
+            let finalArchivePathStr = finalArchivePath.toString()
+            let relativePath = "archive/${fileName}"
+
+            try {
+                rename(pluginTarget, to: finalArchivePath)
+            } catch (e: Exception) {
+                fail(taskId, "Failed to move file to archive: ${e.message}")
+                return
+            }
+
+            MinionModel.updateTaskProgress(taskId, 80, "Shinobu处理中")
+
+            let shinobu = ShinobuService.getInstance()
+            let processResult = shinobu.processUploadedArchiveFile(finalArchivePathStr)
+
+            if (!processResult.success) {
+                let errorJson = "{\"success\":0,\"relative_path\":\"${relativePath}\",\"error\":\"${escapeJson(processResult.error)}\"}"
+                MinionModel.failTask(taskId, processResult.error)
+                TaskIO.writeOutput(taskId, errorJson)
+                return
+            }
+
+            let resultJson = "{\"success\":1,\"relative_path\":\"${relativePath}\",\"plugin_relative_path\":\"${pluginRelativePath}\",\"id\":\"${processResult.archiveId}\",\"filename\":\"${escapeJson(fileName)}\"}"
+
+            MinionModel.updateTaskProgress(taskId, 100, "下载完成")
+            MinionModel.completeTask(taskId, "download_url completed")
+            TaskIO.writeOutput(taskId, resultJson)
+            TaskIO.appendLog(taskId, "download_url task completed: archiveId=${processResult.archiveId}")
+        } catch (e: Exception) {
+            fail(taskId, e.message)
+        }
+    }
+
+    private static func fail(taskId: Int64, message: String): Unit {
+        let msg = if (message.size == 0) { "Unknown error" } else { message }
+        TaskIO.appendLog(taskId, "FAILED: ${msg}")
+        MinionModel.failTask(taskId, msg)
+        TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
+    }
+
+    private static func parseUrl(parameters: String): String {
+        let trimmed = parameters.trimAscii()
+        if (trimmed.size == 0) {
+            return ""
+        }
+        try {
+            let bodyJson = JsonValue.fromStr(trimmed)
+            match (bodyJson) {
+                case obj: JsonObject =>
+                    let fields = obj.getFields()
+                    if (fields.contains("url")) {
+                        return fields["url"].toString().trimAscii()
+                    }
+                case _ => ()
+            }
+        } catch (_: Exception) {}
+        return ""
+    }
+
+    private static func escapeJson(s: String): String {
+        var escaped = s
         escaped = escaped.replace("\\", "\\\\")
         escaped = escaped.replace("\"", "\\\"")
         escaped = escaped.replace("\b", "\\b")
@@ -31,72 +210,8 @@ public class DownloadController {
         return escaped
     }
 
-    /**
-     * POST /api/download_url
-     * 请求体: { "url": "https://example.com/file.zip" }
-     */
-    public static func downloadFromUrl(ctx: JoyContext): Unit {
-        let logger = getLogger("download_controller")
-
-        try {
-            let requestBody = ctx.readString()
-            var url = ""
-
-            if (requestBody.size > 0) {
-                try {
-                    let bodyJson = JsonValue.fromStr(requestBody)
-                    match (bodyJson) {
-                        case obj: JsonObject =>
-                            let fields = obj.getFields()
-                            if (fields.contains("url")) {
-                                let urlVal = fields["url"]
-                                url = urlVal.toString().trimAscii()
-                            }
-                        case _ => ()
-                    }
-                } catch (e: Exception) {
-                    logger.warn("解析下载请求JSON失败", ("error", e.message))
-                }
-            }
-
-            if (url.size == 0) {
-                url = ctx.getQuery("url") ?? ""
-            }
-
-            if (url.size == 0) {
-                ctx.status(400)
-                ctx.json("{\"success\":0,\"error\":\"url is required\"}")
-                return
-            }
-
-            // 进入TaskPool：创建任务并立即返回job id，前端通过 /api/minion/tasks/{id} 查询进度与结果
-            // 任务标题不携带参数（URL等），避免在任务列表里泄露/污染标题
-            let task = MinionModel.createTask("文件上传（在线下载）", "download_url")
-            let paramsJson = if (requestBody.trimAscii().size > 0) {
-                requestBody
-            } else {
-                "{\"url\":\"${escapeJsonString(url)}\"}"
-            }
-            MinionTaskDao.updateTaskParameters(task.id, paramsJson)
-            TaskIO.appendLog(task.id, "enqueued download_url url=${url}")
-
-            // 唤醒 TaskPool 领取 pending（无轮询）
-            TaskPoolService.getInstance().notifyTaskAvailable()
-
-            let response = "{\"job\":${task.id},\"operation\":\"download_url\",\"success\":1,\"url\":\"${escapeJsonString(url)}\"}"
-            ctx.json(response)
-        } catch (e: Exception) {
-            getLogger("download_controller").error("下载处理异常", ("error", e.message))
-            ctx.status(500)
-            ctx.json("{\"success\":0,\"error\":\"${e.message}\"}")
-        }
-    }
-
-    /**
-     * 根据URL匹配可用的下载插件
-     */
     private static func findMatchingDownloadPlugin(url: String): Option<PluginData> {
-        let logger = getLogger("download_controller")
+        let logger = getLogger("download_url_task")
         let plugins = PluginDao.getPluginsByType("Download")
         var disabledMatch: Option<PluginData> = Option.None
 
@@ -120,7 +235,6 @@ public class DownloadController {
             }
         }
 
-        // 如果只匹配到禁用的插件，尝试自动启用并返回
         if (disabledMatch.isSome()) {
             let plugin = disabledMatch.getOrThrow()
             logger.warn("匹配到禁用的下载插件，自动启用", ("namespace", plugin.namespace))
@@ -135,16 +249,6 @@ public class DownloadController {
         return Option<PluginData>.None
     }
 
-    /**
-     * 确保下载插件被复制到 data/plugins/{namespace}/Download.ts
-     */
-    private static func ensureDownloadPluginReady(plugin: PluginData): Bool {
-        return ensurePluginScriptReady(plugin, "Download")
-    }
-
-    /**
-     * 通用helper，确保插件脚本文件存在
-     */
     private static func ensurePluginScriptReady(plugin: PluginData, scriptName: String): Bool {
         try {
             let pluginsRoot = Path("./data/plugins")
@@ -153,10 +257,9 @@ public class DownloadController {
             let sharedBase = Path("${pluginsRoot.toString()}/base_plugin.ts")
             let sharedSource = Path("./plugins/base_plugin.ts")
             if (!exists(sharedSource)) {
-                getLogger("download_controller").error("缺少共享基础插件文件", ("path", sharedSource.toString()))
+                getLogger("download_url_task").error("缺少共享基础插件文件", ("path", sharedSource.toString()))
                 return false
             }
-            // 始终覆盖，确保更新的基类生效
             copy(sharedSource, to: sharedBase, overwrite: true)
 
             let pluginDir = Path("${pluginsRoot.toString()}/${plugin.namespace}")
@@ -165,27 +268,22 @@ public class DownloadController {
             let targetFile = Path("${pluginDir.toString()}/${scriptName}.ts")
             let sourcePath = Path("./plugins/${plugin.plugin_type}/${plugin.entry}")
             if (!exists(sourcePath)) {
-                getLogger("download_controller").error("源插件文件不存在", ("path", sourcePath.toString()))
+                getLogger("download_url_task").error("源插件文件不存在", ("path", sourcePath.toString()))
                 return false
             }
 
-            // 始终覆盖，确保更新的插件脚本生效
             copy(sourcePath, to: targetFile, overwrite: true)
             return true
         } catch (e: Exception) {
-            getLogger("download_controller").error("准备插件文件失败", ("error", e.message))
+            getLogger("download_url_task").error("准备插件文件失败", ("error", e.message))
             return false
         }
     }
 
-    /**
-     * 解析插件输出中的下载链接
-     */
     private static func parseDownloadUrl(output: String): String {
         if (output.size == 0) {
             return ""
         }
-
         try {
             let jsonVal = JsonValue.fromStr(output)
             match (jsonVal) {
@@ -219,14 +317,10 @@ public class DownloadController {
         return ""
     }
 
-    /**
-     * 解析插件输出中的相对路径（相对于 ./data）
-     */
     private static func parseDownloadedRelativePath(output: String): String {
         if (output.size == 0) {
             return ""
         }
-
         try {
             let jsonVal = JsonValue.fromStr(output)
             match (jsonVal) {
@@ -243,23 +337,8 @@ public class DownloadController {
                                         if (dataFields.contains("relative_path")) {
                                             let rpVal = dataFields["relative_path"]
                                             match (rpVal) {
-                                                case rpStr: JsonString => return rpStr.getValue()
-                                                case _ => return rpVal.toString()
-                                            }
-                                        }
-                                        // 兼容 LANraragi 风格：data.file_path（可能是 ./data/... 或 data/...）
-                                        if (dataFields.contains("file_path")) {
-                                            let fpVal = dataFields["file_path"]
-                                            let fpStr = match (fpVal) {
-                                                case fpJson: JsonString => fpJson.getValue()
-                                                case _ => fpVal.toString()
-                                            }
-                                            let trimmed = fpStr.trimAscii()
-                                            if (trimmed.startsWith("./data/")) {
-                                                return trimmed[7..trimmed.size]
-                                            }
-                                            if (trimmed.startsWith("data/")) {
-                                                return trimmed[5..trimmed.size]
+                                                case rpStr: JsonString => return rpStr.getValue().trimAscii()
+                                                case _ => return rpVal.toString().trimAscii()
                                             }
                                         }
                                     case _ => ()
@@ -275,9 +354,6 @@ public class DownloadController {
         return ""
     }
 
-    /**
-     * 从URL提取文件名
-     */
     private static func deriveFileName(downloadUrl: String): String {
         let parts = downloadUrl.split("/")
         if (parts.size == 0) {
@@ -290,9 +366,6 @@ public class DownloadController {
         return candidate
     }
 
-    /**
-     * 使用 curl 将文件下载到指定路径
-     */
     private static func downloadToPath(url: String, outputPath: String, loginCookiesJson: String): Bool {
         try {
             var args = ArrayList<String>()
@@ -420,3 +493,4 @@ public class DownloadController {
         return false
     }
 }
+

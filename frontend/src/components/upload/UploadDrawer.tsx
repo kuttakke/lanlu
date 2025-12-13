@@ -185,7 +185,12 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
       }
 
       // 使用模拟下载，等后端API实现后可以替换为真实下载
-      await ArchiveService.simulateDownload(task.url, callbacks)
+      await ArchiveService.downloadFromUrl(task.url, {
+        title: task.title || undefined,
+        tags: task.tags || undefined,
+        summary: task.summary || undefined,
+        categoryId: task.categoryId || undefined
+      }, callbacks)
     } catch (error) {
       updateDownloadTask(task.id, "status", "error")
       updateDownloadTask(task.id, "error", "下载失败")

@@ -17,13 +17,13 @@ class EHentaiMetadataPlugin extends BasePlugin {
       version: "2.6",
       description: "Searches g.e-hentai for tags matching your archive. This plugin will use the source: tag of the archive if it exists.",
       parameters: [
-        { type: "string", desc: "Forced language to use in searches (Japanese won't work due to EH limitations)" },
-        { type: "bool", desc: "Fetch using thumbnail first (falls back to title)" },
-        { type: "bool", desc: "Search using gID from title (falls back to title)" },
-        { type: "bool", desc: "Use ExHentai (enable to search for fjorded content without star cookie)" },
-        { type: "bool", desc: "Save the original title when available instead of the English or romanised title" },
-        { type: "bool", desc: "Fetch additional timestamp (time posted) and uploader metadata" },
-        { type: "bool", desc: "Search only expunged galleries" }
+        { name: "lang", type: "string", desc: "Forced language to use in searches (Japanese won't work due to EH limitations)" },
+        { name: "usethumbs", type: "bool", desc: "Fetch using thumbnail first (falls back to title)" },
+        { name: "search_gid", type: "bool", desc: "Search using gID from title (falls back to title)" },
+        { name: "enablepanda", type: "bool", desc: "Use ExHentai (enable to search for fjorded content without star cookie)" },
+        { name: "jpntitle", type: "bool", desc: "Save the original title when available instead of the English or romanised title" },
+        { name: "additionaltags", type: "bool", desc: "Fetch additional timestamp (time posted) and uploader metadata" },
+        { name: "expunged", type: "bool", desc: "Search only expunged galleries" }
       ],
       oneshot_arg: "E-H Gallery URL (Will attach tags matching this exact gallery to your archive)",
       cooldown: 4,

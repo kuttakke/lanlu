@@ -1,0 +1,156 @@
+package lrr4cj.services
+
+import std.sync.*
+import std.time.*
+import std.convert.*
+import stdx.log.*
+import dotenv.Dotenv
+import lrr4cj.dao.*
+import lrr4cj.models.*
+import lrr4cj.utils.*
+
+/**
+ * TaskPool：用worker线程从DB领取pending任务并执行
+ */
+public class TaskPoolService {
+    private static var instance: Option<TaskPoolService> = Option<TaskPoolService>.None
+    private static let instanceMutex: Mutex = Mutex()
+
+    private var isRunning: Bool = false
+    private let runningMutex: Mutex = Mutex()
+
+    // 并发 worker 上限
+    private var maxWorkers: Int32 = 2
+    private var currentWorkers: Int32 = 0
+    private var workerSeq: Int32 = 0
+    private let dispatchMutex: Mutex = Mutex()
+
+    private init() {
+        let config = Dotenv.createConfig()
+        let workersStr = config.read("TASKPOOL_WORKERS", "2")
+        maxWorkers = try {
+            Int32.parse(workersStr)
+        } catch (_) {
+            2
+        }
+        if (maxWorkers < 1) {
+            maxWorkers = 1
+        }
+    }
+
+    public static func getInstance(): TaskPoolService {
+        instanceMutex.lock()
+        match (instance) {
+            case Some(s) =>
+                instanceMutex.unlock()
+                return s
+            case None =>
+                let s = TaskPoolService()
+                instance = Some(s)
+                instanceMutex.unlock()
+                return s
+        }
+    }
+
+    public func start(): Bool {
+        runningMutex.lock()
+        if (isRunning) {
+            runningMutex.unlock()
+            return true
+        }
+        isRunning = true
+        runningMutex.unlock()
+
+        let logger = getLogger("taskpool")
+        logger.info("TaskPool starting", ("max_workers", maxWorkers.toString()))
+
+        // 启动时仅尝试领取已有 pending（不做轮询）
+        dispatch()
+        return true
+    }
+
+    private func isServiceRunning(): Bool {
+        runningMutex.lock()
+        let running = isRunning
+        runningMutex.unlock()
+        return running
+    }
+
+    /**
+     * 有新任务入队时调用：尽可能填满并发 worker
+     */
+    public func notifyTaskAvailable(): Unit {
+        dispatch()
+    }
+
+    /**
+     * 调度：在并发上限内领取 pending 任务并 spawn worker 执行
+     */
+    private func dispatch(): Unit {
+        while (true) {
+            if (!isServiceRunning()) {
+                return
+            }
+
+            // 先占用一个 worker slot（避免并发超发），DB 操作不持锁
+            dispatchMutex.lock()
+            if (currentWorkers >= maxWorkers) {
+                dispatchMutex.unlock()
+                return
+            }
+            let workerId = workerSeq
+            workerSeq += 1
+            currentWorkers += 1
+            dispatchMutex.unlock()
+
+            // 领取一个 pending（无任务则释放 slot 并退出）
+            match (MinionTaskDao.claimNextPendingTask()) {
+                case Some(taskData) =>
+                    let id = workerId
+                    spawn {
+                        runWorker(taskData, id)
+                    }
+                case None =>
+                    dispatchMutex.lock()
+                    if (currentWorkers > 0) {
+                        currentWorkers -= 1
+                    }
+                    dispatchMutex.unlock()
+                    return
+            }
+        }
+    }
+
+    private func runWorker(task: MinionTaskData, workerId: Int32): Unit {
+        let logger = getLogger("taskpool")
+        logger.info("TaskPool worker executing", ("worker", workerId.toString()), ("task_id", task.id.toString()), ("task_type", task.taskType))
+        executeTask(task, workerId)
+
+        // 释放 slot 并尝试领取下一个 pending
+        dispatchMutex.lock()
+        if (currentWorkers > 0) {
+            currentWorkers -= 1
+        }
+        dispatchMutex.unlock()
+
+        dispatch()
+    }
+
+    private func executeTask(task: MinionTaskData, workerIndex: Int32): Unit {
+        let logger = getLogger("taskpool")
+        TaskIO.appendLog(task.id, "[worker ${workerIndex}] start task ${task.id} type=${task.taskType}")
+
+        match (task.taskType) {
+            case "download_url" =>
+                DownloadUrlTaskRunner.run(task.id, task.parameters)
+            case "upload_process" =>
+                UploadProcessTaskRunner.run(task.id, task.parameters)
+            case _ =>
+                TaskIO.appendLog(task.id, "Unknown task type: ${task.taskType}")
+                MinionModel.failTask(task.id, "Unknown task type: ${task.taskType}")
+                TaskIO.writeOutput(task.id, "{\"success\":0,\"error\":\"Unknown task type: ${task.taskType}\"}")
+        }
+
+        logger.info("TaskPool task finished", ("id", task.id.toString()), ("type", task.taskType), ("worker", workerIndex.toString()))
+    }
+}

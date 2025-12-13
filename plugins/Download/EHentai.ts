@@ -1,7 +1,7 @@
 #!/usr/bin/env deno run --allow-net --allow-read
 
 import { BasePlugin, PluginInfo, PluginParameter, PluginResult } from '../base_plugin.ts';
-import contentDisposition from "https://esm.sh/content-disposition@0.5.4?bundle&deno";
+import { download } from "jsr:@doctor/download";
 
 /**
  * E-Hentai下载插件
@@ -29,7 +29,7 @@ class EHentaiDownloadPlugin extends BasePlugin {
         { name: "forceresampled", type: "bool", desc: "Force resampled archive download", default_value: "0" }
       ],
       url_regex: "https?://e(-|x)hentai.org/g/.*/.*",
-      permissions: ["net=e-hentai.org", "net=exhentai.org", "net=ehgt.org", "net=*.hath.network", "run=curl"]
+      permissions: ["net=e-hentai.org", "net=exhentai.org", "net=ehgt.org", "net=*.hath.network", "net=jsr.io"]
     };
   }
 
@@ -124,96 +124,83 @@ class EHentaiDownloadPlugin extends BasePlugin {
       const pluginDir = './data/plugins/ehdl';
       await Deno.mkdir(pluginDir, { recursive: true });
 
-      const fallback = `ehdl_${gID}_${gToken}_${forceresampled ? 'res' : 'org'}_${Date.now()}.zip`;
-
-      const before = await this.listFiles(pluginDir);
       const cookieHeader = this.buildCookieHeader(domain, loginCookies);
 
       const userAgent =
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
-      const args: string[] = ['-fL', '-sS', '-A', userAgent, '-e', `https://${domain}/`];
+      const headers = new Headers();
+      headers.set('User-Agent', userAgent);
+      headers.set('Referer', `https://${domain}/`);
       if (cookieHeader) {
-        args.push('-H', `Cookie: ${cookieHeader}`);
-      }
-      // Use Content-Disposition filename when available
-      args.push('-J', '-O', finalUrl);
-
-      const cmd = new Deno.Command('curl', { args, cwd: pluginDir, stdout: 'null', stderr: 'piped' });
-      const out = await cmd.output();
-      const stderr = new TextDecoder().decode(out.stderr);
-      await this.logInfo('curl finished', { code: out.code, stderr: stderr.slice(0, 2000) });
-
-      if (out.code !== 0) {
-        return { success: false, error: `Archive download failed: curl exit ${out.code}` };
+        headers.set('Cookie', cookieHeader);
       }
 
-      const after = await this.listFiles(pluginDir);
-      const newFiles = after.filter((f) => !before.includes(f));
-      const downloaded = await this.pickDownloadedFile(pluginDir, newFiles);
-      if (!downloaded) {
-        return { success: false, error: 'Archive download failed: could not determine downloaded filename' };
+      const { readable, headers: respHeaders } = await download(finalUrl, { headers });
+
+      const contentDisposition =
+        respHeaders.get('content-disposition') || respHeaders.get('Content-Disposition') || '';
+      const derived = this.deriveFilenameFromContentDisposition(contentDisposition);
+      const fixed = this.maybeFixMojibakeUtf8(derived);
+
+      const fallback = `ehdl_${gID}_${gToken}_${forceresampled ? 'res' : 'org'}_${Date.now()}.zip`;
+      const chosen = fixed && !this.looksGarbledFilename(fixed) ? fixed : fallback;
+      const safeName = chosen.replace(/[\\/]/g, '_');
+      const finalPath = await this.allocateUniquePath(`${pluginDir}/${safeName}`);
+
+      await this.logInfo('download finished', {
+        contentDisposition,
+        derivedFilename: derived,
+        fixedFilename: fixed,
+        finalPath
+      });
+
+      const file = await Deno.open(finalPath, { create: true, write: true, truncate: true });
+      try {
+        await readable.pipeTo(file.writable);
+      } finally {
+        try {
+          file.close();
+        } catch {
+          // ignore
+        }
       }
 
-      const finalName = this.looksGarbledFilename(downloaded) ? fallback : downloaded;
-      const safeName = finalName.replace(/[\\/]/g, '_');
-      if (safeName !== downloaded) {
-        await Deno.rename(`${pluginDir}/${downloaded}`, `${pluginDir}/${safeName}`);
-      }
-
-      const relativePath = `plugins/ehdl/${safeName}`;
-      return { success: true, data: { relativePath, filename: safeName } };
+      const filename = finalPath.split('/').pop() ?? safeName;
+      const relativePath = `plugins/ehdl/${filename}`;
+      return { success: true, data: { relativePath, filename } };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return { success: false, error: `Archive download failed: ${errorMessage}` };
     }
   }
 
-  private async listFiles(dir: string): Promise<string[]> {
-    const files: string[] = [];
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile) files.push(entry.name);
+  private async allocateUniquePath(path: string): Promise<string> {
+    try {
+      await Deno.lstat(path);
+    } catch {
+      return path;
     }
-    files.sort();
-    return files;
-  }
 
-  private async pickDownloadedFile(dir: string, candidates: string[]): Promise<string> {
-    if (candidates.length === 1) return candidates[0];
-    if (candidates.length === 0) return '';
-
-    let best = candidates[0];
-    let bestMtime = 0;
-    for (const name of candidates) {
+    const dot = path.lastIndexOf('.');
+    const base = dot > -1 ? path.slice(0, dot) : path;
+    const ext = dot > -1 ? path.slice(dot) : '';
+    for (let i = 1; i < 10000; i++) {
+      const candidate = `${base}.${i}${ext}`;
       try {
-        const info = await Deno.stat(`${dir}/${name}`);
-        const mtime = info.mtime?.getTime?.() ?? 0;
-        if (mtime >= bestMtime) {
-          bestMtime = mtime;
-          best = name;
-        }
+        await Deno.lstat(candidate);
       } catch {
-        // ignore
+        return candidate;
       }
     }
-    return best;
+    return `${base}.${Date.now()}${ext}`;
   }
 
-  private deriveFilename(response: Response): string {
-    const contentDisposition = response.headers.get('content-disposition') || '';
-    const star = this.parseFilenameStar(contentDisposition);
-    if (star) return this.maybeFixMojibakeUtf8(star);
-
-    const basic = this.parseFilename(contentDisposition);
-    if (basic) return this.maybeFixMojibakeUtf8(basic);
-
-    try {
-      const url = new URL(response.url);
-      const parts = url.pathname.split('/').filter(Boolean);
-      return parts[parts.length - 1] || '';
-    } catch {
-      return '';
-    }
+  private deriveFilenameFromContentDisposition(headerValue: string): string {
+    if (!headerValue) return '';
+    const star = this.parseFilenameStar(headerValue);
+    if (star) return star;
+    return this.parseFilename(headerValue);
   }
 
   private looksGarbledFilename(name: string): boolean {

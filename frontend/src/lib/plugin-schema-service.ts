@@ -3,9 +3,10 @@ import { apiClient } from './api';
 // 插件参数定义 - 对应后端 PluginParameter
 export interface PluginParameter {
   type: 'string' | 'int' | 'bool';
+  name?: string;
   desc: string;
   default_value?: string;
-  value?: string;  // 用户配置的值
+  value?: any;  // 用户配置的值
 }
 
 export interface PluginSchemaResponse {

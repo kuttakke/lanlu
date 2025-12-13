@@ -80,6 +80,17 @@ main(): Int64 {
         return 1
     }
 
+    // 启动 TaskPool（从minion_tasks领取pending任务执行）
+    logger.info("Application starting... step 11a: starting taskpool service")
+    let taskpool = TaskPoolService.getInstance()
+    let taskpoolStarted = taskpool.start()
+    if (taskpoolStarted) {
+        logger.info("TaskPool service started successfully")
+    } else {
+        logger.error("Failed to start TaskPool service")
+        return 1
+    }
+
     // 自动插件发现并强制更新 - 启动时执行
     logger.info("Application starting... step 12: auto plugin discovery with force update")
     var discoveredPlugins: Array<PluginData> = Array<PluginData>()
@@ -97,9 +108,19 @@ main(): Int64 {
             let existingPlugin = PluginDao.getPluginByNamespace(plugin.namespace)
             if (existingPlugin.namespace.size > 0) {
                 // 插件已存在，强制更新参数和权限
-                existingPlugin.parameters = plugin.parameters
+                existingPlugin.name = plugin.name
+                existingPlugin.version = plugin.version
+                existingPlugin.description = plugin.description
+                existingPlugin.author = plugin.author
+                existingPlugin.entry = plugin.entry
+                existingPlugin.plugin_type = plugin.plugin_type
+                existingPlugin.tags = plugin.tags
+                existingPlugin.parameters = mergePluginParameters(existingPlugin.parameters, plugin.parameters)
                 existingPlugin.has_schema = plugin.has_schema
                 existingPlugin.permissions = plugin.permissions
+                existingPlugin.url_regex = plugin.url_regex
+                existingPlugin.login_from = plugin.login_from
+                existingPlugin.installed = plugin.installed
                 if (PluginDao.update(existingPlugin)) {
                     updatedCount += 1
                     logger.info("Force updated plugin schema: ${plugin.name}")

@@ -218,6 +218,8 @@ export class MinionService {
   static getTaskTypeColor(taskType: string): string {
     switch (taskType.toLowerCase()) {
       case 'upload':
+      case 'upload_process':
+      case 'download_url':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'download':
         return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
@@ -236,6 +238,8 @@ export class MinionService {
   static getTaskTypeLabel(taskType: string): string {
     switch (taskType.toLowerCase()) {
       case 'upload':
+      case 'upload_process':
+      case 'download_url':
         return '文件上传';
       case 'download':
         return '文件下载';

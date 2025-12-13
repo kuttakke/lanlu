@@ -12,7 +12,9 @@ public class ShinobuController {
      * 获取Shinobu状态
      */
     public static func getShinobuStatus(ctx: JoyContext) {
-        let status = ShinobuModel.getShinobuStatus()
+        let service = ShinobuService.getInstance()
+        let statusData = service.getStatus()
+        let status = ShinobuStatus(statusData.success, statusData.isAlive, statusData.operation, statusData.pid)
         ctx.json(status.toJson())
     }
     
@@ -20,7 +22,8 @@ public class ShinobuController {
      * 停止Shinobu
      */
     public static func stopShinobu(ctx: JoyContext) {
-        let success = ShinobuModel.stopShinobu()
+        let service = ShinobuService.getInstance()
+        let success = service.stop()
         if (success) {
             let response = "{\"operation\":\"shinobu_stop\",\"success\":1}"
             ctx.json(response)
@@ -34,7 +37,10 @@ public class ShinobuController {
      * 重启Shinobu
      */
     public static func restartShinobu(ctx: JoyContext) {
-        let result = ShinobuModel.restartShinobu()
+        let service = ShinobuService.getInstance()
+        let success = service.restart()
+        let statusData = service.getStatus()
+        let result = ShinobuResult(if (success) { 1 } else { 0 }, "shinobu_restart", statusData.pid)
         ctx.json(result.toJson())
     }
     
@@ -42,7 +48,8 @@ public class ShinobuController {
      * 启动Shinobu
      */
     public static func startShinobu(ctx: JoyContext) {
-        let success = ShinobuModel.startShinobu()
+        let service = ShinobuService.getInstance()
+        let success = service.start()
         if (success) {
             let response = "{\"operation\":\"shinobu_start\",\"success\":1}"
             ctx.json(response)
@@ -56,8 +63,10 @@ public class ShinobuController {
      * 扫描档案文件
      */
     public static func scanArchives(ctx: JoyContext) {
-        let result = ShinobuModel.scanArchives()
-        ctx.json(result)
+        let service = ShinobuService.getInstance()
+        let result = service.scanArchives()
+        let json = "{\"processed_count\":${result.processedCount},\"error_count\":${result.errorCount},\"total_found\":${result.totalFound}}"
+        ctx.json(json)
     }
     
     /**
@@ -90,7 +99,16 @@ public class ShinobuController {
      * 获取文件监视器状态
      */
     public static func getFileWatcherStatus(ctx: JoyContext) {
-        let status = ShinobuModel.getFileWatcherStatus()
+        let service = ShinobuService.getInstance()
+        let statusData = service.getFileWatcherStatus()
+        let status = FileWatcherStatus(
+            statusData.isActive,
+            statusData.watcherCount,
+            statusData.lastEventTime,
+            statusData.totalEvents,
+            statusData.errorCount,
+            statusData.lastError
+        )
         ctx.json(status.toJson())
     }
     
@@ -98,7 +116,8 @@ public class ShinobuController {
      * 重启文件监视器
      */
     public static func restartFileWatcher(ctx: JoyContext) {
-        let success = ShinobuModel.restartFileWatcher()
+        let service = ShinobuService.getInstance()
+        let success = service.restartFileWatcher()
         
         if (success) {
             let response = "{\"operation\":\"file_watcher_restart\",\"success\":1}"

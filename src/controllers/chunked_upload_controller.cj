@@ -278,7 +278,29 @@ public class ChunkedUploadController {
                 absoluteArchivePath = "${archivePath}/${originalFileName}"
             }
 
-            // 调用Shinobu服务处理归档文件（入库和缩略图生成）
+            // async=1 时：交给 TaskPool 处理入库/缩略图；否则保持原行为（同步处理）
+            let asyncFlag = ctx.getQuery("async") ?? ""
+            if (asyncFlag == "1" || asyncFlag == "true") {
+                // 更新任务类型并置为pending，等待TaskPool领取
+                let paramsJson =
+                    "{"
+                    + "\"archive_path\":\"${escapeJsonString(absoluteArchivePath)}\","
+                    + "\"relative_path\":\"${escapeJsonString(finalArchivePath.toString())}\","
+                    + "\"filename\":\"${escapeJsonString(originalFileName)}\""
+                    + "}"
+                MinionTaskDao.updateTaskParameters(taskId, paramsJson)
+                MinionTaskDao.updateTaskType(taskId, "upload_process")
+                MinionTaskDao.updateTaskStatus(taskId, "pending", "等待处理", 70)
+                TaskIO.appendLog(taskId, "enqueued upload_process archive_path=${absoluteArchivePath}")
+                TaskPoolService.getInstance().notifyTaskAvailable()
+
+                // 立刻返回job，前端通过 /api/minion/tasks/{id} 查询进度与最终输出
+                let response = "{\"success\":1,\"job\":${taskId},\"operation\":\"upload\",\"filename\":\"${escapeJsonString(originalFileName)}\"}"
+                ctx.json(response)
+                return
+            }
+
+            // 同步模式：调用Shinobu服务处理归档文件（入库和缩略图生成）
             let shinobuService = ShinobuService.getInstance()
             let processResult = shinobuService.processUploadedArchiveFile(absoluteArchivePath)
 
@@ -314,6 +336,18 @@ public class ChunkedUploadController {
             ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
             ctx.json(errorResponse)
         }
+    }
+
+    private static func escapeJsonString(input: String): String {
+        var escaped = input
+        escaped = escaped.replace("\\", "\\\\")
+        escaped = escaped.replace("\"", "\\\"")
+        escaped = escaped.replace("\b", "\\b")
+        escaped = escaped.replace("\f", "\\f")
+        escaped = escaped.replace("\n", "\\n")
+        escaped = escaped.replace("\r", "\\r")
+        escaped = escaped.replace("\t", "\\t")
+        return escaped
     }
 
     /**

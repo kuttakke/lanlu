@@ -111,6 +111,7 @@ export function PluginConfigDialog({
         const value = formValues[paramName];
 
         return {
+          name: param.name,
           type: param.type,
           desc: param.desc,
           default_value: param.default_value,

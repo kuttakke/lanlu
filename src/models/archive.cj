@@ -5,8 +5,8 @@ import std.database.sql.*
 import lrr4cj.config.*
 import std.collection.*
 import std.fs.*
-import lrr4cj.services.*
 import lrr4cj.dao.*
+import dotenv.Dotenv
 
 /**
  * 归档数据模型
@@ -222,7 +222,8 @@ public class ArchiveModel {
      * 获取归档缩略图的文件系统路径
      */
     public static func getThumbnailFilePath(id: String, page: Int32): String {
-        let thumbnailDir = ShinobuService.getThumbnailPath().toString()
+        let config = Dotenv.createConfig()
+        let thumbnailDir = config.read("THUMBNAIL_PATH", "./data/thumb")
         let extension = "jpg"
         
         let archiveIdPath = "${thumbnailDir}/${id}.${extension}"
@@ -256,7 +257,8 @@ public class ArchiveModel {
             return false
         }
         
-        let thumbnailDir = ShinobuService.getThumbnailPath().toString()
+        let config = Dotenv.createConfig()
+        let thumbnailDir = config.read("THUMBNAIL_PATH", "./data/thumb")
         let extension = "jpg"
         let thumbnailPath = "${thumbnailDir}/${id}.${extension}"
         

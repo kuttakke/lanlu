@@ -4,6 +4,7 @@ import cjoy.*
 import cjoy.multipart.*
 import lrr4cj.controllers.*
 import lrr4cj.controllers.ChunkedUploadController
+import lrr4cj.controllers.DownloadController
 import lrr4cj.middleware.*
 
 /**
@@ -102,11 +103,14 @@ public class ArchiveRoutes {
             ChunkedUploadController.completeUpload(ctx)
         })
 
-      
         // 从URL下载档案
-        // router.post("/api/download_url", { ctx =>
-        //     AuthMiddleware.requiredAuth(ctx)
-        //     // TODO: 实现下载URL控制器
-        // })
+        router.post("/api/download_url", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            DownloadController.downloadFromUrl(ctx)
+        })
+        router.get("/api/download_url", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            DownloadController.downloadFromUrl(ctx)
+        })
     }
 }

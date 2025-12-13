@@ -17,7 +17,7 @@ public class InfoController {
     public static func getServerInfo(ctx: JoyContext) {
         try {
             // 获取当前时间戳
-            let currentTime = DateTime.nowUTC().toUnixTimeStamp()
+            let currentTime = DateTime.nowUTC().toUnixTimeStamp().toSeconds()
             
             // 获取档案总数
             let (_, totalArchives) = ArchiveDao.searchArchives("", "", 0, 0, "title", "asc")

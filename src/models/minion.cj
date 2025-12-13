@@ -204,7 +204,21 @@ public class MinionModel {
         let logger = getLogger("minion_model")
         logger.info("根据ID获取任务", [("id", id.toString())])
         let data = MinionTaskDao.getTaskDataById(id)
-        return convertToMinionTask(data)
+        let task = convertToMinionTask(data)
+
+        // 从任务IO读取日志与最终输出（如果存在则覆盖DB中的message/result）
+        if (task.id != 0) {
+            let ioLog = TaskIO.readLog(task.id)
+            if (ioLog.size > 0) {
+                task.message = ioLog
+            }
+            let ioOutput = TaskIO.readOutput(task.id)
+            if (ioOutput.size > 0) {
+                task.result = ioOutput
+            }
+        }
+
+        return task
     }
 
     /**

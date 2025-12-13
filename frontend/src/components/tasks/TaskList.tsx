@@ -86,6 +86,19 @@ export function TaskList({ className }: TaskListProps) {
     fetchTasks(1);
   }, [activeFilter]);
 
+  // 自动刷新：当存在运行中/待执行任务时，周期性刷新列表以展示进度与日志
+  useEffect(() => {
+    const hasActive = tasks.some(t => t?.status === 'running' || t?.status === 'pending');
+    if (!hasActive) return;
+
+    const timer = setInterval(() => {
+      if (loading || refreshing) return;
+      fetchTasks(currentPage);
+    }, 1500);
+
+    return () => clearInterval(timer);
+  }, [tasks, activeFilter, currentPage, loading, refreshing]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchTasks(currentPage);
@@ -319,7 +332,15 @@ export function TaskList({ className }: TaskListProps) {
                 {/* Message */}
                 {task.message && (
                   <div className="text-sm text-muted-foreground">
-                    <strong>状态:</strong> {task.message}
+                    <strong>最新日志:</strong>{' '}
+                    {(() => {
+                      const lines = task.message.split('\n').map(s => s.trim()).filter(Boolean);
+                      const last = lines.length > 0 ? lines[lines.length - 1] : task.message;
+                      return last.length > 160 ? `${last.slice(0, 160)}…` : last;
+                    })()}
+                    <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs max-h-24 overflow-y-auto whitespace-pre-wrap">
+                      {task.message}
+                    </div>
                   </div>
                 )}
 
@@ -358,21 +379,32 @@ export function TaskList({ className }: TaskListProps) {
                   <div className="text-sm">
                     <strong>结果:</strong>
                     <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs max-h-20 overflow-y-auto whitespace-pre-wrap">
-                      {task.result}
+                      {(() => {
+                        try {
+                          return JSON.stringify(JSON.parse(task.result), null, 2);
+                        } catch {
+                          return task.result;
+                        }
+                      })()}
                     </div>
                   </div>
                 )}
 
-                {/* File Upload Details */}
-                {task.taskType === 'upload' && task.parameters && (
+                {/* Upload / URL Download Details */}
+                {(['upload', 'upload_process', 'download_url'].includes(task.taskType) && task.parameters) && (
                   <div className="text-sm border-t pt-3">
-                    <strong>上传详情:</strong>
+                    <strong>任务详情:</strong>
                     {(() => {
                       const params = MinionService.parseTaskParameters(task.parameters);
                       return (
                         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                          {params.url && (
+                            <div className="md:col-span-2 break-all">
+                              <strong>URL:</strong> {params.url}
+                            </div>
+                          )}
                           {params.filename && (
-                            <div>
+                            <div className="md:col-span-2">
                               <strong>文件名:</strong> {params.filename}
                             </div>
                           )}
@@ -399,6 +431,16 @@ export function TaskList({ className }: TaskListProps) {
                           {params.tags && (
                             <div className="md:col-span-2">
                               <strong>标签:</strong> {params.tags}
+                            </div>
+                          )}
+                          {params.summary && (
+                            <div className="md:col-span-2">
+                              <strong>摘要:</strong> {params.summary}
+                            </div>
+                          )}
+                          {(params.category_id || params.categoryId) && (
+                            <div className="md:col-span-2">
+                              <strong>分类:</strong> {params.category_id || params.categoryId}
                             </div>
                           )}
                         </div>

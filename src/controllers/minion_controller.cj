@@ -333,8 +333,19 @@ public class MinionController {
                 let existingPlugin = PluginDao.getPluginByNamespace(plugin.namespace)
 
                 if (existingPlugin.namespace.size > 0) {
-                    // 更新现有插件的参数字段
-                    existingPlugin.parameters = plugin.parameters
+                    // 更新现有插件的元数据与参数字段（保留用户设置的 enabled 等状态）
+                    existingPlugin.name = plugin.name
+                    existingPlugin.version = plugin.version
+                    existingPlugin.description = plugin.description
+                    existingPlugin.author = plugin.author
+                    existingPlugin.entry = plugin.entry
+                    existingPlugin.plugin_type = plugin.plugin_type
+                    existingPlugin.url_regex = plugin.url_regex
+                    existingPlugin.login_from = plugin.login_from
+                    existingPlugin.permissions = plugin.permissions
+                    existingPlugin.icon = plugin.icon
+
+                    existingPlugin.parameters = mergePluginParameters(existingPlugin.parameters, plugin.parameters)
                     existingPlugin.has_schema = plugin.has_schema
 
                     let updated = PluginDao.update(existingPlugin)
@@ -365,40 +376,53 @@ public class MinionController {
     private static func pluginToJson(plugin: PluginData): String {
         var json = "{"
         json += "\"id\":${plugin.id},"
-        json += "\"name\":\"${plugin.name}\","
-        json += "\"namespace\":\"${plugin.namespace}\","
-        json += "\"version\":\"${plugin.version}\","
-        json += "\"description\":\"${plugin.description}\","
-        json += "\"author\":\"${plugin.author}\","
-        json += "\"entry\":\"${plugin.entry}\","
-        json += "\"plugin_type\":\"${plugin.plugin_type}\","
-        json += "\"tags\":\"${plugin.tags}\","
+        json += "\"name\":\"${escapeJsonString(plugin.name)}\","
+        json += "\"namespace\":\"${escapeJsonString(plugin.namespace)}\","
+        json += "\"version\":\"${escapeJsonString(plugin.version)}\","
+        json += "\"description\":\"${escapeJsonString(plugin.description)}\","
+        json += "\"author\":\"${escapeJsonString(plugin.author)}\","
+        json += "\"entry\":\"${escapeJsonString(plugin.entry)}\","
+        json += "\"plugin_type\":\"${escapeJsonString(plugin.plugin_type)}\","
+        json += "\"tags\":\"${escapeJsonString(plugin.tags)}\","
 
         // 处理权限字段 - 如果为空则返回空字符串，否则将逗号分隔的字符串转换为JSON数组
-        if (plugin.permissions.size == 0) {
-            json += "\"permissions\":\"\","
-        } else {
-            // 将逗号分隔的权限字符串转换为JSON数组格式
-            let permissionArray = plugin.permissions.split(",")
-            json += "\"permissions\":["
-            for (i in 0..permissionArray.size) {
-                if (i > 0) { json += "," }
-                json += "${permissionArray[i]}"
+        let permissionArray = plugin.permissions.split(",")
+        json += "\"permissions\":["
+        var firstPermission = true
+        for (permission in permissionArray) {
+            let trimmed = permission.trimAscii()
+            if (trimmed.size == 0) {
+                continue
             }
-            json += "],"
+            if (!firstPermission) { json += "," }
+            json += "\"${escapeJsonString(trimmed)}\""
+            firstPermission = false
         }
+        json += "],"
 
-        json += "\"icon\":\"${plugin.icon}\","
+        json += "\"icon\":\"${escapeJsonString(plugin.icon)}\","
         json += "\"enabled\":${plugin.enabled},"
         json += "\"installed\":${plugin.installed},"
 
         // 添加has_schema字段（指示是否有配置参数）
         json += "\"has_schema\":${plugin.has_schema},"
 
-        json += "\"created_at\":\"${plugin.created_at}\","
-        json += "\"updated_at\":\"${plugin.updated_at}\""
+        json += "\"created_at\":\"${escapeJsonString(plugin.created_at)}\","
+        json += "\"updated_at\":\"${escapeJsonString(plugin.updated_at)}\""
         json += "}"
         return json
+    }
+
+    private static func escapeJsonString(input: String): String {
+        var escaped = input
+        escaped = escaped.replace("\\", "\\\\")
+        escaped = escaped.replace("\"", "\\\"")
+        escaped = escaped.replace("\b", "\\b")
+        escaped = escaped.replace("\f", "\\f")
+        escaped = escaped.replace("\n", "\\n")
+        escaped = escaped.replace("\r", "\\r")
+        escaped = escaped.replace("\t", "\\t")
+        return escaped
     }
 
     /**

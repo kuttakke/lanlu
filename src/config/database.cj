@@ -148,8 +148,10 @@ public class DatabaseConfig {
                         ("author", "VARCHAR(255) DEFAULT ''"),
                         ("entry", "VARCHAR(255) DEFAULT ''"),
                         ("plugin_type", "VARCHAR(50) DEFAULT ''"),
-                        ("tags", "TEXT DEFAULT ''"),
-                        ("permissions", "TEXT DEFAULT ''"),
+                    ("tags", "TEXT DEFAULT ''"),
+                    ("url_regex", "TEXT DEFAULT ''"),
+                    ("login_from", "VARCHAR(100) DEFAULT ''"),
+                    ("permissions", "TEXT DEFAULT ''"),
                         ("icon", "TEXT DEFAULT ''"),  // 插件图标，Base64编码的图片数据
                         ("enabled", "BOOLEAN DEFAULT false"),
                         ("installed", "BOOLEAN DEFAULT false"),
