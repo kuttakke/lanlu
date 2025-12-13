@@ -219,7 +219,9 @@ public class DatabaseConfig {
             try {
                 var exists = false
                 if (rs.next()) {
-                    exists = rs.getOrNull<Bool>(0) ?? false
+                    // EXISTS returns integer (0 or 1), not boolean
+                    let result = rs.getOrNull<Int32>(0) ?? 0
+                    exists = result != 0
                 }
                 return exists
             } finally {
@@ -238,7 +240,9 @@ public class DatabaseConfig {
             try {
                 var exists = false
                 if (rs.next()) {
-                    exists = rs.getOrNull<Bool>(0) ?? false
+                    // EXISTS returns integer (0 or 1), not boolean
+                    let result = rs.getOrNull<Int32>(0) ?? 0
+                    exists = result != 0
                 }
                 return exists
             } finally {
@@ -258,7 +262,9 @@ public class DatabaseConfig {
             try {
                 var exists = false
                 if (rs.next()) {
-                    exists = rs.getOrNull<Bool>(0) ?? false
+                    // EXISTS returns integer (0 or 1), not boolean
+                    let result = rs.getOrNull<Int32>(0) ?? 0
+                    exists = result != 0
                 }
                 return exists
             } finally {

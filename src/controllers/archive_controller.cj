@@ -189,8 +189,7 @@ public class ArchiveController {
         }
         
         // 更新时间戳
-        let currentTime = Int64(getCurrentTimeMillis()).toString()
-        existingArchive.updated_at = currentTime
+        existingArchive.updated_at = DateTime.now().toString()
         
         // 执行数据库更新
         let updateSuccess = ArchiveDao.update(existingArchive)
@@ -297,16 +296,9 @@ public class ArchiveController {
      * 生成任务ID
      */
     private static func generateJobId(): Int64 {
-        return getCurrentTimeMillis()
+        return DateTime.now().toUnixTimeStamp().toSeconds() * 1000
     }
     
-    /**
-     * 获取当前时间的毫秒数
-     */
-    private static func getCurrentTimeMillis(): Int64 {
-        // 简单实现，实际应该使用系统API
-        return 1234567890
-    }
     
     /**
      * 获取占位符缩略图

@@ -1460,9 +1460,7 @@ public class ShinobuService {
      * 获取当前时间戳（毫秒）
      */
     private func getTimeMillis(): Int64 {
-        // 简单实现：返回一个模拟的时间戳
-        // 实际应该使用系统API获取当前时间
-        return 1234567890123
+        return DateTime.now().toUnixTimeStamp().toSeconds() * 1000
     }
     
     /**
