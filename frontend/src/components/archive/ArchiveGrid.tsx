@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ArchiveGridProps {
   archives: Archive[];
-  variant?: 'default' | 'random';
+  variant?: 'default' | 'home' | 'random';
 }
 
 export function ArchiveGrid({ archives, variant = 'default' }: ArchiveGridProps) {
@@ -23,10 +23,12 @@ export function ArchiveGrid({ archives, variant = 'default' }: ArchiveGridProps)
     ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4'
     : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4';
 
+  const tagsDisplay = variant === 'home' ? 'hover' : 'inline';
+
   return (
     <div className={gridClasses}>
       {archives.map((archive) => (
-        <ArchiveCard key={archive.arcid} archive={archive} />
+        <ArchiveCard key={archive.arcid} archive={archive} tagsDisplay={tagsDisplay} />
       ))}
     </div>
   );

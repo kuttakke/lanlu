@@ -11,13 +11,20 @@ import { useState, useEffect } from 'react';
 
 interface ArchiveCardProps {
   archive: Archive;
+  tagsDisplay?: 'inline' | 'hover' | 'none';
 }
 
-export function ArchiveCard({ archive }: ArchiveCardProps) {
+export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProps) {
   const { t } = useLanguage();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
-  const tags = archive.tags ? archive.tags.split(',').slice(0, 3).map(tag => tag.trim()).filter(tag => tag) : [];
+  const allTags = archive.tags ? archive.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+  const inlineTags = allTags.slice(0, 3);
+  const hoverTags = allTags.slice(0, 8);
+  const hoverTitleParts = [
+    allTags.length > 0 ? `${t('archive.tags')}: ${allTags.join(', ')}` : '',
+    archive.summary ? `${t('archive.summary')}: ${archive.summary}` : ''
+  ].filter(Boolean);
   
   // 检查收藏状态
   useEffect(() => {
@@ -53,7 +60,8 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
   
   return (
     <Card
-      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+      className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+      title={hoverTitleParts.length > 0 ? `${archive.title}\n${hoverTitleParts.join('\n')}` : archive.title}
       onClick={() => {
         // 点击卡片其他区域进入阅读器
         window.location.href = `/reader?id=${archive.arcid}`;
@@ -78,6 +86,35 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
             {t('archive.new')}
           </Badge>
         )}
+
+        {tagsDisplay === 'hover' && (allTags.length > 0 || archive.summary) && (
+          <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <div className="w-full p-3 space-y-2">
+              {allTags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {hoverTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded bg-white/15 px-1.5 py-0.5 text-[11px] text-white backdrop-blur-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {allTags.length > hoverTags.length && (
+                    <span className="rounded bg-white/15 px-1.5 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                      +{allTags.length - hoverTags.length}
+                    </span>
+                  )}
+                </div>
+              )}
+              {archive.summary && (
+                <div className="text-[11px] leading-snug text-white/90 line-clamp-3">
+                  {archive.summary}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       
       <CardContent className="p-4">
@@ -85,9 +122,9 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
           {archive.title}
         </h3>
         
-        {tags.length > 0 && (
+        {tagsDisplay === 'inline' && inlineTags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
-            {tags.map((tag, index) => (
+            {inlineTags.map((tag, index) => (
               <Badge key={index} variant="secondary" className="text-xs">
                 {tag}
               </Badge>

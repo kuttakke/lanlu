@@ -229,7 +229,7 @@ export default function HomePage() {
               </div>
             ) : archives.length > 0 ? (
               <>
-                <ArchiveGrid archives={archives} />
+                <ArchiveGrid archives={archives} variant="home" />
                 
                 {totalPages > 1 && (
                   <div className="mt-8">

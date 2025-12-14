@@ -15,6 +15,12 @@ export function HomeArchiveCard({ archive }: HomeArchiveCardProps) {
   const { t } = useLanguage();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const allTags = archive.tags ? archive.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+  const hoverTags = allTags.slice(0, 8);
+  const hoverTitleParts = [
+    allTags.length > 0 ? `${t('archive.tags')}: ${allTags.join(', ')}` : '',
+    archive.summary ? `${t('archive.summary')}: ${archive.summary}` : ''
+  ].filter(Boolean);
   
   // 检查收藏状态
   useEffect(() => {
@@ -52,7 +58,8 @@ export function HomeArchiveCard({ archive }: HomeArchiveCardProps) {
     <div className="flex-shrink-0 w-40">
       {/* 单个档案卡片 */}
       <div 
-        className="bg-card rounded-lg border shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+        className="group bg-card rounded-lg border shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+        title={hoverTitleParts.length > 0 ? `${archive.title}\n${hoverTitleParts.join('\n')}` : archive.title}
         onClick={() => {
           window.location.href = `/reader?id=${archive.arcid}`;
         }}
@@ -79,6 +86,35 @@ export function HomeArchiveCard({ archive }: HomeArchiveCardProps) {
               <div className="text-xs">{t('archive.noCover')}</div>
             </div>
           </div>
+
+          {(allTags.length > 0 || archive.summary) && (
+            <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <div className="w-full p-2 space-y-2">
+                {allTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {hoverTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded bg-white/15 px-1.5 py-0.5 text-[11px] text-white backdrop-blur-sm"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {allTags.length > hoverTags.length && (
+                      <span className="rounded bg-white/15 px-1.5 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                        +{allTags.length - hoverTags.length}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {archive.summary && (
+                  <div className="text-[11px] leading-snug text-white/90 line-clamp-3">
+                    {archive.summary}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="p-3">
           <h3 className="font-medium text-sm line-clamp-2 mb-2 min-h-[2.5rem]">
