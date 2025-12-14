@@ -6,9 +6,8 @@ import { SearchBar } from '@/components/search/SearchBar';
 import { ArchiveService } from '@/lib/archive-service';
 import { ThemeToggle, ThemeButton } from '@/components/theme/theme-toggle';
 import { LanguageButton } from '@/components/language/LanguageToggle';
-import { LoginDialog } from '@/components/auth/LoginDialog';
 import { UserMenu } from '@/components/user/UserMenu';
-import { Menu, X, Home, Search, Shuffle, Settings, ArrowLeft } from 'lucide-react';
+import { Menu, X, Home, Search, Shuffle, Settings, ArrowLeft, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -205,7 +204,18 @@ export function Header() {
               );
             })}
             <div className="flex items-center justify-center space-x-2 px-3 py-3">
-              <LoginDialog />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  router.push('/login');
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <LogIn className="h-5 w-5" />
+                <span>{t('auth.login')}</span>
+              </Button>
               <ThemeButton />
               <LanguageButton />
             </div>

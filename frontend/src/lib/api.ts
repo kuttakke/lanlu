@@ -84,12 +84,18 @@ apiClient.interceptors.response.use(
   (error) => {
     console.error('API Error:', error.response?.data || error.message);
 
-    // 如果是 401 未授权，清空 token
+    // 如果是 401 未授权，清空 token 并重定向到登录页
     if (error?.response?.status === 401 || error?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token');
         // 发送自定义事件，通知 AuthContext 更新状态
         window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+
+        // 获取当前路径，用于登录后跳转
+        const currentPath = window.location.pathname;
+        const redirectParam = currentPath === '/' ? '' : `?redirect=${encodeURIComponent(currentPath)}`;
+        // 重定向到登录页
+        window.location.href = `/login${redirectParam}`;
       }
     }
 

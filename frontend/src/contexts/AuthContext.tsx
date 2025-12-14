@@ -64,6 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleUnauthorized = () => {
       setToken(null);
       setUser(null);
+      // 重定向到登录页，保留当前路径用于登录后跳转
+      const currentPath = window.location.pathname;
+      const redirectParam = currentPath === '/' ? '' : `?redirect=${encodeURIComponent(currentPath)}`;
+      window.location.href = `/login${redirectParam}`;
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
@@ -79,8 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (typeof window !== 'undefined') {
       localStorage.setItem('auth_token', newToken);
-      // 登录成功后刷新页面以确保状态完全同步
-      window.location.reload();
+      // 不再自动刷新页面，由路由跳转处理
     }
   };
 
@@ -89,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
+      // 退出登录后跳转到登录页
+      window.location.href = '/login';
     }
   };
 
