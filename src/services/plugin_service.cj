@@ -142,6 +142,12 @@ public class PluginService {
         }
 
         // 汇总网络权限，避免重复 --allow-net
+        // EHentai 元数据插件需要访问 upload.e-hentai.org 进行 file search（兼容旧数据库权限字段未更新的情况）
+        if (plugin.namespace == "ehplugin") {
+            if (!netHosts.contains("upload.e-hentai.org")) {
+                netHosts.add("upload.e-hentai.org")
+            }
+        }
         if (allowNetAll) {
             denoArgs.add("--allow-net")
         } else if (netHosts.size > 0) {
@@ -818,6 +824,9 @@ if (eval { defined(&\$full_method) }) {
         // 构建Deno权限参数
         let denoPath = "/config/.deno/bin/deno"
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
+
+        // 常用共享数据目录（用于以图搜图/封面读取等）
+        denoArgs.add("--allow-read=./data/thumb")
 
         // 元数据插件常用环境变量（限制读取范围）
         denoArgs.add("--allow-env=ARCHIVE_TITLE,EXISTING_TAGS,THUMBNAIL_HASH,ARCHIVE_ID")

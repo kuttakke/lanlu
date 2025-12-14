@@ -132,13 +132,65 @@ export abstract class BasePlugin {
     const paramsArg = args.find(arg => arg.startsWith('--params='));
     if (paramsArg) {
       try {
-        return JSON.parse(paramsArg.substring(9));
+        const parsed = JSON.parse(paramsArg.substring(9));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return this.coerceParamsFromSchema(parsed as Record<string, unknown>);
+        }
+        return {};
       } catch (e) {
         console.error('Failed to parse params:', e);
         return {};
       }
     }
     return {};
+  }
+
+  private coerceParamsFromSchema(params: Record<string, unknown>): Record<string, unknown> {
+    const info = this.getPluginInfo();
+    const schema = info?.parameters || [];
+    const out: Record<string, unknown> = { ...params };
+
+    for (const def of schema) {
+      const name = def?.name;
+      if (!name) continue;
+      if (!(name in out)) continue;
+
+      const value = out[name];
+      if (def.type === 'bool') {
+        out[name] = this.coerceBool(value);
+      } else if (def.type === 'int') {
+        const coerced = this.coerceInt(value);
+        if (coerced !== undefined) out[name] = coerced;
+      } else if (def.type === 'string') {
+        if (value === null || value === undefined) out[name] = '';
+        else out[name] = String(value);
+      }
+    }
+
+    return out;
+  }
+
+  private coerceBool(value: unknown): boolean {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+      const v = value.trim().toLowerCase();
+      if (v === '' || v === '0' || v === 'false' || v === 'no' || v === 'n' || v === 'off') return false;
+      if (v === '1' || v === 'true' || v === 'yes' || v === 'y' || v === 'on') return true;
+      return v !== '0';
+    }
+    return Boolean(value);
+  }
+
+  private coerceInt(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+    if (typeof value === 'string') {
+      const v = value.trim();
+      if (v === '') return 0;
+      const n = Number.parseInt(v, 10);
+      return Number.isNaN(n) ? undefined : n;
+    }
+    return undefined;
   }
 
   private safeJson(value: unknown): string {

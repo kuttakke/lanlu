@@ -7,7 +7,8 @@ import std.io.*
  * 任务IO：用于存储任务日志与最终输出（避免塞进数据库字段）
  */
 public class TaskIO {
-    private static let rootDir: Path = Path("./data/log")
+    // 新目录：与 ./data/logs/plugins.log 保持一致，统一放到 data/logs 下
+    private static let rootDir: Path = Path("./data/logs/task")
 
     private static func ensureReady(): Unit {
         if (!exists(rootDir)) {

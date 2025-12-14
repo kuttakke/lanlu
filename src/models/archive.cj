@@ -224,11 +224,32 @@ public class ArchiveModel {
     public static func getThumbnailFilePath(id: String, page: Int32): String {
         let config = Dotenv.createConfig()
         let thumbnailDir = config.read("THUMBNAIL_PATH", "./data/thumb")
-        let extension = "jpg"
-        
-        let archiveIdPath = "${thumbnailDir}/${id}.${extension}"
+
+        // 优先使用数据库记录的 thumbhash（LANraragi 兼容：data/thumb/<thumbhash>.jpg）
+        let thumbhash = ArchiveDao.getThumbnailHash(id)
+        if (thumbhash.size > 0) {
+            let exts = ["jpg", "jpeg", "png", "webp"]
+            for (ext in exts) {
+                let byHashPath = "${thumbnailDir}/${thumbhash}.${ext}"
+                println("Trying thumbhash path: ${byHashPath}")
+                try {
+                    let filePath = Path(byHashPath)
+                    if (exists(filePath)) {
+                        let fileInfo = FileInfo(filePath)
+                        if (fileInfo.isRegular()) {
+                            println("Found thumbnail using thumbhash: ${byHashPath}")
+                            return byHashPath
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("Error checking thumbhash file: ${e}")
+                }
+            }
+        }
+
+        // 兼容旧逻辑：data/thumb/<archiveId>.jpg
+        let archiveIdPath = "${thumbnailDir}/${id}.jpg"
         println("Trying archiveId path: ${archiveIdPath}")
-        
         try {
             let filePath = Path(archiveIdPath)
             if (exists(filePath)) {
@@ -259,15 +280,32 @@ public class ArchiveModel {
         
         let config = Dotenv.createConfig()
         let thumbnailDir = config.read("THUMBNAIL_PATH", "./data/thumb")
-        let extension = "jpg"
-        let thumbnailPath = "${thumbnailDir}/${id}.${extension}"
-        
-        println("Checking if thumbnail exists at: ${thumbnailPath}")
+
+        // 优先检查 data/thumb/<thumbhash>.<ext>
+        let exts = ["jpg", "jpeg", "png", "webp"]
+        for (ext in exts) {
+            let byHashPath = "${thumbnailDir}/${thumbhash}.${ext}"
+            println("Checking if thumbnail exists at: ${byHashPath}")
+            try {
+                let filePath = Path(byHashPath)
+                if (exists(filePath)) {
+                    let fileInfo = FileInfo(filePath)
+                    println("Thumbnail file exists and is regular: ${fileInfo.isRegular()}")
+                    return fileInfo.isRegular()
+                }
+            } catch (e: Exception) {
+                println("Error checking thumbnail file: ${e}")
+            }
+        }
+
+        // 兼容旧逻辑：data/thumb/<archiveId>.jpg
+        let legacyPath = "${thumbnailDir}/${id}.jpg"
+        println("Checking legacy thumbnail path: ${legacyPath}")
         try {
-            let filePath = Path(thumbnailPath)
+            let filePath = Path(legacyPath)
             if (exists(filePath)) {
                 let fileInfo = FileInfo(filePath)
-                println("Thumbnail file exists and is regular: ${fileInfo.isRegular()}")
+                println("Legacy thumbnail file exists and is regular: ${fileInfo.isRegular()}")
                 return fileInfo.isRegular()
             }
             println("Thumbnail file does not exist")
