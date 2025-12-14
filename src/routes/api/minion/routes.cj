@@ -12,57 +12,75 @@ public func registerMinionRoutes(router: JoyRouters) {
 
     // 分页获取任务列表
     router.get("/api/minion/tasks", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.getTasksWithPagination(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.getTasksWithPagination(ctx)
+            case None => return
+        }
     })
 
     // 根据ID获取任务
     router.get("/api/minion/tasks/{id}", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.getTaskById(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.getTaskById(ctx)
+            case None => return
+        }
     })
 
     // ========== 插件管理API ==========
 
     // 获取所有插件详情
     router.get("/api/plugins", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.getAllPlugins(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.getAllPlugins(ctx)
+            case None => return
+        }
     })
 
     // 根据类型获取插件
     router.get("/api/plugins/{type}", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.getPluginsByType(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.getPluginsByType(ctx)
+            case None => return
+        }
     })
 
     // 获取插件配置
     router.get("/api/plugins/{namespace}/config", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.getPluginConfig(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.getPluginConfig(ctx)
+            case None => return
+        }
     })
 
     // 更新插件配置
     router.put("/api/plugins/{namespace}/config", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.updatePluginConfig(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.updatePluginConfig(ctx)
+            case None => return
+        }
     })
 
     // 启用或禁用插件
     router.put("/api/plugins/{namespace}/enabled", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.setPluginEnabled(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.setPluginEnabled(ctx)
+            case None => return
+        }
     })
 
     // 发现并注册插件
     router.post("/api/plugins/discover", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.discoverPlugins(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.discoverPlugins(ctx)
+            case None => return
+        }
     })
 
     // 获取插件配置Schema
     router.get("/api/plugins/{namespace}/schema", { ctx =>
-        if (!AuthMiddleware.requiredAuth(ctx)) { return }
-        MinionController.getPluginSchema(ctx)
+        match (AuthMiddleware.requireAdmin(ctx)) {
+            case Some(_) => MinionController.getPluginSchema(ctx)
+            case None => return
+        }
     })
 }
