@@ -219,9 +219,13 @@ public class DatabaseConfig {
             try {
                 var exists = false
                 if (rs.next()) {
-                    // EXISTS returns integer (0 or 1), not boolean
-                    let result = rs.getOrNull<Int32>(0) ?? 0
-                    exists = result != 0
+                    // openGauss / PostgreSQL typically return BOOLEAN for EXISTS; some drivers may map it as integer.
+                    try {
+                        exists = rs.getOrNull<Bool>(0) ?? false
+                    } catch (_: Exception) {
+                        let result = rs.getOrNull<Int32>(0) ?? 0
+                        exists = result != 0
+                    }
                 }
                 return exists
             } finally {
@@ -240,9 +244,12 @@ public class DatabaseConfig {
             try {
                 var exists = false
                 if (rs.next()) {
-                    // EXISTS returns integer (0 or 1), not boolean
-                    let result = rs.getOrNull<Int32>(0) ?? 0
-                    exists = result != 0
+                    try {
+                        exists = rs.getOrNull<Bool>(0) ?? false
+                    } catch (_: Exception) {
+                        let result = rs.getOrNull<Int32>(0) ?? 0
+                        exists = result != 0
+                    }
                 }
                 return exists
             } finally {
@@ -262,9 +269,37 @@ public class DatabaseConfig {
             try {
                 var exists = false
                 if (rs.next()) {
-                    // EXISTS returns integer (0 or 1), not boolean
-                    let result = rs.getOrNull<Int32>(0) ?? 0
-                    exists = result != 0
+                    try {
+                        exists = rs.getOrNull<Bool>(0) ?? false
+                    } catch (_: Exception) {
+                        let result = rs.getOrNull<Int32>(0) ?? 0
+                        exists = result != 0
+                    }
+                }
+                return exists
+            } finally {
+                rs.close()
+            }
+        } finally {
+            stmt.close()
+        }
+    }
+
+    private static func indexExists(conn: Connection, indexName: String): Bool {
+        // pg_indexes is available in PostgreSQL/openGauss.
+        let stmt = conn.prepareStatement("SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = 'public' AND indexname = ?)")
+        try {
+            stmt.set(0, indexName)
+            let rs = stmt.query()
+            try {
+                var exists = false
+                if (rs.next()) {
+                    try {
+                        exists = rs.getOrNull<Bool>(0) ?? false
+                    } catch (_: Exception) {
+                        let result = rs.getOrNull<Int32>(0) ?? 0
+                        exists = result != 0
+                    }
                 }
                 return exists
             } finally {
@@ -339,7 +374,15 @@ public class DatabaseConfig {
 
                 // arcid 唯一约束（如果不存在）
                 try {
-                    execUpdate(conn, "CREATE UNIQUE INDEX IF NOT EXISTS archives_arcid_key ON archives (arcid)")
+                    let createSql = "CREATE UNIQUE INDEX archives_arcid_key ON archives (arcid)"
+                    try {
+                        if (!indexExists(conn, "archives_arcid_key")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        // Fallback: if index existence check fails, attempt create and ignore errors.
+                        execUpdate(conn, createSql)
+                    }
                 } catch (e: Exception) {
                     logger.warn("创建archives.arcid唯一索引失败（可忽略）: ${e.toString()}")
                 }
@@ -376,7 +419,14 @@ public class DatabaseConfig {
                     }
                 }
                 try {
-                    execUpdate(conn, "CREATE UNIQUE INDEX IF NOT EXISTS tags_name_key ON tags (name)")
+                    let createSql = "CREATE UNIQUE INDEX tags_name_key ON tags (name)"
+                    try {
+                        if (!indexExists(conn, "tags_name_key")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
                 } catch (e: Exception) {
                     logger.warn("创建tags.name唯一索引失败（可忽略）: ${e.toString()}")
                 }
@@ -394,13 +444,49 @@ public class DatabaseConfig {
                         FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
                     )
                 """)
-                execUpdate(conn, "CREATE INDEX IF NOT EXISTS idx_archive_tags_archive_id ON archive_tags (archive_id)")
-                execUpdate(conn, "CREATE INDEX IF NOT EXISTS idx_archive_tags_tag_id ON archive_tags (tag_id)")
+                try {
+                    let createSql = "CREATE INDEX idx_archive_tags_archive_id ON archive_tags (archive_id)"
+                    try {
+                        if (!indexExists(conn, "idx_archive_tags_archive_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_archive_tags_tag_id ON archive_tags (tag_id)"
+                    try {
+                        if (!indexExists(conn, "idx_archive_tags_tag_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
                 logger.info("archive_tags表创建成功")
             } else {
                 logger.info("archive_tags表已存在，检查并补全索引")
-                try { execUpdate(conn, "CREATE INDEX IF NOT EXISTS idx_archive_tags_archive_id ON archive_tags (archive_id)") } catch (e: Exception) {}
-                try { execUpdate(conn, "CREATE INDEX IF NOT EXISTS idx_archive_tags_tag_id ON archive_tags (tag_id)") } catch (e: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_archive_tags_archive_id ON archive_tags (archive_id)"
+                    try {
+                        if (!indexExists(conn, "idx_archive_tags_archive_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_archive_tags_tag_id ON archive_tags (tag_id)"
+                    try {
+                        if (!indexExists(conn, "idx_archive_tags_tag_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
             }
 
             // archives_with_tags 视图
