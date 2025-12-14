@@ -3,17 +3,19 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // 区分服务端和客户端的API配置
 const getApiConfig = () => {
+  const configuredBaseUrl = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+
   // 静态生成时也要调用API，使用环境变量配置的API地址
   if (typeof window === 'undefined') {
     return {
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+      baseURL: configuredBaseUrl || 'http://localhost:8080',
       skipRequest: false // 静态生成时也要调用API
     };
   }
 
-  // 客户端使用相对路径
+  // 客户端默认使用相对路径；若显式配置了 NEXT_PUBLIC_API_URL，则使用它（便于 next dev 单独运行）
   return {
-    baseURL: '', // 相对路径，会自动使用当前域名和端口
+    baseURL: configuredBaseUrl || '', // 空字符串表示相对路径，会自动使用当前域名和端口
     skipRequest: false
   };
 };

@@ -123,5 +123,16 @@ public class ArchiveRoutes {
             AuthMiddleware.requiredAuth(ctx)
             DownloadController.downloadFromUrl(ctx)
         })
+
+        // 执行元数据插件（进入TaskPool，返回job id）
+        router.post("/api/metadata_plugin", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            MetadataPluginController.runMetadataPlugin(ctx)
+        })
+        // 兼容：带尾斜杠
+        router.post("/api/metadata_plugin/", { ctx =>
+            AuthMiddleware.requiredAuth(ctx)
+            MetadataPluginController.runMetadataPlugin(ctx)
+        })
     }
 }

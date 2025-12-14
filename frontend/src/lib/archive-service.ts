@@ -29,6 +29,10 @@ export interface DownloadResult {
   pluginRelativePath?: string;
 }
 
+export interface MetadataPluginRunCallbacks {
+  onUpdate?: (task: MinionTask) => void;
+}
+
 export class ArchiveService {
   static async search(params: SearchParams): Promise<SearchResponse> {
     const response = await apiClient.get('/api/search', { params });
@@ -314,6 +318,45 @@ export class ArchiveService {
         error: errorMessage
       };
     }
+  }
+
+  /**
+   * 执行元数据插件（进入TaskPool，返回的job由前端轮询）
+   */
+  static async runMetadataPlugin(
+    archiveId: string,
+    namespace: string,
+    param?: string,
+    callbacks?: MetadataPluginRunCallbacks
+  ): Promise<MinionTask> {
+    const response = await apiClient.post('/api/metadata_plugin', {
+      archive_id: archiveId,
+      namespace,
+      param: param || ''
+    });
+
+    const rawSuccess = response.data?.success;
+    const enqueueSuccess =
+      rawSuccess === true ||
+      rawSuccess === 1 ||
+      rawSuccess === "1" ||
+      rawSuccess === "true";
+
+    if (!enqueueSuccess) {
+      const errorMessage = response.data?.error || 'Metadata plugin enqueue failed';
+      throw new Error(errorMessage);
+    }
+
+    const jobId = response.data?.job;
+    if (!jobId) {
+      throw new Error('No job id returned');
+    }
+
+    const finalTask = await this.waitForTaskCompletion(Number(jobId), (task) => {
+      callbacks?.onUpdate?.(task);
+    });
+
+    return finalTask;
   }
 
   private static async waitForTaskCompletion(

@@ -791,11 +791,22 @@ if (eval { defined(&\$full_method) }) {
     /**
      * 执行元数据插件
      */
-    public func executeMetadataPlugin(plugin: PluginData, archiveId: String): PluginExecutionResult {
+    public func executeMetadataPlugin(
+        plugin: PluginData,
+        archiveId: String,
+        oneshotParam: Option<String>,
+        extraParamsJson: Option<String>
+    ): PluginExecutionResult {
         let logger = getLogger("plugin_service")
         let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
 
         logger.info("开始执行元数据插件: ${plugin.namespace}")
+
+        let archive = ArchiveDao.getArchiveById(archiveId)
+        if (archive.id.size == 0) {
+            return PluginExecutionResult(false, "Archive not found", HashMap<String, String>(), 0, 1)
+        }
+        let tagsString = TagDao.getArchiveTags(archiveId)
 
         // 获取插件文件路径
         let pluginFile = "./data/plugins/${plugin.namespace}/Metadata.ts"
@@ -808,13 +819,84 @@ if (eval { defined(&\$full_method) }) {
         let denoPath = "/config/.deno/bin/deno"
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
 
+        // 元数据插件常用环境变量（限制读取范围）
+        denoArgs.add("--allow-env=ARCHIVE_TITLE,EXISTING_TAGS,THUMBNAIL_HASH,ARCHIVE_ID")
+
         // 添加插件执行参数
         denoArgs.add(pluginFile)
         denoArgs.add("--action=run")
         denoArgs.add("--archive_id=${archiveId}")
+        denoArgs.add("--archive_title=${archive.title}")
 
-        // 执行插件
-        let (exitCode, stdout, stderr) = executeWithOutput(denoPath, denoArgs.toArray())
+        match (oneshotParam) {
+            case Some(v) =>
+                let trimmed = v.trimAscii()
+                if (trimmed.size > 0) {
+                    denoArgs.add("--oneshot=${trimmed}")
+                }
+            case None => ()
+        }
+
+        // 合并插件配置参数 + 自定义 params JSON（自定义覆盖配置）
+        let baseParamsJson = buildPluginParametersJson(plugin)
+        let mergedParamsJson = mergeParamsJson(baseParamsJson, extraParamsJson)
+        appendParamsArg(denoArgs, mergedParamsJson)
+
+        // 若声明了 login_from，则先执行登录插件并将 cookies 传入
+        var cookiesJsonOpt: Option<String> = Option.None
+        let effectiveLoginFrom = plugin.login_from.trimAscii()
+        if (effectiveLoginFrom.size > 0) {
+            let loginPlugin = PluginDao.getPluginByNamespace(effectiveLoginFrom)
+            if (loginPlugin.namespace.size == 0) {
+                let failure = "Login plugin not found: ${effectiveLoginFrom}"
+                let elapsed = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
+                logger.error(failure)
+                return PluginExecutionResult(false, failure, HashMap<String, String>(), elapsed, 1)
+            }
+
+            let loginPluginFile = "./data/plugins/${loginPlugin.namespace}/Login.ts"
+            if (!exists(loginPluginFile)) {
+                let failure = "Login plugin file missing: ${loginPluginFile}"
+                let elapsed = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
+                logger.error(failure)
+                return PluginExecutionResult(false, failure, HashMap<String, String>(), elapsed, 1)
+            }
+
+            let loginParamsJson = buildPluginParametersJson(loginPlugin)
+            let loginResult = executeLoginPlugin(loginPlugin, loginParamsJson)
+            if (!loginResult.success) {
+                let failure = "Login plugin execution failed: ${loginResult.error}"
+                var resultData = HashMap<String, String>()
+                resultData["error"] = loginResult.error
+                let elapsed = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
+                logger.error(failure)
+                return PluginExecutionResult(false, failure, resultData, elapsed, loginResult.exitCode)
+            }
+
+            let loginOutput = match (loginResult.data.get("output")) {
+                case Some(value) => value
+                case None => ""
+            }
+            cookiesJsonOpt = extractLoginCookiesJson(loginOutput)
+            if (cookiesJsonOpt.isSome()) {
+                denoArgs.add("--login_cookies=${cookiesJsonOpt.getOrThrow()}")
+            } else {
+                logger.warn("Login plugin ${loginPlugin.namespace} did not return cookies")
+            }
+        }
+
+        // 执行插件：通过 env 注入 archive 信息
+        var envArgs = ArrayList<String>()
+        envArgs.add("ARCHIVE_TITLE=${archive.title}")
+        envArgs.add("EXISTING_TAGS=${tagsString}")
+        envArgs.add("THUMBNAIL_HASH=${archive.thumbhash}")
+        envArgs.add("ARCHIVE_ID=${archiveId}")
+        envArgs.add(denoPath)
+        for (arg in denoArgs.toArray()) {
+            envArgs.add(arg)
+        }
+
+        let (exitCode, stdout, stderr) = executeWithOutput("env", envArgs.toArray())
         let executionTime = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
 
         if (exitCode == 0) {
@@ -824,6 +906,9 @@ if (eval { defined(&\$full_method) }) {
             // 解析输出结果
             var resultData = HashMap<String, String>()
             resultData["output"] = output
+            if (cookiesJsonOpt.isSome()) {
+                resultData["login_cookies"] = cookiesJsonOpt.getOrThrow()
+            }
 
             return PluginExecutionResult(true, output, resultData, executionTime, exitCode)
         } else {
@@ -834,6 +919,58 @@ if (eval { defined(&\$full_method) }) {
             resultData["error"] = errorOutput
 
             return PluginExecutionResult(false, errorOutput, resultData, executionTime, exitCode)
+        }
+    }
+
+    private func mergeParamsJson(baseParamsJson: Option<String>, extraParamsJson: Option<String>): Option<String> {
+        // 没有额外参数：直接返回基础参数
+        if (extraParamsJson.isNone()) {
+            return baseParamsJson
+        }
+
+        let extraStr = extraParamsJson.getOrThrow()
+        let extraTrimmed = extraStr.trimAscii()
+        if (extraTrimmed.size == 0) {
+            return baseParamsJson
+        }
+
+        // 没有基础参数：直接返回 extra
+        if (baseParamsJson.isNone()) {
+            return Option<String>.Some(extraTrimmed)
+        }
+
+        let baseStr = baseParamsJson.getOrThrow()
+        let baseTrimmed = baseStr.trimAscii()
+        if (baseTrimmed.size == 0) {
+            return Option<String>.Some(extraTrimmed)
+        }
+
+        // 两者都是 JSON 对象时做合并，否则优先 extra
+        try {
+            let baseVal = JsonValue.fromStr(baseTrimmed)
+            let extraVal = JsonValue.fromStr(extraTrimmed)
+
+            match (baseVal) {
+                case baseObj: JsonObject =>
+                    match (extraVal) {
+                        case extraObj: JsonObject =>
+                            let merged = JsonObject()
+                            let fields = merged.getFields()
+                            for ((k, v) in baseObj.getFields()) {
+                                fields[k] = v
+                            }
+                            for ((k, v) in extraObj.getFields()) {
+                                fields[k] = v
+                            }
+                            return Option<String>.Some(merged.toString())
+                        case _ =>
+                            return Option<String>.Some(extraTrimmed)
+                    }
+                case _ =>
+                    return Option<String>.Some(extraTrimmed)
+            }
+        } catch (_: Exception) {
+            return Option<String>.Some(extraTrimmed)
         }
     }
 

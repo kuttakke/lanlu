@@ -145,6 +145,8 @@ public class TaskPoolService {
                 DownloadUrlTaskRunner.run(task.id, task.parameters)
             case "upload_process" =>
                 UploadProcessTaskRunner.run(task.id, task.parameters)
+            case "metadata_plugin" =>
+                MetadataPluginTaskRunner.run(task.id, task.parameters)
             case _ =>
                 TaskIO.appendLog(task.id, "Unknown task type: ${task.taskType}")
                 MinionModel.failTask(task.id, "Unknown task type: ${task.taskType}")

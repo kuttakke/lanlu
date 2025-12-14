@@ -4,15 +4,17 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { ArchiveService } from '@/lib/archive-service';
 import { ArchiveMetadata } from '@/types/archive';
+import { PluginService, type Plugin } from '@/lib/plugin-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { TagInput } from '@/components/ui/tag-input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit, CheckCircle, RotateCcw } from 'lucide-react';
+import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit, CheckCircle, RotateCcw, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,14 +26,16 @@ function ArchiveDetailContent() {
   const { isAuthenticated } = useAuth();
 
   // 提取 fetchMetadata 函数到顶层
-  const fetchMetadata = useCallback(async () => {
-    if (!id) return;
+  const fetchMetadata = useCallback(async (): Promise<ArchiveMetadata | null> => {
+    if (!id) return null;
     
     try {
       const data = await ArchiveService.getMetadata(id);
       setMetadata(data);
+      return data;
     } catch (error) {
       console.error('Failed to fetch metadata:', error);
+      return null;
     }
   }, [id]);
   
@@ -159,6 +163,36 @@ function ArchiveDetailContent() {
     tags: [] as string[],
   });
 
+  const [metadataPlugins, setMetadataPlugins] = useState<Plugin[]>([]);
+  const [selectedMetadataPlugin, setSelectedMetadataPlugin] = useState<string>('');
+  const [metadataPluginParam, setMetadataPluginParam] = useState<string>('');
+  const [isMetadataPluginRunning, setIsMetadataPluginRunning] = useState(false);
+  const [metadataPluginProgress, setMetadataPluginProgress] = useState<number | null>(null);
+  const [metadataPluginMessage, setMetadataPluginMessage] = useState<string>('');
+
+  useEffect(() => {
+    if (!isEditing || !isAuthenticated) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const plugins = await PluginService.getAllPlugins();
+        const metas = plugins.filter((p) => String(p.plugin_type || '').toLowerCase() === 'metadata');
+        if (cancelled) return;
+        setMetadataPlugins(metas);
+        if (!selectedMetadataPlugin && metas.length > 0) {
+          setSelectedMetadataPlugin(metas[0].namespace);
+        }
+      } catch (e) {
+        console.error('Failed to load metadata plugins:', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing, isAuthenticated, selectedMetadataPlugin]);
+
   useEffect(() => {
     if (!metadata) return;
     if (isEditing) return;
@@ -206,6 +240,55 @@ function ArchiveDetailContent() {
       alert(t('archive.updateFailed'));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const runMetadataPlugin = async () => {
+    if (!metadata) return;
+    if (!isAuthenticated) return;
+    if (!selectedMetadataPlugin) {
+      alert(t('archive.metadataPluginSelectRequired'));
+      return;
+    }
+
+    setIsMetadataPluginRunning(true);
+    setMetadataPluginProgress(0);
+    setMetadataPluginMessage(t('archive.metadataPluginEnqueued'));
+
+    try {
+      const finalTask = await ArchiveService.runMetadataPlugin(
+        metadata.arcid,
+        selectedMetadataPlugin,
+        metadataPluginParam,
+        {
+          onUpdate: (task) => {
+            setMetadataPluginProgress(typeof task.progress === 'number' ? task.progress : 0);
+            setMetadataPluginMessage(task.message || '');
+          },
+        }
+      );
+
+      if (finalTask.status !== 'completed') {
+        const err = finalTask.result || finalTask.message || t('archive.metadataPluginFailed');
+        alert(err);
+        return;
+      }
+
+      const updated = await fetchMetadata();
+      if (updated) {
+        setFormData({
+          title: updated.title || '',
+          summary: updated.summary || '',
+          tags: updated.tags ? updated.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+        });
+      }
+      setMetadataPluginMessage(t('archive.metadataPluginCompleted'));
+      setMetadataPluginProgress(100);
+    } catch (e: any) {
+      console.error('Failed to run metadata plugin:', e);
+      alert(e?.message || t('archive.metadataPluginFailed'));
+    } finally {
+      setIsMetadataPluginRunning(false);
     }
   };
 
@@ -396,6 +479,53 @@ function ArchiveDetailContent() {
 	                          placeholder={t('archive.summaryPlaceholder')}
 	                          className="min-h-[84px]"
 	                        />
+                          <div className="pt-1">
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="sm:w-[220px]">
+                                <Select value={selectedMetadataPlugin} onValueChange={setSelectedMetadataPlugin}>
+                                  <SelectTrigger disabled={isSaving || isMetadataPluginRunning || metadataPlugins.length === 0}>
+                                    <SelectValue placeholder={t('archive.metadataPluginSelectPlaceholder')} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {metadataPlugins.map((p) => (
+                                      <SelectItem key={p.namespace} value={p.namespace}>
+                                        {p.name} ({p.namespace})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Input
+                                value={metadataPluginParam}
+                                onChange={(e) => setMetadataPluginParam(e.target.value)}
+                                disabled={isSaving || isMetadataPluginRunning}
+                                placeholder={t('archive.metadataPluginParamPlaceholder')}
+                              />
+                              <Button
+                                type="button"
+                                onClick={runMetadataPlugin}
+                                disabled={isSaving || isMetadataPluginRunning || metadataPlugins.length === 0 || !selectedMetadataPlugin}
+                              >
+                                <Play className="w-4 h-4 mr-2" />
+                                {isMetadataPluginRunning ? t('archive.metadataPluginRunning') : t('archive.metadataPluginRun')}
+                              </Button>
+                            </div>
+                            {(metadataPluginProgress !== null || metadataPluginMessage) && (
+                              <div className="mt-2 text-xs text-muted-foreground flex items-center justify-between gap-2">
+                                <span className="truncate" title={metadataPluginMessage}>
+                                  {metadataPluginMessage || ''}
+                                </span>
+                                {metadataPluginProgress !== null && (
+                                  <span className="tabular-nums">{Math.max(0, Math.min(100, metadataPluginProgress))}%</span>
+                                )}
+                              </div>
+                            )}
+                            {metadataPlugins.length === 0 && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                {t('archive.metadataPluginNoPlugins')}
+                              </div>
+                            )}
+                          </div>
 	                      </div>
 	                    ) : (
 	                      <>
