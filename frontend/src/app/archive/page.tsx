@@ -18,10 +18,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 function ArchiveDetailContent() {
-  // 检测是否在静态生成环境中
-  const isStaticGeneration = process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true' || typeof window === 'undefined';
   const searchParams = useSearchParams();
-  const id = searchParams.get('id');
+  const id = searchParams?.get('id') ?? null;
   const { t } = useLanguage();
   const { isAuthenticated } = useAuth();
 
@@ -36,10 +34,6 @@ function ArchiveDetailContent() {
       console.error('Failed to fetch metadata:', error);
     }
   }, [id]);
-
-  useEffect(() => {
-    fetchMetadata();
-  }, [fetchMetadata]);
   
   const [metadata, setMetadata] = useState<ArchiveMetadata | null>(null);
   const [loading, setLoading] = useState(true);

@@ -12,10 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 function SearchContent() {
-  // 检测是否在静态生成环境中
-  const isStaticGeneration = process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true' || typeof window === 'undefined';
   const searchParams = useSearchParams();
-  const query = searchParams.get('q') || '';
+  const query = searchParams?.get('q') ?? '';
   const { t } = useLanguage();
   
   const [archives, setArchives] = useState<Archive[]>([]);

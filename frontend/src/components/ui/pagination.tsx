@@ -23,7 +23,7 @@ export function Pagination({
   const maxVisiblePages = typeof window !== 'undefined' && window.innerWidth < 768 ? 3 : 5
   
   let startPage = Math.max(0, currentPage - Math.floor(maxVisiblePages / 2))
-  let endPage = Math.min(totalPages - 1, startPage + maxVisiblePages - 1)
+  const endPage = Math.min(totalPages - 1, startPage + maxVisiblePages - 1)
   
   if (endPage - startPage < maxVisiblePages - 1) {
     startPage = Math.max(0, endPage - maxVisiblePages + 1)

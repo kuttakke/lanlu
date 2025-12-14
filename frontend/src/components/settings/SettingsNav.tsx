@@ -21,7 +21,7 @@ const sections: SettingsSection[] = [
 ];
 
 export function SettingsNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const { t } = useLanguage();
 
   return (
@@ -52,4 +52,3 @@ export function SettingsNav() {
     </nav>
   );
 }
-

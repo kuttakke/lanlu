@@ -4,7 +4,6 @@ const nextConfig = {
   trailingSlash: true,
   images: {
     unoptimized: true,
-    domains: ['localhost'],
   },
   // 在静态导出模式下，需要明确设置环境变量
   env: {
@@ -17,10 +16,6 @@ const nextConfig = {
   // 为动态路由配置跳过静态生成
   skipTrailingSlashRedirect: true,
   generateBuildId: () => 'build',
-  // 添加实验性配置
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
 }
 
 module.exports = nextConfig

@@ -21,10 +21,8 @@ import Link from 'next/link';
 type ReadingMode = 'single-ltr' | 'single-rtl' | 'single-ttb' | 'webtoon';
 
 function ReaderContent() {
-  // 检测是否在静态生成环境中
-  const isStaticGeneration = process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true' || typeof window === 'undefined';
   const searchParams = useSearchParams();
-  const id = searchParams.get('id');
+  const id = searchParams?.get('id') ?? null;
   const { t } = useReaderLanguage();
   
   const [pages, setPages] = useState<string[]>([]);
