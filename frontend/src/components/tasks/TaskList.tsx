@@ -233,29 +233,6 @@ export function TaskList({ className }: TaskListProps) {
 
   return (
     <div className={`space-y-6 ${className || ''}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold flex items-center space-x-2">
-            <ListTodo className="w-5 h-5" />
-            <span>任务列表</span>
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            共 {total} 个任务
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center space-x-2"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          <span>{t('common.refresh')}</span>
-        </Button>
-      </div>
-
       {/* Error */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
@@ -472,8 +449,11 @@ export function TaskList({ className }: TaskListProps) {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center">
+      {totalPages > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            共 {total} 个任务
+          </p>
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}

@@ -1,20 +1,26 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { TaskList } from '@/components/tasks/TaskList';
-import { ListTodo } from 'lucide-react';
+import { ListTodo, RefreshCw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function SettingsTasksPage() {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Check if current user is admin
   const isAdmin = useMemo(() => {
     return isAuthenticated && user?.isAdmin === true;
   }, [isAuthenticated, user?.isAdmin]);
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
@@ -46,15 +52,26 @@ export default function SettingsTasksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <ListTodo className="w-5 h-5" />
-          {t('settings.tasks')}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t('settings.tasksDescription')}</p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <ListTodo className="w-5 h-5" />
+            {t('settings.tasks')}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t('settings.tasksDescription')}</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          className="flex items-center space-x-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span>{t('common.refresh')}</span>
+        </Button>
       </div>
 
-      <TaskList />
+      <TaskList key={refreshKey} />
     </div>
   );
 }
