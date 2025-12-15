@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArchiveService } from '@/lib/archive-service';
 import { Archive } from '@/types/archive';
-import { ArchiveGrid } from '@/components/archive/ArchiveGrid';
+import { HomeArchiveCard } from '@/components/archive/HomeArchiveCard';
 import { Header } from '@/components/layout/Header';
 import { SearchStatsSidebar } from '@/components/layout/SearchStatsSidebar';
 import { Button } from '@/components/ui/button';
@@ -95,21 +95,29 @@ function SearchContent() {
           )}
 
           {loading && page === 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="space-y-3">
-                  <Skeleton className="h-64 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              ))}
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 min-w-max">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="flex-shrink-0 w-40 space-y-3">
+                    <Skeleton className="h-56 w-full rounded-lg" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <>
               {archives.length > 0 ? (
                 <>
-                  <ArchiveGrid archives={archives} />
-                  
+                  <div className="overflow-x-auto pb-4">
+                    <div className="flex gap-4 min-w-max">
+                      {archives.map((archive) => (
+                        <HomeArchiveCard key={archive.arcid} archive={archive} />
+                      ))}
+                    </div>
+                  </div>
+
                   {hasMore && (
                     <div className="mt-8 text-center">
                       <Button
