@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArchiveService } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTagI18n } from '@/contexts/TagI18nContext';
 import { useState, useEffect } from 'react';
 
 interface HomeArchiveCardProps {
@@ -13,12 +14,14 @@ interface HomeArchiveCardProps {
 
 export function HomeArchiveCard({ archive }: HomeArchiveCardProps) {
   const { t } = useLanguage();
+  const { displayTag } = useTagI18n();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const allTags = archive.tags ? archive.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+  const displayAllTags = allTags.map(displayTag);
   const hoverTags = allTags.slice(0, 8);
   const hoverTitleParts = [
-    allTags.length > 0 ? `${t('archive.tags')}: ${allTags.join(', ')}` : '',
+    displayAllTags.length > 0 ? `${t('archive.tags')}: ${displayAllTags.join(', ')}` : '',
     archive.summary ? `${t('archive.summary')}: ${archive.summary}` : ''
   ].filter(Boolean);
 
@@ -97,7 +100,7 @@ export function HomeArchiveCard({ archive }: HomeArchiveCardProps) {
                         key={tag}
                         className="rounded bg-white/15 px-1.5 py-0.5 text-[11px] text-white backdrop-blur-sm"
                       >
-                        {tag}
+                        {displayTag(tag)}
                       </span>
                     ))}
                     {allTags.length > hoverTags.length && (

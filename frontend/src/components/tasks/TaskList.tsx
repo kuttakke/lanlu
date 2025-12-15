@@ -309,6 +309,9 @@ export function TaskList({ className }: TaskListProps) {
                     </Badge>
                   </div>
                   <div className="flex items-center space-x-2">
+                    <Badge variant="outline" className="font-mono text-xs">
+                      Job #{task.id}
+                    </Badge>
                     <Badge
                       className={MinionService.getTaskTypeColor(task.taskType)}
                       variant="secondary"

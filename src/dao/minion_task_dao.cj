@@ -469,7 +469,7 @@ public class MinionTaskDao {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, task_type, status, progress, message, plugin_namespace, parameters, result, created_at, started_at, completed_at
                         FROM minion_tasks
-                        ORDER BY created_at DESC
+                        ORDER BY id DESC
                         LIMIT ? OFFSET ?
                     """)
                     try {
@@ -506,7 +506,7 @@ public class MinionTaskDao {
                                 }
                                 return result
                             } else {
-                                return Array<MinionTaskData>(0, { i => MinionTaskData() })
+                                return Array<MinionTaskData>()
                             }
                     } catch (e: Exception) {
                         getLogger("minion_task_dao").error("分页查询任务失败", ("error", e.message))

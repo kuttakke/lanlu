@@ -11,6 +11,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Search, Filter, Tag, Calendar as CalendarIcon, SortAsc, SortDesc } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTagI18n } from '@/contexts/TagI18nContext';
 import { cn } from '@/lib/utils';
 
 interface SearchSidebarProps {
@@ -28,6 +29,7 @@ interface SearchSidebarProps {
 
 export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps) {
   const { t } = useLanguage();
+  const { displayTag, resolveToRawTag } = useTagI18n();
   const [query, setQuery] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
@@ -38,8 +40,9 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
   const [dateTo, setDateTo] = useState<Date>();
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
+    const raw = resolveToRawTag(tagInput);
+    if (raw && !tags.includes(raw)) {
+      setTags([...tags, raw]);
       setTagInput('');
     }
   };
@@ -113,8 +116,9 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
                       variant="secondary"
                       className="cursor-pointer"
                       onClick={() => handleRemoveTag(tag)}
+                      title={tag}
                     >
-                      {tag} ×
+                      {displayTag(tag)} ×
                     </Badge>
                   ))}
                 </div>

@@ -2,12 +2,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, LayoutGrid, Package, ListTodo } from 'lucide-react';
+import { ArrowRight, LayoutGrid, Package, ListTodo, Tag } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SettingsPage() {
   const { t } = useLanguage();
+  const { user, isAuthenticated } = useAuth();
+  const isAdmin = isAuthenticated && user?.isAdmin === true;
 
   return (
     <div className="space-y-6">
@@ -39,6 +42,26 @@ export default function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tag className="w-5 h-5" />
+                {t('settings.tagI18n')}
+              </CardTitle>
+              <CardDescription>{t('settings.tagI18nDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full justify-between">
+                <Link href="/settings/tag-i18n">
+                  <span>{t('common.open')}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="h-full">
           <CardHeader>

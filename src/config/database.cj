@@ -432,6 +432,79 @@ public class DatabaseConfig {
                 }
             }
 
+            // tag_i18n 表（tag -> lang -> text）
+            if (!tableExists(conn, "tag_i18n")) {
+                logger.info("tag_i18n表不存在，创建新的tag_i18n表")
+                execUpdate(conn, """
+                    CREATE TABLE tag_i18n (
+                        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                        tag VARCHAR(255) NOT NULL,
+                        lang VARCHAR(16) NOT NULL,
+                        text TEXT NOT NULL DEFAULT '',
+                        intro TEXT NOT NULL DEFAULT '',
+                        links TEXT NOT NULL DEFAULT '',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (tag, lang)
+                    )
+                """)
+                logger.info("tag_i18n表创建成功")
+            } else {
+                logger.info("tag_i18n表已存在，检查并补全缺失列")
+                let columnsToAdd = [
+                    ("text", "TEXT NOT NULL DEFAULT ''"),
+                    ("intro", "TEXT NOT NULL DEFAULT ''"),
+                    ("links", "TEXT NOT NULL DEFAULT ''"),
+                    ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+                    ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                ]
+                for ((column, definition) in columnsToAdd) {
+                    if (!columnExists(conn, "tag_i18n", column)) {
+                        logger.info("tag_i18n表缺少列 ${column}，添加中")
+                        execUpdate(conn, "ALTER TABLE tag_i18n ADD COLUMN ${column} ${definition}")
+                    }
+                }
+
+                // 检查 lang 列长度（lang 列应为 VARCHAR(16)，足够存储语言代码如 zh, en 等）
+                try {
+                    let checkLangLength = conn.prepareStatement("""
+                        SELECT character_maximum_length
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = 'tag_i18n' AND column_name = 'lang'
+                    """)
+                    let rs = checkLangLength.query()
+                    try {
+                        if (rs.next()) {
+                            let currentLength = rs.getOrNull<Int64>(0) ?? 0
+                            if (currentLength >= 16) {
+                                logger.info("tag_i18n表的lang列长度检查通过: ${currentLength.toString()}")
+                            } else {
+                                logger.warn("tag_i18n表的lang列长度异常: ${currentLength.toString()}，建议检查表结构")
+                            }
+                        }
+                    } finally {
+                        rs.close()
+                    }
+                    checkLangLength.close()
+                } catch (e: Exception) {
+                    logger.warn("检查lang列长度失败: ${e.toString()}")
+                }
+
+                // 唯一索引（如果旧表未建 UNIQUE 约束）
+                try {
+                    let createSql = "CREATE UNIQUE INDEX tag_i18n_tag_lang_key ON tag_i18n (tag, lang)"
+                    try {
+                        if (!indexExists(conn, "tag_i18n_tag_lang_key")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (e: Exception) {
+                    logger.warn("创建tag_i18n(tag,lang)唯一索引失败（可忽略）: ${e.toString()}")
+                }
+            }
+
             // archive_tags 表（archives.id <-> tags.id）
             if (!tableExists(conn, "archive_tags")) {
                 logger.info("archive_tags表不存在，创建新的archive_tags表")

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ArchiveService } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTagI18n } from '@/contexts/TagI18nContext';
 import { useState, useEffect } from 'react';
 
 interface ArchiveCardProps {
@@ -16,13 +17,15 @@ interface ArchiveCardProps {
 
 export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProps) {
   const { t } = useLanguage();
+  const { displayTag } = useTagI18n();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const allTags = archive.tags ? archive.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+  const displayAllTags = allTags.map(displayTag);
   const inlineTags = allTags.slice(0, 3);
   const hoverTags = allTags.slice(0, 8);
   const hoverTitleParts = [
-    allTags.length > 0 ? `${t('archive.tags')}: ${allTags.join(', ')}` : '',
+    displayAllTags.length > 0 ? `${t('archive.tags')}: ${displayAllTags.join(', ')}` : '',
     archive.summary ? `${t('archive.summary')}: ${archive.summary}` : ''
   ].filter(Boolean);
 
@@ -97,7 +100,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
                       key={tag}
                       className="rounded bg-white/15 px-1.5 py-0.5 text-[11px] text-white backdrop-blur-sm"
                     >
-                      {tag}
+                      {displayTag(tag)}
                     </span>
                   ))}
                   {allTags.length > hoverTags.length && (
@@ -126,7 +129,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
           <div className="flex flex-wrap gap-1 mb-2">
             {inlineTags.map((tag, index) => (
               <Badge key={index} variant="secondary" className="text-xs">
-                {tag}
+                {displayTag(tag)}
               </Badge>
             ))}
           </div>

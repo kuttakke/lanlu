@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme/theme-provider';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { StaticGenerationProvider } from '@/contexts/StaticGenerationContext';
+import { TagI18nProvider } from '@/contexts/TagI18nContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -27,14 +28,16 @@ export default function RootLayout({
         <StaticGenerationProvider>
           <LanguageProvider>
             <AuthProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                {children}
-              </ThemeProvider>
+              <TagI18nProvider>
+                <ThemeProvider
+                  attribute="class"
+                  defaultTheme="system"
+                  enableSystem
+                  disableTransitionOnChange
+                >
+                  {children}
+                </ThemeProvider>
+              </TagI18nProvider>
             </AuthProvider>
           </LanguageProvider>
         </StaticGenerationProvider>

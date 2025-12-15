@@ -206,6 +206,80 @@ public class TagDao {
     }
 
     /**
+     * 获取当前系统已存在的所有标签（tags 表）
+     */
+    public static func listAllTagNames(): Array<String> {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 兼容两种来源：
+                    // 1) 规范化结构 tags 表
+                    // 2) 历史结构 archives.tags（逗号分隔字符串）
+                    // 3) 已维护的 tag_i18n.tag（即使 tags 表为空也能展示/管理）
+                    // 这里做 UNION 去重，保证管理界面可直接铺开“全量标签”。
+                    let stmt = conn.prepareStatement("""
+                        SELECT DISTINCT name
+                        FROM (
+                            SELECT name AS name FROM tags
+                            UNION
+                            SELECT tag AS name FROM tag_i18n
+                            UNION
+                            SELECT TRIM(BOTH ' ' FROM t) AS name
+                            FROM (
+                                SELECT unnest(string_to_array(tags, ',')) AS t
+                                FROM archives
+                                WHERE tags IS NOT NULL AND tags <> ''
+                            ) s
+                            WHERE t IS NOT NULL AND TRIM(BOTH ' ' FROM t) <> ''
+                        ) u
+                        ORDER BY name
+                    """)
+                    let rs = stmt.query()
+                    var list: ArrayList<String> = ArrayList<String>()
+                    try {
+                        while (rs.next()) {
+                            let name = rs.getOrNull<String>(0) ?? ""
+                            if (name.trimAscii().size > 0) {
+                                list.add(name)
+                            }
+                        }
+                    } finally {
+                        rs.close()
+                    }
+                    return list.toArray()
+                } catch (e: Exception) {
+                    // 兼容：若数据库不支持 unnest/string_to_array（或旧表不存在），回退到 tags 表
+                    getLogger("tag_dao").warn("获取全量标签失败，回退仅查询tags表", ("error", e.message))
+                    try {
+                        let stmt2 = conn.prepareStatement("SELECT name FROM tags ORDER BY name")
+                        let rs2 = stmt2.query()
+                        var list2: ArrayList<String> = ArrayList<String>()
+                        try {
+                            while (rs2.next()) {
+                                let name2 = rs2.getOrNull<String>(0) ?? ""
+                                if (name2.trimAscii().size > 0) {
+                                    list2.add(name2)
+                                }
+                            }
+                        } finally {
+                            try { rs2.close() } catch (_: Exception) {}
+                            try { stmt2.close() } catch (_: Exception) {}
+                        }
+                        return list2.toArray()
+                    } catch (_: Exception) {
+                        return Array<String>()
+                    }
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("tag_dao").error("无法连接到数据库")
+                return Array<String>()
+        }
+    }
+
+    /**
      * 根据名称获取标签
      */
     public static func getTagByName(name: String): TagData {

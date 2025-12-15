@@ -56,7 +56,15 @@ public class MinionTask {
         json += "\"message\":\"${escapeJsonString(message)}\","
         json += "\"taskType\":\"${escapeJsonString(taskType)}\","
         json += "\"pluginNamespace\":\"${escapeJsonString(pluginNamespace)}\","
-        json += "\"parameters\":${parameters},"
+        // parameters 可能是字符串或JSON字符串，需要根据内容判断
+        json += "\"parameters\":"
+        if (parameters.size > 0 && parameters[0] == 123) {
+            // 如果是JSON对象，直接拼接
+            json += "${parameters},"
+        } else {
+            // 如果是普通字符串，用引号包围
+            json += "\"${escapeJsonString(parameters)}\","
+        }
         json += "\"result\":\"${escapeJsonString(result)}\","
         json += "\"createdAt\":\"${escapeJsonString(createdAt)}\","
         json += "\"startedAt\":\"${escapeJsonString(startedAt)}\","
@@ -251,7 +259,7 @@ public class MinionModel {
                 tasks[i] = taskList[i]
             }
         } else {
-            tasks = Array<MinionTask>(0, { i => MinionTask(0, "", "", 0, "") })
+            tasks = Array<MinionTask>()
         }
 
         let result = MinionTaskPageResult(tasks, total, page, pageSize)

@@ -18,12 +18,14 @@ import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info,
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTagI18n } from '@/contexts/TagI18nContext';
 
 function ArchiveDetailContent() {
   const searchParams = useSearchParams();
   const id = searchParams?.get('id') ?? null;
   const { t } = useLanguage();
   const { isAuthenticated } = useAuth();
+  const { displayTag } = useTagI18n();
 
   // 提取 fetchMetadata 函数到顶层
   const fetchMetadata = useCallback(async (): Promise<ArchiveMetadata | null> => {
@@ -584,8 +586,7 @@ function ArchiveDetailContent() {
                       ) : tags.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {tags.map((fullTag) => {
-                            const idx = fullTag.indexOf(':');
-	                            const label = idx > 0 ? fullTag.slice(idx + 1) : fullTag;
+	                            const label = displayTag(fullTag);
 	                            return (
 	                              <Link key={fullTag} href={`/search?q=${encodeURIComponent(fullTag)}`}>
 	                                <Badge
