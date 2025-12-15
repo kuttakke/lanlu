@@ -273,6 +273,14 @@ function ArchiveDetailContent() {
       });
       setIsEditing(false);
       await fetchMetadata();
+      // 重新获取 tag i18n 映射，确保新标签的翻译能够及时显示
+      try {
+        const map = await TagI18nService.getMap(language, metadata.arcid);
+        setTagI18nMap(map || {});
+      } catch (e) {
+        console.error('Failed to fetch tag i18n:', e);
+        setTagI18nMap({});
+      }
     } catch (error) {
       console.error('Failed to update metadata:', error);
       alert(t('archive.updateFailed'));
@@ -319,6 +327,14 @@ function ArchiveDetailContent() {
           summary: updated.summary || '',
           tags: updated.tags ? updated.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
         });
+      }
+      // 重新获取 tag i18n 映射，确保插件更新后的标签翻译能够及时显示
+      try {
+        const map = await TagI18nService.getMap(language, metadata.arcid);
+        setTagI18nMap(map || {});
+      } catch (e) {
+        console.error('Failed to fetch tag i18n:', e);
+        setTagI18nMap({});
       }
       setMetadataPluginMessage(t('archive.metadataPluginCompleted'));
       setMetadataPluginProgress(100);
