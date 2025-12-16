@@ -797,7 +797,7 @@ function ReaderContent() {
               size="sm"
               onClick={toggleFavorite}
               className={`
-                rounded-full p-0 h-11 w-11
+                rounded-full p-0 h-12 w-12
                 transition-all duration-200 ease-in-out
                 hover:scale-110 active:scale-95
                 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20
