@@ -98,6 +98,13 @@ export class ArchiveService {
   }
 
   /**
+   * 更新阅读进度并自动标记为已读（PUT /api/archives/:id/progress/:page）
+   */
+  static async updateProgress(id: string, page: number): Promise<void> {
+    await apiClient.put(`/api/archives/${id}/progress/${page}`);
+  }
+
+  /**
    * 删除档案（仅管理员可用）
    */
   static async deleteArchive(id: string): Promise<void> {

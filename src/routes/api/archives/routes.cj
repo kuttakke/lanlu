@@ -91,6 +91,12 @@ public class ArchiveRoutes {
             ArchiveController.clearIsNew(ctx)
         })
 
+        // 更新阅读进度并自动标记为已读
+        router.put("/api/archives/{id}/progress/{page}", { ctx =>
+            if (!AuthMiddleware.requiredAuth(ctx)) { return }
+            ArchiveController.updateProgress(ctx)
+        })
+
         // 添加收藏
         router.put("/api/archives/{id}/favorite", { ctx =>
             if (!AuthMiddleware.requiredAuth(ctx)) { return }

@@ -548,6 +548,7 @@ public class DatabaseConfig {
                         user_id INTEGER NOT NULL,
                         archive_id INTEGER NOT NULL,
                         is_new BOOLEAN DEFAULT true,
+                        progress INTEGER DEFAULT 0,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE (user_id, archive_id),
@@ -578,6 +579,25 @@ public class DatabaseConfig {
                 logger.info("user_archive_status表创建成功")
             } else {
                 logger.info("user_archive_status表已存在，检查并补全索引")
+                // 检查并添加 progress 字段
+                try {
+                    if (!columnExists(conn, "user_archive_status", "progress")) {
+                        execUpdate(conn, "ALTER TABLE user_archive_status ADD COLUMN progress INTEGER DEFAULT 0")
+                        logger.info("已为 user_archive_status 表添加 progress 字段")
+                    }
+                    // 为 progress 字段创建索引
+                    let indexSql = "CREATE INDEX idx_user_archive_status_progress ON user_archive_status (progress)"
+                    try {
+                        if (!indexExists(conn, "idx_user_archive_status_progress")) {
+                            execUpdate(conn, indexSql)
+                            logger.info("已为 user_archive_status.progress 创建索引")
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, indexSql)
+                    }
+                } catch (_: Exception) {
+                    logger.info("检查/添加 progress 字段时出错，可能已存在")
+                }
                 try {
                     let createSql = "CREATE INDEX idx_user_archive_status_user_id ON user_archive_status (user_id)"
                     try {

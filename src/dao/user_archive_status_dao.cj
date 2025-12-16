@@ -11,6 +11,7 @@ public class UserArchiveStatusRow {
     public var userId: Int64 = 0
     public var archiveId: Int64 = 0
     public var isNew: Bool = true
+    public var progress: Int32 = 0
     public var createdAt: String = ""
     public var updatedAt: String = ""
 
@@ -93,6 +94,52 @@ public class UserArchiveStatusDao {
     }
 
     /**
+     * 更新用户阅读进度并自动标记为已读
+     * @param userId 用户ID
+     * @param archiveId 归档ID
+     * @param progress 阅读页数/进度值
+     * @return 更新是否成功
+     */
+    public static func updateProgress(userId: Int64, archiveId: Int64, progress: Int32): Bool {
+        let logger = getLogger("user_archive_status_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 使用 UPSERT 语法，同时更新 progress 和 is_new
+                    let stmt = conn.prepareStatement("""
+                        INSERT INTO user_archive_status (user_id, archive_id, is_new, progress, updated_at)
+                        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT (user_id, archive_id)
+                        DO UPDATE SET
+                            is_new = false,
+                            progress = ?,
+                            updated_at = CURRENT_TIMESTAMP
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        stmt.set(2, false)  // is_new = false，自动标记为已读
+                        stmt.set(3, progress)
+                        stmt.set(4, progress)  // 第二个 ? 用于 ON CONFLICT
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("更新阅读进度失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) { /* ignore */ }
+                }
+            case None =>
+                logger.error("无法连接到数据库")
+                return false
+        }
+    }
+
+    /**
      * 获取用户对特定归档的状态
      */
     public static func getStatus(userId: Int64, archiveId: Int64): Option<UserArchiveStatusRow> {
@@ -101,7 +148,7 @@ public class UserArchiveStatusDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement("""
-                        SELECT id, user_id, archive_id, is_new, created_at, updated_at
+                        SELECT id, user_id, archive_id, is_new, progress, created_at, updated_at
                         FROM user_archive_status
                         WHERE user_id = ? AND archive_id = ?
                     """)
@@ -116,8 +163,9 @@ public class UserArchiveStatusDao {
                                 row.userId = rs.getOrNull<Int64>(1) ?? 0
                                 row.archiveId = rs.getOrNull<Int64>(2) ?? 0
                                 row.isNew = rs.getOrNull<Bool>(3) ?? true
-                                row.createdAt = rs.getOrNull<String>(4) ?? ""
-                                row.updatedAt = rs.getOrNull<String>(5) ?? ""
+                                row.progress = rs.getOrNull<Int32>(4) ?? 0
+                                row.createdAt = rs.getOrNull<String>(5) ?? ""
+                                row.updatedAt = rs.getOrNull<String>(6) ?? ""
                                 return Some(row)
                             }
                         } finally {
@@ -148,6 +196,19 @@ public class UserArchiveStatusDao {
     }
 
     /**
+     * 获取用户对特定归档的阅读进度
+     * @param userId 用户ID
+     * @param archiveId 归档ID
+     * @return 阅读进度（页数），如果没有记录返回 0
+     */
+    public static func getProgress(userId: Int64, archiveId: Int64): Int32 {
+        match (getStatus(userId, archiveId)) {
+            case Some(row) => return row.progress
+            case None => return 0  // 没有记录，默认为 0
+        }
+    }
+
+    /**
      * 批量获取用户对多个归档的状态
      * 返回 Map<archiveId, isNew>
      */
@@ -172,7 +233,7 @@ public class UserArchiveStatusDao {
                     }
 
                     let sql = """
-                        SELECT archive_id, is_new
+                        SELECT archive_id, is_new, progress
                         FROM user_archive_status
                         WHERE user_id = ? AND archive_id IN (${inClause})
                     """
@@ -312,16 +373,15 @@ public class UserArchiveStatusDao {
                     let stmt = conn.prepareStatement("""
                         SELECT awt.arcid, awt.filename, awt.title, awt.summary, awt.thumbhash,
                                awt.created_at, awt.updated_at, awt.relative_path, awt.file_size,
-                               awt.pagecount, awt.last_read_time, awt.progress, awt.tags
+                               awt.pagecount, awt.last_read_time,
+                               COALESCE(uas.progress, 0) as progress, awt.tags
                         FROM archives_with_tags awt
-                        WHERE awt.arcid IN (
-                            SELECT a.arcid
-                            FROM user_archive_status uas
-                            INNER JOIN archives a ON uas.archive_id = a.id
-                            WHERE uas.user_id = ? AND uas.is_new = false
-                            ORDER BY uas.updated_at DESC
-                            LIMIT ? OFFSET ?
+                        INNER JOIN user_archive_status uas ON awt.arcid = (
+                            SELECT arcid FROM archives WHERE id = uas.archive_id
                         )
+                        WHERE uas.user_id = ? AND uas.is_new = false
+                        ORDER BY uas.updated_at DESC
+                        LIMIT ? OFFSET ?
                     """)
                     try {
                         stmt.set(0, userId)

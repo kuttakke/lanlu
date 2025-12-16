@@ -55,6 +55,7 @@ function ReaderContent() {
   const webtoonContainerRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const currentPageRef = useRef<number>(0); // 用于跟踪最新的currentPage值
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 2 }); // 可见范围
   const [imageHeights, setImageHeights] = useState<number[]>([]); // 存储每张图片的高度
   const [containerHeight, setContainerHeight] = useState(0); // 容器高度
@@ -70,14 +71,6 @@ function ReaderContent() {
       try {
         const data = await ArchiveService.getFiles(id);
         setPages(data);
-
-        // 自动清除isnew标记（标记为已读）
-        try {
-          await ArchiveService.clearIsNew(id);
-        } catch (err) {
-          console.error('Failed to clear isnew flag:', err);
-          // 不影响阅读体验，静默失败
-        }
       } catch (err) {
         console.error('Failed to fetch archive pages:', err);
         setError('Failed to fetch archive pages');
@@ -97,6 +90,45 @@ function ReaderContent() {
       setError(t('reader.fetchError'));
     }
   }, [error, t]);
+
+  // 更新阅读进度
+  const updateReadingProgress = useCallback(async (page: number) => {
+    if (!id) return;
+
+    try {
+      // 调用新的进度更新API，自动标记为已读
+      await ArchiveService.updateProgress(id, page + 1); // API 使用1-based页码
+    } catch (err) {
+      console.error('Failed to update reading progress:', err);
+      // 静默失败，不影响阅读体验
+    }
+  }, [id]);
+
+  // 监听页码变化并更新进度
+  useEffect(() => {
+    if (pages.length > 0 && currentPage >= 0) {
+      // 防抖：延迟500ms更新，避免频繁调用
+      const timeoutId = setTimeout(() => {
+        updateReadingProgress(currentPage);
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [currentPage, pages.length, updateReadingProgress]);
+
+  // 组件卸载时保存进度
+  useEffect(() => {
+    return () => {
+      if (pages.length > 0 && currentPageRef.current >= 0) {
+        updateReadingProgress(currentPageRef.current);
+      }
+    };
+  }, [pages.length, updateReadingProgress]);
+
+  // 跟踪currentPage的变化并更新ref
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
   // 自动隐藏工具栏功能已移除
 

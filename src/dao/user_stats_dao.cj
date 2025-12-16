@@ -63,7 +63,7 @@ public class UserStatsDao {
 
     /**
      * 获取用户总阅读页数
-     * 计算用户已读档案的 progress 总和
+     * 计算用户已读档案的 progress 总和（从 user_archive_status.progress 获取）
      */
     public static func getTotalPagesRead(userId: Int64): Int64 {
         let connOpt = DatabaseConfig.createConnection()
@@ -71,9 +71,8 @@ public class UserStatsDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement("""
-                        SELECT COALESCE(SUM(a.progress), 0) as total_pages
+                        SELECT COALESCE(SUM(uas.progress), 0) as total_pages
                         FROM user_archive_status uas
-                        INNER JOIN archives a ON uas.archive_id = a.id
                         WHERE uas.user_id = ? AND uas.is_new = false
                     """)
                     try {
@@ -90,10 +89,11 @@ public class UserStatsDao {
                         stmt.close()
                     }
                     return 0
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    getLogger("user_stats_dao").error("获取总阅读页数失败", ("error", e.message))
                     return 0
                 } finally {
-                    try { conn.close() } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) { /* ignore */ }
                 }
             case None => return 0
         }
