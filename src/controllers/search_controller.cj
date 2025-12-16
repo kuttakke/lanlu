@@ -8,8 +8,6 @@ import lrr4cj.dao.*
 import lrr4cj.middleware.*
 import lrr4cj.config.*
 import std.convert.*
-import std.time.*
-import std.random.*
 import std.collection.*
 
 /**
@@ -163,7 +161,7 @@ public class SearchController {
 
         // 使用数据库级别的随机排序和过滤条件来获取随机归档
         // 将过滤条件移到SQL查询中，提高性能
-        let (resultArchives, totalCount) = ArchiveModel.searchArchives(filter, category, 0, count, "RANDOM()", "desc", newOnly, untaggedOnly)
+        let (resultArchives, _) = ArchiveModel.searchArchives(filter, category, 0, count, "RANDOM()", "desc", newOnly, untaggedOnly)
 
         // 获取用户ID（可选）
         let userIdOpt = AuthMiddleware.optionalUser(ctx)
@@ -245,7 +243,6 @@ public class SearchController {
      * 获取搜索建议
      */
     public static func getSearchSuggestions(ctx: JoyContext) {
-        let query = ctx.getQuery("q") ?? ""
         let suggestions = "[\"suggestion1\",\"suggestion2\",\"suggestion3\"]"
         ResponseView.successJson(ctx, suggestions, "获取搜索建议成功")
     }

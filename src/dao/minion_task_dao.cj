@@ -59,7 +59,7 @@ public class MinionTaskDao {
                         let createTableSql = "CREATE TABLE minion_tasks (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, task_type VARCHAR(50) NOT NULL DEFAULT 'generic', status VARCHAR(50) NOT NULL DEFAULT 'pending', progress INTEGER NOT NULL DEFAULT 0, message TEXT, plugin_namespace VARCHAR(255), parameters TEXT, result TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, started_at TIMESTAMP, completed_at TIMESTAMP)"
 
                         let stmt = conn.prepareStatement(createTableSql)
-                        let result = stmt.update()
+                        stmt.update()
                         stmt.close()
                         logger.info("minion_tasks表创建成功")
                     } else {
@@ -239,7 +239,7 @@ public class MinionTaskDao {
                         stmt.set(2, progress)
                         stmt.set(3, id)
 
-                        let result = stmt.update()
+                        stmt.update()
                         getLogger("minion_task_dao").info("更新任务状态", ("id", id), ("status", status))
                         return true
                     } finally {
@@ -301,7 +301,7 @@ public class MinionTaskDao {
                         }
                         stmt.set(10, data.id)
 
-                        let result = stmt.update()
+                        stmt.update()
                         getLogger("minion_task_dao").info("更新任务", ("id", data.id))
                         return true
                     } finally {
@@ -338,7 +338,7 @@ public class MinionTaskDao {
                     let stmt = conn.prepareStatement("DELETE FROM minion_tasks WHERE id = ?")
                     try {
                         stmt.set(0, id)
-                        let result = stmt.update()
+                        stmt.update()
                         getLogger("minion_task_dao").info("删除任务", ("id", id))
                         return true
                     } finally {
@@ -500,7 +500,7 @@ public class MinionTaskDao {
       // 转换 ArrayList 为 Array
                             let size = taskList.size
                             if (size > 0) {
-                                var result = Array<MinionTaskData>(size, { i => MinionTaskData() })
+                                var result = Array<MinionTaskData>(size, { _ => MinionTaskData() })
                                 for (i in 0..size) {
                                     result[i] = taskList[i]
                                 }
@@ -553,7 +553,7 @@ public class MinionTaskDao {
                     pstmt.set(0, parameters)
                     pstmt.set(1, id)
 
-                    let result = pstmt.update()
+                    pstmt.update()
                     logger.info("更新任务参数", ("id", id.toString()), ("parameters", parameters))
 
                     try {

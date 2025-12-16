@@ -5,7 +5,6 @@ import lrr4cj.utils.*
 import lrr4cj.config.*
 import std.collection.*
 import std.time.*
-import std.random.*
 
 /**
  * Minion任务数据模型
@@ -181,7 +180,7 @@ public class MinionModel {
                         logger.info("添加缺失的message列")
                         let addMessageSql = "ALTER TABLE minion_tasks ADD COLUMN message TEXT"
                         let addStmt = conn.prepareStatement(addMessageSql)
-                        let addResult = addStmt.update()
+                        addStmt.update()
                         addStmt.close()
                         logger.info("message列添加成功")
                     } else {
@@ -254,7 +253,7 @@ public class MinionModel {
         let taskListSize = taskList.size
         var tasks = Array<MinionTask>()
         if (taskListSize > 0) {
-            tasks = Array<MinionTask>(taskListSize, { i => MinionTask(0, "", "", 0, "") })
+            tasks = Array<MinionTask>(taskListSize, { _ => MinionTask(0, "", "", 0, "") })
             for (i in 0..taskListSize) {
                 tasks[i] = taskList[i]
             }
@@ -431,20 +430,7 @@ public class MinionModel {
         return data
     }
 
-    /**
-     * 生成任务ID
-     */
-    private static func generateTaskId(): String {
-        // 使用时间戳和随机数生成唯一的任务ID，确保不超过36字符
-        let timestamp = DateTime.now().toString().replace("-", "").replace(" ", "").replace(":", "").replace(".", "").replace("+", "")
-        let shortTime = if (timestamp.size > 20) {
-            timestamp[0..20]
-        } else {
-            timestamp
-        }
-        let randomSuffix = Random(5).nextBits(8).toString()
-        return "task_${shortTime}_${randomSuffix}"
-    }
+
 
     /**
      * 获取当前时间字符串

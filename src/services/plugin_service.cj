@@ -1,16 +1,12 @@
 package lrr4cj.services
 
 import std.process.*
-import std.io.*
 import std.time.*
 import std.convert.*
 import std.collection.*
 import std.fs.*
-import std.env.*
-import std.unittest.*
 import stdx.encoding.json.*
 import lrr4cj.dao.*
-import lrr4cj.config.*
 import lrr4cj.utils.*
 import stdx.log.*
 import dotenv.Dotenv
@@ -68,7 +64,7 @@ public class PluginService {
     /**
      * 根据插件权限构建Deno参数
      */
-    private static func buildDenoPermissions(plugin: PluginData, pluginFile: String): ArrayList<String> {
+    private static func buildDenoPermissions(plugin: PluginData, _: String): ArrayList<String> {
         var denoArgs = ArrayList<String>()
 
         // 基本参数
@@ -316,92 +312,7 @@ public class PluginService {
         return pluginData
     }
 
-    /**
-     * 从Perl插件文件执行并获取元数据
-     */
-    private func createPluginFromFile(pluginFile: String, pluginType: String): PluginData {
-        var pluginData = PluginData()
-        let logger = getLogger("plugin_service")
 
-        try {
-            // 从文件路径提取文件名
-            let pathObj = Path(pluginFile)
-            let fileName = pathObj.fileName
-
-            // 构建Perl命令来获取插件信息
-            let pluginName = fileName.replace(".pm", "")
-            let packageName = "LANraragi::Plugin::${pluginType}::${pluginName}"
-
-            let perlCode = """
-use strict;
-use warnings;
-use feature 'say';
-use JSON::PP;
-
-# 添加plugins目录到@INC路径
-use File::Basename;
-my \$plugin_dir = dirname('${pluginFile}');
-unshift @INC, \$plugin_dir;
-
-# 加载插件文件
-eval {
-    do '${pluginFile}';
-    1; # 成功
-} or do {
-    print '{"error": "Failed to load plugin file: $@"}';
-    exit 1;
-};
-
-# 访问插件包中的plugin_info方法
-my \$full_method = '${packageName}::plugin_info';
-if (eval { defined(&\$full_method) }) {
-    my %plugin_info = eval { &\$full_method() };
-    if (\$@) {
-        print '{"error": "Failed to call plugin_info: $@"}';
-    } else {
-        # 创建一个简化版本的hash，只包含可序列化的数据
-        my %safe_info = ();
-        \$safe_info{name} = \$plugin_info{name} // '';
-        \$safe_info{namespace} = \$plugin_info{namespace} // '';
-        \$safe_info{version} = \$plugin_info{version} // '';
-        \$safe_info{description} = \$plugin_info{description} // '';
-        \$safe_info{author} = \$plugin_info{author} // '';
-        \$safe_info{type} = \$plugin_info{type} // '';
-        \$safe_info{parameters} = \$plugin_info{parameters} // [];
-
-        print encode_json(\\\\%safe_info);
-    }
-} else {
-    print '{"error": "plugin_info method not found in ${packageName}"}';
-}
-"""
-
-            // 执行Perl代码获取插件信息
-            let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
-            let (exitCode, stdout, stderr) = executeWithOutput(perlPath, ["-e", perlCode])
-            let executionTime = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
-
-            if (exitCode == 0) {
-                let output = String.fromUtf8(stdout)
-
-                // 解析JSON输出
-                if (!output.contains("\"error\"")) {
-                    // 从JSON解析插件信息
-                    pluginData = parsePluginInfoFromJson(output, fileName, pluginType)
-                    logger.info("成功解析插件元数据: ${fileName}, execution_time: ${executionTime}")
-                } else {
-                    logger.error("插件返回错误: ${fileName}, error: ${output}")
-                }
-            } else {
-                let stderrStr = String.fromUtf8(stderr)
-                logger.error("执行插件失败: ${fileName}, exit_code: ${exitCode.toString()}, stderr: ${stderrStr}")
-            }
-        } catch (e: Exception) {
-            logger.error("解析插件文件时发生异常: ${e.message}")
-        }
-
-        return pluginData
-    }
 
     /**
      * 从JSON解析插件信息
@@ -1137,14 +1048,14 @@ if (eval { defined(&\$full_method) }) {
     /**
      * 获取插件配置 - 直接返回空Map，现在配置由前端处理
      */
-    public func getPluginConfig(namespace: String): HashMap<String, String> {
+    public func getPluginConfig(_: String): HashMap<String, String> {
         return HashMap<String, String>()
     }
 
     /**
      * 更新插件配置
      */
-    public func updatePluginConfig(namespace: String, config: HashMap<String, String>): Bool {
+    public func updatePluginConfig(_: String, _: HashMap<String, String>): Bool {
         // 这个方法已弃用，现在配置通过控制器直接处理
         return false
     }

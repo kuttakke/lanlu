@@ -7,10 +7,8 @@ import std.time.DateTime
 import std.collection.*
 import std.convert.*
 import std.fs.*
-import std.io.*
 import lrr4cj.services.*
 import lrr4cj.dao.*
-import lrr4cj.models.*
 import lrr4cj.utils.*
 import lrr4cj.views.*
 
@@ -46,52 +44,6 @@ public class TagI18nController {
         escaped = escaped.replace("\r", "\\r")
         escaped = escaped.replace("\t", "\\t")
         return escaped
-    }
-
-    private static func addEntry(entries: ArrayList<TagI18nEntry>, tag: String, lang: String, text: String): Unit {
-        let t = tag.trimAscii()
-        let l = lang.trimAscii()
-        if (t.size == 0 || l.size == 0) { return }
-        let e = TagI18nEntry()
-        e.tag = t
-        e.lang = l
-        e.text = text
-        entries.add(e)
-    }
-
-    private static func parseEntriesArray(entries: ArrayList<TagI18nEntry>, arr: JsonArray): Unit {
-        let size = arr.size()
-        for (i in 0..size) {
-            match (arr.get(i)) {
-                case Some(v) =>
-                    match (v) {
-                        case obj: JsonObject =>
-                            let tag = getJsonString(obj, "tag")
-                            let lang = getJsonString(obj, "lang")
-                            let text = getJsonString(obj, "text")
-                            addEntry(entries, tag, lang, text)
-                        case _ => ()
-                    }
-                case None => ()
-            }
-        }
-    }
-
-    private static func parseTagMap(entries: ArrayList<TagI18nEntry>, obj: JsonObject): Unit {
-        let fields = obj.getFields()
-        for ((tag, value) in fields) {
-            match (value) {
-                case langsObj: JsonObject =>
-                    let lf = langsObj.getFields()
-                    for ((lang, textVal) in lf) {
-                        addEntry(entries, tag, lang, jsonValueToString(textVal))
-                    }
-                case s: JsonString =>
-                    // 兜底：如果只有字符串，则默认当作 zh
-                    addEntry(entries, tag, "zh", s.getValue())
-                case _ => ()
-            }
-        }
     }
 
     private static func langFromQuery(ctx: JoyContext): String {
@@ -531,7 +483,7 @@ public class TagI18nController {
             throw Exception("No chunk files found")
         }
 
-        var chunkArray = Array<Path>(chunkFiles.size, { i => Path("") })
+        var chunkArray = Array<Path>(chunkFiles.size, { _ => Path("") })
         for (i in 0..chunkFiles.size) {
             chunkArray[i] = chunkFiles[i]
         }
@@ -551,7 +503,7 @@ public class TagI18nController {
 
         try (output = File(outputFile, Write)) {
             let bufferSize = 1024 * 1024
-            let buffer = Array<Byte>(bufferSize, { i => 0 })
+            let buffer = Array<Byte>(bufferSize, { _ => 0 })
             for (chunkFile in chunkArray) {
                 try (chunk = File(chunkFile, Read)) {
                     var bytesRead = chunk.read(buffer)

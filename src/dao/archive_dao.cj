@@ -4,7 +4,6 @@ import std.database.sql.*
 import lrr4cj.config.*
 import lrr4cj.utils.*
 import std.collection.*
-import std.io.*
 import std.time.*
 import stdx.log.*
 
@@ -374,7 +373,7 @@ public class ArchiveDao {
     /**
      * 插入归档记录 - 专门为 ShinobuService 提供的方法
      */
-    public static func insertArchive(archiveId: String, title: String, fileName: String, fileSize: Int64, fileModTime: Int64, filePath: String): Bool {
+    public static func insertArchive(archiveId: String, title: String, fileName: String, fileSize: Int64, _: Int64, filePath: String): Bool {
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>

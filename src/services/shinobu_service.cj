@@ -1,18 +1,15 @@
 package lrr4cj.services
 
-import std.env.*
 import std.fs.*
 import std.process.*
 import std.time.*
 import std.sync.*
 import std.convert.*
-import std.crypto.digest.*
 import stdx.crypto.digest.*
 import stdx.encoding.hex.*
 import stdx.encoding.json.*
 import stdx.log.*
 import cjoy.json.*
-import lrr4cj.config.*
 import lrr4cj.dao.*
 import lrr4cj.utils.*
 import dotenv.Dotenv
@@ -457,7 +454,6 @@ public class ShinobuService {
 
                 // 检查是否为软链接目录
                 let actualPath = FileUtils.resolvePath(fullPath)
-                let isSymlink = fullPath != actualPath
 
                 if (directoryExists(fullPath)) {
                     // 递归处理子目录（包括软链接目录）
@@ -1331,13 +1327,6 @@ public class ShinobuService {
     }
     
     /**
-     * 生成任务ID
-     */
-    private func generateJobId(): Int64 {
-        return getCurrentTimeMillis()
-    }
-    
-    /**
      * 获取文件扩展名
      */
     private func getFileExtension(filePath: String): String {
@@ -1424,35 +1413,6 @@ public class ShinobuService {
         } catch (e: Exception) {
             logger.error("Failed to get file size for '${filePath}': ${e.message}")
             return 0
-        }
-    }
-    
-    /**
-     * 生成 MD5 哈希作为文件名
-     */
-    private func generateMD5Filename(arcid: String): String {
-        try {
-            // 获取当前时间戳
-            let timestamp = getTimeMillis().toString()
-            
-            // 组合 arcid 和时间戳
-            let input = arcid + timestamp
-            
-            // 使用真正的 MD5 算法
-            var md5Instance = MD5()
-            md5Instance.write(input.toArray())
-            let md: Array<Byte> = md5Instance.finish()
-            
-            // 转换为十六进制字符串
-            let result = toHexString(md)
-            
-            logger.debug("Generated MD5 filename: ${result} for arcid: ${arcid}")
-            return result
-        } catch (e: Exception) {
-            logger.error("Failed to generate MD5 filename: ${e.message}")
-            // 如果 MD5 生成失败，返回一个基于时间戳的备用文件名
-            let timestamp = getTimeMillis().toString()
-            return "fallback_${timestamp}"
         }
     }
     
@@ -2000,7 +1960,7 @@ public class ShinobuService {
             // 由于executeWithOutput函数限制参数数量，我们分两步执行
             // 第一步：调整大小 - 宽500px，最大高1000px（保持比例）
             let resizedPath = joinPath(cachePath.toString(), "temp_resized.jpg")
-            let (resizeExitCode, resizeStdout, resizeStderr) = executeWithOutput(
+            let (resizeExitCode, _, resizeStderr) = executeWithOutput(
                 "convert",
                 [inputPath, "-resize", "500x1000>", resizedPath],
                 stdOut: ProcessRedirect.Pipe,
@@ -2014,7 +1974,7 @@ public class ShinobuService {
             }
 
             // 第二步：设置质量并输出到最终路径
-            let (qualityExitCode, qualityStdout, qualityStderr) = executeWithOutput(
+            let (qualityExitCode, _, qualityStderr) = executeWithOutput(
                 "convert",
                 [resizedPath, "-quality", "85", outputPath],
                 stdOut: ProcessRedirect.Pipe,
@@ -2077,32 +2037,9 @@ public class ShinobuService {
         return result
     }
     
-    /**
-     * 检查文件是否是压缩包（根据路径）
-     */
-    private func isArchiveFileByPath(filePath: String): Bool {
-        let ext = getFileExtension(filePath)
-        for (supportedExt in SUPPORTED_ARCHIVE_EXTENSIONS) {
-            if (ext == supportedExt) {
-                return true
-            }
-        }
-        return false
-    }
+
     
-    /**
-     * 简单的文件哈希计算
-     */
-    private func calculateFileHashSimple(filePath: String): String {
-        try {
-            let content = File.readFrom(Path(filePath))
-            // 简单哈希：使用文件大小和路径
-            return "${content.size}_${filePath.hashCode()}"
-        } catch (e: Exception) {
-            logger.error("Error calculating file hash", ("error", e.message))
-            return "${filePath.hashCode()}"
-        }
-    }
+
     
     /**
      * 启动扫描线程

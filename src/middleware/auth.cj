@@ -40,13 +40,6 @@ public class AuthMiddleware {
     }
 
     /**
-     * 可选认证中间件
-     */
-    public static func optionalAuth(ctx: JoyContext) {
-        // 可选认证，不做任何处理
-    }
-
-    /**
      * 可选获取用户ID（不会返回401错误）
      * 如果用户已登录返回 Some(userId)，否则返回 None
      */

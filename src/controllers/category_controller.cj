@@ -1,7 +1,6 @@
 package lrr4cj.controllers
 
 import cjoy.*
-import cjoy.json.*
 import lrr4cj.models.*
 import lrr4cj.views.*
 

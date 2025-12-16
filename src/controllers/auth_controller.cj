@@ -6,7 +6,6 @@ import cjoy.*
 import stdx.net.http.HttpStatusCode
 import lrr4cj.config.*
 import lrr4cj.dao.*
-import lrr4cj.middleware.*
 import lrr4cj.utils.*
 
 public class AuthController {
@@ -368,7 +367,7 @@ public class AuthController {
 
     // ===== 用户管理相关接口（仅管理员可访问）=====
 
-    public static func listUsers(ctx: JoyContext, userId: Int64): Unit {
+    public static func listUsers(ctx: JoyContext): Unit {
         let users = UserDao.listAllUsers()
         var json = "["
         for (i in 0..users.size) {
@@ -386,7 +385,7 @@ public class AuthController {
         ctx.json("{\"code\":200,\"message\":\"ok\",\"data\":{\"users\":${json}}}")
     }
 
-    public static func createUser(ctx: JoyContext, userId: Int64): Unit {
+    public static func createUser(ctx: JoyContext): Unit {
         let logger = getLogger("auth_controller")
         try {
             let requestBody = ctx.readString()
@@ -440,7 +439,7 @@ public class AuthController {
         }
     }
 
-    public static func updateUserRole(ctx: JoyContext, userId: Int64): Unit {
+    public static func updateUserRole(ctx: JoyContext): Unit {
         let logger = getLogger("auth_controller")
         try {
             let idStr = ctx.getParam("id") ?? ""
@@ -524,7 +523,7 @@ public class AuthController {
         }
     }
 
-    public static func resetUserPassword(ctx: JoyContext, userId: Int64): Unit {
+    public static func resetUserPassword(ctx: JoyContext): Unit {
         let logger = getLogger("auth_controller")
         try {
             let idStr = ctx.getParam("id") ?? ""

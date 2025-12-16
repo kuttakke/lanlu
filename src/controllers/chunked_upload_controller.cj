@@ -6,16 +6,10 @@ import cjoy.json.*
 import lrr4cj.models.*
 import lrr4cj.utils.*
 import lrr4cj.dao.*
-import std.random.*
 import lrr4cj.services.*
-import std.time.*
-import stdx.crypto.digest.*
-import stdx.encoding.hex.*
 import std.fs.*
 import std.convert.*
-import lrr4cj.config.*
 import stdx.log.*
-import stdx.encoding.json.*
 import stdx.encoding.json.stream.*
 
 /**
@@ -23,10 +17,6 @@ import stdx.encoding.json.stream.*
  * 处理分片上传相关的API请求
  */
 public class ChunkedUploadController {
-
-    // 分片上传配置
-    private static let CHUNK_SIZE = 1536 * 1024; // 1.5MB (小于2MB限制)
-    private static let MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
     // 缓存目录
     private static let CACHE_DIR = "./data/cache"
@@ -78,7 +68,6 @@ public class ChunkedUploadController {
             let taskIdStr = ctx.getQuery("taskId") ?? ""
             let chunkIndexStr = ctx.getQuery("chunkIndex") ?? ""
             let totalChunksStr = ctx.getQuery("totalChunks") ?? ""
-            let fileName = ctx.getQuery("filename") ?? ""
 
             // 验证参数
             if (taskIdStr.size == 0 || chunkIndexStr.size == 0 || totalChunksStr.size == 0) {
@@ -89,7 +78,6 @@ public class ChunkedUploadController {
             }
 
             let chunkIndex = Int64.parse(chunkIndexStr)
-            let totalChunks = Int64.parse(totalChunksStr)
 
             // 创建上传目录，使用taskId作为目录名
             let uploadDir = Path("${CACHE_DIR}/task/${taskIdStr}")
@@ -283,11 +271,11 @@ public class ChunkedUploadController {
             if (asyncFlag == "1" || asyncFlag == "true") {
                 // 更新任务类型并置为pending，等待TaskPool领取
                 let paramsJson =
-                    "{"
-                    + "\"archive_path\":\"${escapeJsonString(absoluteArchivePath)}\","
-                    + "\"relative_path\":\"${escapeJsonString(finalArchivePath.toString())}\","
-                    + "\"filename\":\"${escapeJsonString(originalFileName)}\""
-                    + "}"
+                    "{" +
+                    "\"archive_path\":\"${escapeJsonString(absoluteArchivePath)}\"," +
+                    "\"relative_path\":\"${escapeJsonString(finalArchivePath.toString())}\"," +
+                    "\"filename\":\"${escapeJsonString(originalFileName)}\"" +
+                    "}"
                 MinionTaskDao.updateTaskParameters(taskId, paramsJson)
                 MinionTaskDao.updateTaskType(taskId, "upload_process")
                 MinionTaskDao.updateTaskStatus(taskId, "pending", "等待处理", 70)
@@ -382,79 +370,9 @@ public class ChunkedUploadController {
         }
     }
 
-    /**
-     * 解析任务参数
-     */
-    private static func parseTaskParameter(parameters: String, key: String): String {
-        try {
-            if (parameters.size == 0) {
-                return ""
-            }
 
-            // 简单的JSON解析，查找key对应的值
-            let keyPattern = "\"${key}\":\""
 
-            // 手动查找key位置
-            var i = 0
-            var keyIndex = -1
-            while (i <= parameters.size - keyPattern.size) {
-                var found = true
-                for (j in 0..keyPattern.size) {
-                    if (i + j >= parameters.size || parameters[i + j] != keyPattern[j]) {
-                        found = false
-                        break
-                    }
-                }
-                if (found) {
-                    keyIndex = i
-                    break
-                }
-                i++
-            }
 
-            if (keyIndex < 0) {
-                return ""
-            }
-
-            let valueStart = keyIndex + keyPattern.size
-
-            // 查找结束引号
-            var valueEnd = valueStart
-            let quoteCharValue = 34u8 // ASCII value for quote character as UInt8
-            while (valueEnd < parameters.size && parameters[valueEnd] != quoteCharValue) {
-                valueEnd++
-            }
-
-            if (valueEnd >= parameters.size) {
-                return ""
-            }
-
-            var result = ""
-            for (j in valueStart..valueEnd) {
-                result += parameters[j].toString()
-            }
-            return result
-        } catch (e: Exception) {
-            getLogger("chunked_upload").warn("Failed to parse task parameter", ("key", key), ("parameters", parameters), ("error", e.message))
-            return ""
-        }
-    }
-
-    /**
-     * 生成上传ID
-     */
-    private static func generateUploadId(): String {
-        let content = DateTime.now().toString() + Random(3).nextBits(32).toString()
-
-        // 使用 SHA1 算法生成哈希
-        var sha1Instance = SHA1()
-        sha1Instance.write(content.toArray())
-        let hash: Array<Byte> = sha1Instance.finish()
-
-        // 转换为十六进制字符串
-        let result = toHexString(hash)
-        return "upload_session_${toHexString(hash)}"
-    }
 
     /**
      * 创建临时目录
@@ -487,45 +405,7 @@ public class ChunkedUploadController {
         }
     }
 
-    /**
-     * 处理合并后的文件
-     */
-    private static func processMergedFile(
-        filePath: String,
-        title: String,
-        tags: String,
-        summary: String,
-        categoryId: String,
-        fileChecksum: String
-    ): String {
-        try {
-            // 获取ShinobuService实例
-            let shinobu = ShinobuService.getInstance()
-            let archivePath = ShinobuService.getArchivePath().toString()
 
-            // 构建目标文件路径
-            let fileName = Path(filePath).fileName
-            let targetPath = FileUtils.joinPath(archivePath, fileName)
-
-            // 移动文件到归档目录
-            let sourceFile = Path(filePath)
-            if (exists(sourceFile)) {
-                // 简化处理：直接复制文件
-                copy(sourceFile.toString(), to: targetPath, overwrite: true)
-            }
-
-            // 生成归档ID
-            let archiveId = "archive_${generateUploadId()}"
-
-            // 这里应该保存到数据库
-            // 简化处理，直接返回ID
-
-            return archiveId
-        } catch (e: Exception) {
-            println("Error processing merged file: ${e.message}")
-            return ""
-        }
-    }
 
     
     /**
@@ -588,7 +468,7 @@ public class ChunkedUploadController {
         try (outputFileStream = File(Path(outputFile), Write)) {
             // 使用固定大小的缓冲区
             let bufferSize = 1024 * 1024  // 1MB
-            let buffer = Array<Byte>(bufferSize, {i => 0})
+            let buffer = Array<Byte>(bufferSize, {_ => 0})
 
             // 逐个读取分片并写入输出文件
             for (chunkFile in chunkArray) {

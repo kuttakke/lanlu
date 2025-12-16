@@ -223,7 +223,7 @@ public class ArchiveModel {
     /**
      * 获取归档缩略图的文件系统路径
      */
-    public static func getThumbnailFilePath(id: String, page: Int32): String {
+    public static func getThumbnailFilePath(id: String, _: Int32): String {
         let config = Dotenv.createConfig()
         let thumbnailDir = config.read("THUMBNAIL_PATH", "./data/thumb")
 
@@ -272,7 +272,7 @@ public class ArchiveModel {
     /**
      * 检查缩略图文件是否存在
      */
-    public static func thumbnailExists(id: String, page: Int32): Bool {
+    public static func thumbnailExists(id: String, _: Int32): Bool {
         // 使用DAO层直接获取thumbhash，避免循环依赖
         let thumbhash = ArchiveDao.getThumbnailHash(id)
         if (thumbhash.size == 0) {

@@ -1,8 +1,5 @@
 package lrr4cj.models
 
-import std.unittest.*
-import cjoy.*
-
 /**
  * Shinobu状态数据模型
  */
@@ -74,13 +71,13 @@ public class FileWatcherStatus {
      * 转换为JSON字符串
      */
     public func toJson(): String {
-        return "{"
-            + "\"isActive\":${isActive},"
-            + "\"watcherCount\":${watcherCount},"
-            + "\"lastEventTime\":\"${lastEventTime}\","
-            + "\"totalEvents\":${totalEvents},"
-            + "\"errorCount\":${errorCount},"
-            + "\"lastError\":\"${lastError}\""
-            + "}"
+        return "{" +
+            "\"isActive\":${isActive}," +
+            "\"watcherCount\":${watcherCount}," +
+            "\"lastEventTime\":\"${lastEventTime}\"," +
+            "\"totalEvents\":${totalEvents}," +
+            "\"errorCount\":${errorCount}," +
+            "\"lastError\":\"${lastError}\"" +
+            "}"
     }
 }

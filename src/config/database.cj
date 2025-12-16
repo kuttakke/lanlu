@@ -2,10 +2,6 @@ package lrr4cj.config
 
 import std.database.sql.*
 import opengauss.driver.*
-import std.io.*
-import std.fs.*
-import std.time.*
-import std.env.*
 import std.convert.*
 import stdx.log.*
 import dotenv.Dotenv
@@ -116,7 +112,7 @@ public class DatabaseConfig {
 
                         logger.info("准备执行插件表创建语句")
                         let stmt = conn.prepareStatement(createPluginsTable)
-                        let result = stmt.update()
+                        stmt.update()
                         stmt.close()
                         logger.info("插件表创建成功")
                     } else {

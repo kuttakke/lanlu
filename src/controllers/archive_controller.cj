@@ -300,7 +300,7 @@ public class ArchiveController {
         // 缩略图不存在
         if (noFallback) {
             // 不使用fallback，返回任务ID
-            let jobId = generateJobId()
+            let jobId = DateTime.now().toUnixTimeStamp().toSeconds() * 1000
             let response = "{\"job\":${jobId},\"operation\":\"serve_thumbnail\",\"success\":1}"
             ctx.status(HttpStatusCode.STATUS_ACCEPTED)
             ctx.json(response)
@@ -312,13 +312,6 @@ public class ArchiveController {
             // 直接返回二进制数据
             ctx.data(placeholderImage)
         }
-    }
-    
-    /**
-     * 生成任务ID
-     */
-    private static func generateJobId(): Int64 {
-        return DateTime.now().toUnixTimeStamp().toSeconds() * 1000
     }
     
     
@@ -361,12 +354,6 @@ public class ArchiveController {
         }
         
         // 获取查询参数
-        let forceParam = ctx.getQuery("force")
-        let force = match (forceParam) {
-            case Some(f) => f == "true" || f == "1"
-            case None => false
-        }
-        
         let imagesOnlyParam = ctx.getQuery("images_only")
         let imagesOnly = match (imagesOnlyParam) {
             case Some(i) => i == "true" || i == "1"
@@ -436,7 +423,6 @@ public class ArchiveController {
 
     // DELETE /api/archives/{id}
     public static func deleteArchive(ctx: JoyContext): Unit {
-        let id = ctx.getParam("id").getOrThrow()
         // 简化实现，总是返回成功
         let result = "{\"operation\":\"delete_archive\",\"success\":1}"
         ctx.json(result)
@@ -463,9 +449,6 @@ public class ArchiveController {
             return
         }
         
-        // 获取ShinobuService实例
-        let shinobu = ShinobuService.getInstance()
-        
         // 构建归档文件完整路径
         let archivePath = ShinobuService.getArchivePath().toString()
         let fullArchivePath = if (archive.relative_path.size > 0) {
@@ -483,7 +466,7 @@ public class ArchiveController {
             let fileInfo = file.info
             let fileSize = fileInfo.size
             let buffer = Array<Byte>(fileSize, {_ => 0})
-            let bytesRead = file.read(buffer)
+            file.read(buffer)
             file.close()
             
             // 设置响应头

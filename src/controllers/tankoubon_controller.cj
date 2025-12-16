@@ -2,7 +2,6 @@ package lrr4cj.controllers
 
 import cjoy.*
 import lrr4cj.models.*
-import lrr4cj.views.*
 
 /**
  * 单行本控制器

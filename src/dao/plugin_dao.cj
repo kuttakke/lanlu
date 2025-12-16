@@ -5,7 +5,6 @@ import lrr4cj.config.*
 import lrr4cj.utils.*
 import std.collection.*
 import stdx.log.*
-import stdx.encoding.json.*
 
 /**
  * 插件数据结构
@@ -261,7 +260,7 @@ public class PluginDao {
                 stmt.set(14, plugin.has_schema)
                 stmt.set(15, plugin.parameters)
 
-                let result = stmt.update()
+                stmt.update()
                 conn.close()
                 return true
             } catch (e: Exception) {
@@ -302,7 +301,7 @@ public class PluginDao {
                 stmt.set(14, plugin.parameters)
                 stmt.set(15, plugin.namespace)
 
-                let result = stmt.update()
+                stmt.update()
                 conn.close()
                 return true
             } catch (e: Exception) {
@@ -326,7 +325,7 @@ public class PluginDao {
                 let stmt = conn.prepareStatement("DELETE FROM plugins WHERE namespace = ?")
                 stmt.set(0, namespace)
 
-                let result = stmt.update()
+                stmt.update()
                 conn.close()
                 return true
             } catch (e: Exception) {
@@ -352,7 +351,7 @@ public class PluginDao {
                 stmt.set(0, enabled)
                 stmt.set(1, namespace)
 
-                let result = stmt.update()
+                stmt.update()
                 conn.close()
                 return true
             } catch (e: Exception) {

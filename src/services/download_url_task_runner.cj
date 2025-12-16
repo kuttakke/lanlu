@@ -18,7 +18,7 @@ import lrr4cj.utils.*
 public class DownloadUrlTaskRunner {
 
     public static func run(taskId: Int64, parameters: String): Unit {
-        let logger = getLogger("download_url_task")
+        let _ = getLogger("download_url_task")
         TaskIO.appendLog(taskId, "download_url task started")
         MinionModel.updateTaskProgress(taskId, 1, "下载任务开始")
 

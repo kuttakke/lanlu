@@ -1,11 +1,9 @@
 package lrr4cj.utils
 
-import std.crypto.digest.*
 import stdx.crypto.digest.*
 import stdx.crypto.crypto.*
 import stdx.encoding.hex.*
 import stdx.encoding.base64.*
-import std.convert.*
 
 public class AuthUtils {
     public static func sha256Hex(input: String): String {

@@ -1,7 +1,6 @@
 package lrr4cj.services
 
 import std.collection.*
-import std.convert.*
 import stdx.encoding.json.*
 import stdx.log.*
 import std.fs.*
@@ -134,15 +133,15 @@ public class MetadataPluginTaskRunner {
 
         MinionModel.updateTaskProgress(taskId, 100, "元数据插件执行完成")
         let resultJson =
-            "{"
-            + "\"success\":1,"
-            + "\"archive_id\":\"${escapeJson(archiveId)}\","
-            + "\"namespace\":\"${escapeJson(plugin.namespace)}\","
-            + "\"title\":\"${escapeJson(newTitle)}\","
-            + "\"summary\":\"${escapeJson(newSummary)}\","
-            + "\"tags\":\"${escapeJson(newTags)}\","
-            + "\"plugin_output\":\"${escapeJson(output)}\""
-            + "}"
+            "{" +
+            "\"success\":1," +
+            "\"archive_id\":\"${escapeJson(archiveId)}\"," +
+            "\"namespace\":\"${escapeJson(plugin.namespace)}\"," +
+            "\"title\":\"${escapeJson(newTitle)}\"," +
+            "\"summary\":\"${escapeJson(newSummary)}\"," +
+            "\"tags\":\"${escapeJson(newTags)}\"," +
+            "\"plugin_output\":\"${escapeJson(output)}\"" +
+            "}"
         MinionModel.completeTask(taskId, "metadata_plugin completed")
         TaskIO.writeOutput(taskId, resultJson)
     }

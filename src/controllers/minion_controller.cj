@@ -1,7 +1,6 @@
 package lrr4cj.controllers
 
 import cjoy.*
-import stdx.encoding.json.*
 import std.collection.*
 import std.convert.*
 import lrr4cj.models.*
@@ -449,7 +448,6 @@ public class MinionController {
      * GET /api/plugins/:namespace/schema
      */
     public static func getPluginSchema(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
         let namespace = ctx.getParam("namespace") ?? ""
 
         if (namespace.size == 0) {

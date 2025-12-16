@@ -86,11 +86,11 @@ public class ShinobuController {
         let currentJobs = service.getCurrentJobCount()
         let maxJobs = service.getMaxConcurrentJobs()
         
-        let status = "{"
-            + "\"currentJobs\":${currentJobs},"
-            + "\"maxJobs\":${maxJobs},"
-            + "\"availableSlots\":${maxJobs - currentJobs}"
-            + "}"
+        let status = "{" +
+            "\"currentJobs\":${currentJobs}," +
+            "\"maxJobs\":${maxJobs}," +
+            "\"availableSlots\":${maxJobs - currentJobs}" +
+            "}"
         
         ctx.json(status)
     }

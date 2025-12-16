@@ -3,9 +3,7 @@ package lrr4cj.controllers
 import cjoy.*
 import std.convert.*
 import lrr4cj.dao.*
-import lrr4cj.views.*
 import lrr4cj.middleware.*
-import lrr4cj.utils.*
 
 /**
  * 用户统计控制器

@@ -1,8 +1,5 @@
 package lrr4cj.models
 
-import std.unittest.*
-import cjoy.*
-
 /**
  * 单行本数据模型
  */
@@ -74,7 +71,7 @@ public class TankoubonModel {
     /**
      * 更新单行本
      */
-    public static func updateTankoubon(id: String, name: String, summary: String, tags: String, archives: Array<String>): Bool {
+    public static func updateTankoubon(_: String, _: String, _: String, _: String, _: Array<String>): Bool {
         // 在实际应用中，这里会更新数据库
         return true
     }
@@ -82,7 +79,7 @@ public class TankoubonModel {
     /**
      * 删除单行本
      */
-    public static func deleteTankoubon(id: String): Bool {
+    public static func deleteTankoubon(_: String): Bool {
         // 在实际应用中，这里会从数据库删除
         return true
     }
@@ -90,7 +87,7 @@ public class TankoubonModel {
     /**
      * 向单行本添加档案
      */
-    public static func addArchiveToTankoubon(tankoubonId: String, archiveId: String): Bool {
+    public static func addArchiveToTankoubon(_: String, _: String): Bool {
         // 在实际应用中，这里会更新数据库关系
         return true
     }
@@ -98,7 +95,7 @@ public class TankoubonModel {
     /**
      * 从单行本移除档案
      */
-    public static func removeArchiveFromTankoubon(tankoubonId: String, archiveId: String): Bool {
+    public static func removeArchiveFromTankoubon(_: String, _: String): Bool {
         // 在实际应用中，这里会更新数据库关系
         return true
     }

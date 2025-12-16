@@ -70,21 +70,21 @@ public func registerAuthRoutes(router: JoyRouters) {
 
     router.get("/api/auth/admin/users", { ctx =>
         match (AuthMiddleware.requireAdmin(ctx)) {
-            case Some(userId) => AuthController.listUsers(ctx, userId)
+            case Some(_) => AuthController.listUsers(ctx)
             case None => return
         }
     })
 
     router.post("/api/auth/admin/users", { ctx =>
         match (AuthMiddleware.requireAdmin(ctx)) {
-            case Some(userId) => AuthController.createUser(ctx, userId)
+            case Some(_) => AuthController.createUser(ctx)
             case None => return
         }
     })
 
     router.put("/api/auth/admin/users/{id}/role", { ctx =>
         match (AuthMiddleware.requireAdmin(ctx)) {
-            case Some(userId) => AuthController.updateUserRole(ctx, userId)
+            case Some(_) => AuthController.updateUserRole(ctx)
             case None => return
         }
     })
@@ -98,7 +98,7 @@ public func registerAuthRoutes(router: JoyRouters) {
 
     router.post("/api/auth/admin/users/{id}/reset-password", { ctx =>
         match (AuthMiddleware.requireAdmin(ctx)) {
-            case Some(userId) => AuthController.resetUserPassword(ctx, userId)
+            case Some(_) => AuthController.resetUserPassword(ctx)
             case None => return
         }
     })
