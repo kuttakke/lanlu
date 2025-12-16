@@ -36,7 +36,13 @@ public class ChunkedUploadController {
             // 创建临时目录，使用taskId作为目录名
             createTempDirectories()
             let uploadDir = Path("${CACHE_DIR}/task/${task.id}")
-            Directory.create(uploadDir, recursive: true)
+            // 检查目录是否存在，如果不存在才创建
+            if (!exists(uploadDir)) {
+                Directory.create(uploadDir, recursive: true)
+                getLogger("chunked_upload").info("创建上传目录", ("taskId", task.id.toString()), ("directory", uploadDir.toString()))
+            } else {
+                getLogger("chunked_upload").info("上传目录已存在，跳过创建", ("taskId", task.id.toString()), ("directory", uploadDir.toString()))
+            }
 
             // 存储原始JSON到任务参数中
             if (requestBody.size > 0) {
