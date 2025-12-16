@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,11 +14,10 @@ export default function FavoritesPage() {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [archives, setArchives] = useState<Archive[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // 加载收藏列表
-  const loadFavorites = async (silent = false) => {
+  const loadFavorites = useCallback(async (silent = false) => {
     try {
       if (!silent) {
         setLoading(true);
@@ -30,7 +29,6 @@ export default function FavoritesPage() {
 
       if (response.success === 1) {
         setArchives(response.data);
-        setTotalCount(response.recordsTotal);
       } else {
         setError(t('favorites.loadError'));
       }
@@ -42,11 +40,11 @@ export default function FavoritesPage() {
         setLoading(false);
       }
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     loadFavorites();
-  }, []);
+  }, [loadFavorites]);
 
   // 处理取消收藏
   const handleRemoveFavorite = async (arcid: string) => {

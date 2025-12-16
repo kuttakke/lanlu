@@ -33,70 +33,67 @@ export function PluginConfigDialog({
   const [schemaError, setSchemaError] = useState<string>('');
 
   useEffect(() => {
+    const loadPluginSchema = async () => {
+      if (!plugin) return;
+
+      console.log('🔍 Loading parameters for plugin:', plugin.namespace);
+      setLoadingSchema(true);
+      setSchemaError('');
+
+      try {
+        const schemaResponse = await PluginSchemaService.getPluginSchema(plugin.namespace);
+        console.log('📋 Schema response:', schemaResponse);
+
+        if (schemaResponse.has_schema && schemaResponse.parameters) {
+          // 解析parameters字符串为数组
+          let pluginParameters: PluginParameter[] = [];
+          if (typeof schemaResponse.parameters === 'string') {
+            try {
+              pluginParameters = JSON.parse(schemaResponse.parameters);
+            } catch (e) {
+              console.error('Failed to parse parameters JSON:', e);
+            }
+          } else {
+            pluginParameters = schemaResponse.parameters;
+          }
+
+          setParameters(pluginParameters);
+
+          // 从parameters数组中的value字段创建初始值
+          const initialValues: Record<string, any> = {};
+          pluginParameters.forEach((param: PluginParameter, index: number) => {
+            const paramName = `param${index}`;
+
+            // 优先使用parameters中的value字段
+            if (param.value !== undefined && param.value !== null && param.value !== '') {
+              initialValues[paramName] = param.value;
+            } else if (param.default_value !== undefined) {
+              initialValues[paramName] = param.default_value;
+            } else if (param.type === 'bool') {
+              initialValues[paramName] = false;
+            } else {
+              initialValues[paramName] = '';
+            }
+          });
+
+          setFormValues(initialValues);
+          setSchemaError('');
+        } else {
+          setParameters([]);
+          setSchemaError(schemaResponse.message || '插件不支持参数配置');
+        }
+      } catch (error) {
+        console.error('Failed to load plugin schema:', error);
+        setSchemaError('加载插件参数失败');
+      } finally {
+        setLoadingSchema(false);
+      }
+    };
+
     if (plugin) {
       loadPluginSchema();
     }
   }, [plugin]);
-
-  // 加载插件参数
-  const loadPluginSchema = async () => {
-    if (!plugin) return;
-
-    console.log('🔍 Loading parameters for plugin:', plugin.namespace);
-    setLoadingSchema(true);
-    setSchemaError('');
-
-    try {
-      const schemaResponse = await PluginSchemaService.getPluginSchema(plugin.namespace);
-      console.log('📋 Schema response:', schemaResponse);
-
-      if (schemaResponse.has_schema && schemaResponse.parameters) {
-        // 解析parameters字符串为数组
-        let pluginParameters: PluginParameter[] = [];
-        if (typeof schemaResponse.parameters === 'string') {
-          try {
-            pluginParameters = JSON.parse(schemaResponse.parameters);
-          } catch (e) {
-            console.error('Failed to parse parameters JSON:', e);
-          }
-        } else {
-          pluginParameters = schemaResponse.parameters;
-        }
-
-        setParameters(pluginParameters);
-
-        // 从parameters数组中的value字段创建初始值
-        const initialValues: Record<string, any> = {};
-        pluginParameters.forEach((param: PluginParameter, index: number) => {
-          const paramName = `param${index}`;
-
-          // 优先使用parameters中的value字段
-          if (param.value !== undefined && param.value !== null && param.value !== '') {
-            initialValues[paramName] = param.value;
-          } else if (param.default_value !== undefined) {
-            initialValues[paramName] = param.default_value;
-          } else if (param.type === 'bool') {
-            initialValues[paramName] = false;
-          } else {
-            initialValues[paramName] = '';
-          }
-        });
-
-        setFormValues(initialValues);
-      } else {
-        setParameters([]);
-        setFormValues({});
-        setSchemaError('Plugin does not have parameter definitions');
-      }
-    } catch (error) {
-      console.error('Failed to load plugin schema:', error);
-      setSchemaError('Failed to load plugin configuration schema');
-      setParameters([]);
-      setFormValues({});
-    } finally {
-      setLoadingSchema(false);
-    }
-  };
 
   // 保存插件配置
   const handleSave = async () => {

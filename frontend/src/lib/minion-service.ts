@@ -1,5 +1,5 @@
-import { MinionTask, MinionTaskPageResult, TaskListResponse, TaskResponse } from '@/types/minion';
-import { api, skipRequest } from '@/lib/api';
+import { MinionTask, MinionTaskPageResult } from '@/types/minion';
+import { api } from '@/lib/api';
 
 export class MinionService {
   private static BASE_URL = '/api/minion';

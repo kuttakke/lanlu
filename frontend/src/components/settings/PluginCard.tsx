@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { HtmlRenderer } from '@/components/ui/html-renderer';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Power, Settings as SettingsIcon, Package, User, Calendar, Shield } from 'lucide-react';
+import { Settings as SettingsIcon, Package, User, Calendar, Shield } from 'lucide-react';
+import Image from 'next/image';
 
 interface PluginCardProps {
   plugin: Plugin;
@@ -33,23 +34,28 @@ export function PluginCard({
           <div className="flex-1 min-w-0">
             <CardTitle className="text-lg font-semibold truncate flex items-center space-x-2">
               {plugin.icon ? (
-                <img
-                  src={plugin.icon}
-                  alt={plugin.name}
-                  className="w-5 h-5 flex-shrink-0 rounded"
-                  onError={(e) => {
-                    // 如果图标加载失败，替换为默认图标
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent && !parent.querySelector('.fallback-icon')) {
-                      const fallback = document.createElement('div');
-                      fallback.className = 'fallback-icon w-5 h-5 text-primary flex-shrink-0';
-                      fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
-                      parent.insertBefore(fallback, target);
-                    }
-                  }}
-                />
+                <div className="relative w-5 h-5 flex-shrink-0">
+                  <Image
+                    src={plugin.icon}
+                    alt={plugin.name}
+                    fill
+                    className="object-contain rounded"
+                    onError={() => {
+                      // 如果图标加载失败，显示默认图标
+                      const imgElement = document.querySelector(`img[alt="${plugin.name}"]`) as HTMLElement;
+                      if (imgElement) {
+                        imgElement.style.display = 'none';
+                        const parent = imgElement.closest('.relative');
+                        if (parent && !parent.querySelector('.fallback-icon')) {
+                          const fallback = document.createElement('div');
+                          fallback.className = 'fallback-icon w-5 h-5 text-primary flex-shrink-0';
+                          fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
+                          parent.insertBefore(fallback, imgElement);
+                        }
+                      }
+                    }}
+                  />
+                </div>
               ) : (
                 <Package className="w-5 h-5 text-primary flex-shrink-0" />
               )}

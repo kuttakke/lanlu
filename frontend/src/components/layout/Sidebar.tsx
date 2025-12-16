@@ -6,7 +6,7 @@ import { ServerInfo } from '@/types/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Server, Database, BookOpen, HardDrive, Clock, Heart, Settings } from 'lucide-react';
+import { Server, Database, HardDrive, Clock, Heart, Settings } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Link from 'next/link';
 

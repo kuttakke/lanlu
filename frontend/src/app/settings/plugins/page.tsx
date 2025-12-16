@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { PluginCard } from '@/components/settings/PluginCard';
 import { PluginConfigDialog } from '@/components/settings/PluginConfigDialog';
 import { PluginService, Plugin } from '@/lib/plugin-service';
@@ -30,7 +30,7 @@ export default function SettingsPluginsPage() {
     return isAuthenticated && user?.isAdmin === true;
   }, [isAuthenticated, user?.isAdmin]);
 
-  const fetchPlugins = async () => {
+  const fetchPlugins = useCallback(async () => {
     try {
       setLoading(true);
       const pluginsData = await PluginService.getAllPlugins();
@@ -42,13 +42,13 @@ export default function SettingsPluginsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       fetchPlugins();
     }
-  }, []);
+  }, [fetchPlugins]);
 
   const handleTogglePluginStatus = async (namespace: string, enabled: boolean) => {
     try {

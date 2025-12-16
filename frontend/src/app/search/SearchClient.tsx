@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArchiveService } from '@/lib/archive-service';
 import { Archive } from '@/types/archive';
@@ -21,12 +21,6 @@ function SearchContent() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [searchStats, setSearchStats] = useState({ totalResults: 0, filteredResults: 0 });
-
-  useEffect(() => {
-    if (query) {
-      performSearch(0);
-    }
-  }, [query]);
 
   const performSearch = async (pageNum: number = 0) => {
     try {
@@ -56,9 +50,18 @@ function SearchContent() {
     }
   };
 
+  // 使用 useCallback 包装 performSearch 以避免依赖问题
+  const handleSearch = useCallback(performSearch, [query, t]);
+
+  useEffect(() => {
+    if (query) {
+      handleSearch(0);
+    }
+  }, [query, handleSearch]);
+
   const loadMore = () => {
     if (!loading && hasMore) {
-      performSearch(page + 1);
+      handleSearch(page + 1);
     }
   };
 

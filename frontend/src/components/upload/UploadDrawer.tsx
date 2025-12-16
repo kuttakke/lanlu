@@ -191,7 +191,7 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
         summary: task.summary || undefined,
         categoryId: task.categoryId || undefined
       }, callbacks)
-    } catch (error) {
+    } catch {
       updateDownloadTask(task.id, "status", "error")
       updateDownloadTask(task.id, "error", "下载失败")
     }
@@ -242,7 +242,7 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
         }
         return file
       }))
-    } catch (error) {
+    } catch {
       updateFileData(uploadFile.id, "status", "error")
       updateFileData(uploadFile.id, "error", t("upload.uploadFailed"))
     }
@@ -256,9 +256,10 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
     }
   }
 
-  const clearCompleted = () => {
-    setUploadFiles(prev => prev.filter(file => file.status !== "success"))
-  }
+  // 清除已完成的上传文件（暂时未使用）
+  // const clearCompleted = () => {
+  //   setUploadFiles(prev => prev.filter(file => file.status !== "success"))
+  // }
 
   const clearAll = () => {
     setUploadFiles([])

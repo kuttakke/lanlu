@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
 import { ArchiveMetadata } from '@/types/archive';
 import { PluginService, type Plugin } from '@/lib/plugin-service';
@@ -14,7 +15,7 @@ import { TagInput } from '@/components/ui/tag-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit, CheckCircle, RotateCcw, Play, Heart } from 'lucide-react';
+import { BookOpen, Download, Info, X, Eye, Edit, CheckCircle, RotateCcw, Play, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,19 +59,19 @@ function ArchiveDetailContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [pages, setPages] = useState<string[]>([]);
-  const [previewPage, setPreviewPage] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [isNewStatusLoading, setIsNewStatusLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [archivePages, setArchivePages] = useState<string[]>([]);
   const [displayPages, setDisplayPages] = useState<string[]>([]);
-  const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
   const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set());
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // 每页显示的图片数量
+  const pageSize = 10;
 
   useEffect(() => {
     async function fetchMetadata() {
@@ -161,7 +162,7 @@ function ArchiveDetailContent() {
     }
 
     fetchPages();
-  }, [id, showPreview, t, pageSize]);
+  }, [id, showPreview, t]);
 
   // 重置预览状态
   useEffect(() => {
@@ -185,13 +186,9 @@ function ArchiveDetailContent() {
       setDisplayPages(prev => [...prev, ...newPages]);
       setCurrentPage(nextPage);
     }
-  }, [currentPage, pageSize, archivePages.length]);
+  }, [currentPage, archivePages]);
 
   // 处理图片加载状态
-  const handleImageLoadStart = useCallback((pageIndex: number) => {
-    setLoadingImages(prev => new Set(prev).add(pageIndex));
-  }, []);
-
   const handleImageLoadEnd = useCallback((pageIndex: number) => {
     setLoadingImages(prev => {
       const newSet = new Set(prev);
@@ -475,17 +472,26 @@ function ArchiveDetailContent() {
                   <CardContent className="p-4 lg:p-6">
                     {/* 缩略图 - 响应式尺寸 */}
                     <div className="aspect-[3/4] bg-muted relative max-w-[280px] sm:max-w-[360px] lg:max-w-none mx-auto lg:mx-0 group">
-                      <img
-                        src={ArchiveService.getThumbnailUrl(metadata.arcid)}
-                        alt={metadata.title}
-                        className="w-full h-full object-cover rounded-md cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95"
-                        onClick={() => setImageModalOpen(true)}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          target.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={ArchiveService.getThumbnailUrl(metadata.arcid)}
+                          alt={metadata.title}
+                          fill
+                          className="object-cover rounded-md cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95"
+                          onClick={() => setImageModalOpen(true)}
+                          onError={() => {
+                            // Hide the image and show the placeholder
+                            const imgElement = document.querySelector(`img[alt="${metadata.title}"]`) as HTMLElement;
+                            if (imgElement) {
+                              imgElement.style.display = 'none';
+                              const placeholder = imgElement.closest('.relative')?.nextElementSibling;
+                              if (placeholder) {
+                                placeholder.classList.remove('hidden');
+                              }
+                            }
+                          }}
+                        />
+                      </div>
                       {/* 无封面占位符 */}
                       <div className="hidden absolute inset-0 bg-muted rounded-md flex items-center justify-center">
                         <div className="text-center text-muted-foreground">
@@ -508,16 +514,25 @@ function ArchiveDetailContent() {
                         onClick={() => setImageModalOpen(false)}
                       >
                         <div className="relative max-w-4xl max-h-full">
-                          <img
-                            src={ArchiveService.getThumbnailUrl(metadata.arcid)}
-                            alt={metadata.title}
-                            className="max-w-full max-h-full object-contain rounded-lg"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.nextElementSibling?.classList.remove('hidden');
-                            }}
-                          />
+                          <div className="relative w-full h-full">
+                            <Image
+                              src={ArchiveService.getThumbnailUrl(metadata.arcid)}
+                              alt={metadata.title}
+                              fill
+                              className="max-w-full max-h-full object-contain rounded-lg"
+                              onError={() => {
+                                // Hide the image and show the placeholder
+                                const imgElement = document.querySelector(`img[alt="${metadata.title}"]`) as HTMLElement;
+                                if (imgElement) {
+                                  imgElement.style.display = 'none';
+                                  const placeholder = imgElement.closest('.relative')?.nextElementSibling;
+                                  if (placeholder) {
+                                    placeholder.classList.remove('hidden');
+                                  }
+                                }
+                              }}
+                            />
+                          </div>
                           {/* 模态框无封面占位符 */}
                           <div className="hidden flex items-center justify-center bg-muted rounded-lg" style={{width: '400px', height: '533px'}}>
                             <div className="text-center text-muted-foreground">
@@ -829,15 +844,17 @@ function ArchiveDetailContent() {
                               )}
                               
                               {/* 页面图片 */}
-                              <img
-                                src={ArchiveService.getPageUrl(metadata.arcid, page)}
-                                alt={t('archive.previewPage').replace('{current}', String(actualPageIndex + 1)).replace('{total}', String(archivePages.length))}
-                                className={`w-full h-full object-contain transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-                                onLoadStart={() => handleImageLoadStart(actualPageIndex)}
-                                onLoad={() => handleImageLoadEnd(actualPageIndex)}
-                                onError={() => handleImageError(actualPageIndex)}
-                                draggable={false}
-                              />
+                              <div className="relative w-full h-full">
+                                <Image
+                                  src={ArchiveService.getPageUrl(metadata.arcid, page)}
+                                  alt={t('archive.previewPage').replace('{current}', String(actualPageIndex + 1)).replace('{total}', String(archivePages.length))}
+                                  fill
+                                  className={`object-contain transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+                                  onLoadingComplete={() => handleImageLoadEnd(actualPageIndex)}
+                                  onError={() => handleImageError(actualPageIndex)}
+                                  draggable={false}
+                                />
+                              </div>
                               
                               {/* 页码标签 */}
                               <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs py-1 text-center">

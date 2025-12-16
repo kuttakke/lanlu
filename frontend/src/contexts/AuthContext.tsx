@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { AuthUser } from '@/types/auth';
 import { AuthService } from '@/lib/auth-service';
 
@@ -16,25 +16,27 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  // 使用函数初始化状态，避免在 effect 中调用 setState
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('auth_token');
+    }
+    return null;
+  });
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  useEffect(() => {
-    // 只在客户端执行
-    if (typeof window !== 'undefined') {
-      // 从 localStorage 读取 token
-      const savedToken = localStorage.getItem('auth_token');
-      if (savedToken) {
-        setToken(savedToken);
-      }
-    }
-  }, []);
+  // 使用函数式初始化避免在effect中调用setState
+  // token状态已通过useState的初始化函数设置
 
+  // 当token变化时，更新用户状态
   useEffect(() => {
     if (!token) {
-      setUser(null);
+      // token不存在时，用户状态应为null
+      // 使用微任务来避免同步调用setState
+      Promise.resolve().then(() => setUser(null));
       return;
     }
+    
     // 只有在 token 存在时才拉取用户信息，但不在这里验证 token 有效性
     // token 有效性由具体的 API 请求失败时处理
     void (async () => {
@@ -46,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 其他错误可能是网络问题，不应该清空 token
         if (e?.response?.status === 401 || e?.status === 401) {
           setToken(null);
-          setUser(null);
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token');
           }
@@ -119,6 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
+  // 使用 useContext 必须在组件的顶层调用，不能有条件判断
+  const context = useContext(AuthContext);
+  
   // 只在服务端静态生成期间返回回退值，避免调用useContext
   // 客户端环境下正常使用 Context，即使是在静态导出模式下
   if (typeof window === 'undefined' && process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true') {
@@ -132,7 +136,6 @@ export function useAuth() {
     };
   }
 
-  const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }

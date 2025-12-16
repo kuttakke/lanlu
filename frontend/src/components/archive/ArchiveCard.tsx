@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Eye, Heart } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
 import { TagI18nService } from '@/lib/tag-i18n-service';
@@ -58,7 +59,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
         if (!cancelled) {
           setTagI18nMap(map || {});
         }
-      } catch (e) {
+      } catch {
         // 加载失败时静默处理，使用原始 tag
       }
     })();
@@ -96,16 +97,25 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
       }}
     >
       <div className="aspect-[3/4] bg-muted relative">
-        <img
-          src={ArchiveService.getThumbnailUrl(archive.arcid)}
-          alt={archive.title}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            // 如果图片加载失败，显示占位符
-            (e.target as HTMLImageElement).style.display = 'none';
-            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-          }}
-        />
+        <div className="relative w-full h-full">
+          <Image
+            src={ArchiveService.getThumbnailUrl(archive.arcid)}
+            alt={archive.title}
+            fill
+            className="object-cover"
+            onError={() => {
+              // Hide the image and show the placeholder
+              const imgElement = document.querySelector(`img[alt="${archive.title}"]`) as HTMLElement;
+              if (imgElement) {
+                imgElement.style.display = 'none';
+                const placeholder = imgElement.closest('.relative')?.nextElementSibling;
+                if (placeholder) {
+                  placeholder.classList.remove('hidden');
+                }
+              }
+            }}
+          />
+        </div>
         <div className="hidden w-full h-full bg-muted flex items-center justify-center">
           <span className="text-muted-foreground">{t('archive.noCover')}</span>
         </div>

@@ -1,7 +1,8 @@
 import { Archive } from '@/types/archive';
 import { Button } from '@/components/ui/button';
-import { Eye, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
 import { TagI18nService } from '@/lib/tag-i18n-service';
@@ -55,7 +56,7 @@ export function HomeArchiveCard({ archive, onFavoriteChange }: HomeArchiveCardPr
         if (!cancelled) {
           setTagI18nMap(map || {});
         }
-      } catch (e) {
+      } catch {
         // 加载失败时静默处理，使用原始 tag
       }
     })();
@@ -98,20 +99,24 @@ export function HomeArchiveCard({ archive, onFavoriteChange }: HomeArchiveCardPr
         }}
       >
         <div className="aspect-[3/4] bg-muted relative">
-          <img
-            src={ArchiveService.getThumbnailUrl(archive.arcid)}
-            alt={archive.title}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              // 隐藏失败的图片，显示占位符
-              target.style.display = 'none';
-              const placeholder = target.nextElementSibling as HTMLElement;
-              if (placeholder) {
-                placeholder.classList.remove('hidden');
-              }
-            }}
-          />
+          <div className="relative w-full h-full">
+            <Image
+              src={ArchiveService.getThumbnailUrl(archive.arcid)}
+              alt={archive.title}
+              fill
+              className="object-cover"
+              onError={() => {
+                const imgElement = document.querySelector(`img[alt="${archive.title}"]`) as HTMLElement;
+                if (imgElement) {
+                  imgElement.style.display = 'none';
+                  const placeholder = imgElement.closest('.relative')?.nextElementSibling;
+                  if (placeholder) {
+                    placeholder.classList.remove('hidden');
+                  }
+                }
+              }}
+            />
+          </div>
           {/* 无封面时显示的占位符 - 默认隐藏 */}
           <div className="hidden absolute inset-0 flex items-center justify-center bg-muted">
             <div className="text-center text-muted-foreground">

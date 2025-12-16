@@ -108,7 +108,7 @@ export class ArchiveService {
     try {
       // 尝试解码path，如果已经是编码状态
       return decodeURIComponent(path);
-    } catch (e) {
+    } catch {
       // 如果解码失败，说明path已经是正确格式
       return `/api/archives/${id}/page?path=${path}`;
     }

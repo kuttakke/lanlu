@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
+import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
 import { imageCacheService } from '@/lib/image-cache';
 import { Button } from '@/components/ui/button';
@@ -31,12 +32,14 @@ function ReaderContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [readingMode, setReadingMode] = useState<ReadingMode>(() => {
-    // 从localStorage读取保存的阅读模式
-    if (typeof window !== 'undefined') {
-      const savedMode = localStorage.getItem('reader-reading-mode');
-      if (savedMode && ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'].includes(savedMode)) {
-        return savedMode as ReadingMode;
-      }
+    // 从localStorage读取保存的阅读模式，但先检查是否在静态生成环境中
+    if (typeof window === 'undefined' || process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true') {
+      return 'single-ltr'; // 默认阅读模式
+    }
+    
+    const savedMode = localStorage.getItem('reader-reading-mode');
+    if (savedMode && ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'].includes(savedMode)) {
+      return savedMode as ReadingMode;
     }
     return 'single-ltr';
   });
@@ -45,7 +48,6 @@ function ReaderContent() {
   const [imagesLoading, setImagesLoading] = useState<Set<number>>(new Set());
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set()); // 跟踪已加载的图片
   const [showToolbar, setShowToolbar] = useState(true);
-  const [toolbarTimer, setToolbarTimer] = useState<NodeJS.Timeout | null>(null);
   const [scale, setScale] = useState(1);
   const [translateX, setTranslateX] = useState(0);
   const [translateY, setTranslateY] = useState(0);
@@ -96,44 +98,28 @@ function ReaderContent() {
     }
   }, [error, t]);
 
-  // 自动隐藏工具栏
-  const resetAutoHideTimer = useCallback(() => {
-    if (toolbarTimer) {
-      clearTimeout(toolbarTimer);
-    }
-    
-    const timer = setTimeout(() => {
-      setShowToolbar(false);
-    }, 3000);
-    
-    setToolbarTimer(timer);
-  }, [toolbarTimer]);
+  // 自动隐藏工具栏功能已移除
 
-  useEffect(() => {
-    if (showToolbar) {
-      resetAutoHideTimer();
-    }
-    
-    return () => {
-      if (toolbarTimer) {
-        clearTimeout(toolbarTimer);
-      }
-    };
-  }, [showToolbar, resetAutoHideTimer]);
+  // 重置变换
+  const resetTransform = useCallback(() => {
+    setScale(1);
+    setTranslateX(0);
+    setTranslateY(0);
+  }, []);
 
   const handlePrevPage = useCallback(() => {
     if (currentPage > 0) {
       setCurrentPage(currentPage - 1);
       resetTransform();
     }
-  }, [currentPage]);
+  }, [currentPage, resetTransform]);
 
   const handleNextPage = useCallback(() => {
     if (currentPage < pages.length - 1) {
       setCurrentPage(currentPage + 1);
       resetTransform();
     }
-  }, [currentPage, pages.length]);
+  }, [currentPage, pages.length, resetTransform]);
 
 
   const handleImageError = useCallback((pageIndex: number) => {
@@ -297,13 +283,6 @@ function ReaderContent() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleKeyDown]);
-
-  // 重置变换
-  const resetTransform = useCallback(() => {
-    setScale(1);
-    setTranslateX(0);
-    setTranslateY(0);
-  }, []);
 
   // 计算两点距离
   const getDistance = (touch1: Touch, touch2: Touch) => {
@@ -687,7 +666,6 @@ function ReaderContent() {
       onMouseMove={() => {
         if (!showToolbar) {
           setShowToolbar(true);
-          resetAutoHideTimer();
         }
       }}
     >
@@ -792,30 +770,32 @@ function ReaderContent() {
                   maxHeight: '100%'
                 }}
               >
-                <img
-                  key={`page-${currentPage}`}
-                  ref={el => { imageRefs.current[0] = el; }}
-                  src={cachedPages[currentPage] || pages[currentPage]}
-                  alt={t('reader.pageAlt').replace('{page}', String(currentPage + 1))}
-                  className={`
-                    object-contain select-none touch-none
-                    max-w-full max-h-full w-full h-full
-                    ${imagesLoading.has(currentPage) && !loadedImages.has(currentPage) ? 'opacity-0' : 'opacity-100'}
-                  `}
-                  style={{
-                    maxHeight: '100%',
-                    height: '100%'
-                  }}
-                  onLoad={() => {
-                    handleImageLoad(currentPage);
-                    // 图片加载完成后缓存它
-                    cacheImage(pages[currentPage], currentPage);
-                  }}
-                  onError={() => handleImageError(currentPage)}
-                  onDoubleClick={(e) => handleDoubleClick(e, 0)}
-                  onDragStart={handleImageDragStart}
-                  draggable={false}
-                />
+                <div className="relative w-full h-full">
+                  <Image
+                    key={`page-${currentPage}`}
+                    src={cachedPages[currentPage] || pages[currentPage]}
+                    alt={t('reader.pageAlt').replace('{page}', String(currentPage + 1))}
+                    fill
+                    className={`
+                      object-contain select-none touch-none
+                      max-w-full max-h-full w-full h-full
+                      ${imagesLoading.has(currentPage) && !loadedImages.has(currentPage) ? 'opacity-0' : 'opacity-100'}
+                    `}
+                    style={{
+                      maxHeight: '100%',
+                      height: '100%'
+                    }}
+                    onLoadingComplete={() => {
+                      handleImageLoad(currentPage);
+                      // 图片加载完成后缓存它
+                      cacheImage(pages[currentPage], currentPage);
+                    }}
+                    onError={() => handleImageError(currentPage)}
+                    onDoubleClick={(e) => handleDoubleClick(e, 0)}
+                    onDragStart={handleImageDragStart}
+                    draggable={false}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -908,35 +888,35 @@ function ReaderContent() {
                         minHeight: '100px'
                       }}
                     >
-                      <img
-                        key={`page-${actualIndex}`}
-                        ref={el => {
-                          imageRefs.current[actualIndex] = el;
-                        }}
-                        src={cachedPages[actualIndex] || page}
-                        alt={t('reader.pageAlt').replace('{page}', String(actualIndex + 1))}
-                        className={`
-                          object-contain select-none
-                          ${imagesLoading.has(actualIndex) && !loadedImages.has(actualIndex) ? 'opacity-0' : 'opacity-100'}
-                        `}
-                        style={{
-                          // 确保图片不会超出容器宽度
-                          maxWidth: '100%',
-                          maxHeight: '100%',
-                          width: 'auto',
-                          height: 'auto',
-                          display: 'block',
-                          margin: '0 auto'
-                        }}
-                        onLoad={(e) => {
-                          handleImageLoad(actualIndex, e.currentTarget);
-                          cacheImage(page, actualIndex);
-                        }}
-                        onError={() => handleImageError(actualIndex)}
-                        onDoubleClick={(e) => handleDoubleClick(e, actualIndex)}
-                        onDragStart={handleImageDragStart}
-                        draggable={false}
-                      />
+                      <div className="relative w-full h-full flex justify-center">
+                        <Image
+                          key={`page-${actualIndex}`}
+                          src={cachedPages[actualIndex] || page}
+                          alt={t('reader.pageAlt').replace('{page}', String(actualIndex + 1))}
+                          fill
+                          className={`
+                            object-contain select-none
+                            ${imagesLoading.has(actualIndex) && !loadedImages.has(actualIndex) ? 'opacity-0' : 'opacity-100'}
+                          `}
+                          style={{
+                            // 确保图片不会超出容器宽度
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            width: 'auto',
+                            height: 'auto',
+                            display: 'block',
+                            margin: '0 auto'
+                          }}
+                          onLoadingComplete={() => {
+                            handleImageLoad(actualIndex);
+                            cacheImage(page, actualIndex);
+                          }}
+                          onError={() => handleImageError(actualIndex)}
+                          onDoubleClick={(e) => handleDoubleClick(e, actualIndex)}
+                          onDragStart={handleImageDragStart}
+                          draggable={false}
+                        />
+                      </div>
                     </div>
                   </div>
                 );

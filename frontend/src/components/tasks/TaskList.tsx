@@ -1,20 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MinionTask, MinionTaskPageResult } from '@/types/minion';
 import { MinionService } from '@/lib/minion-service';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
 import { Pagination } from '@/components/ui/pagination';
 import {
   Play,
   Square,
   Trash2,
-  Eye,
   Clock,
   CheckCircle,
   XCircle,
@@ -44,7 +43,7 @@ export function TaskList({ className }: TaskListProps) {
   // Filter state
   const [activeFilter, setActiveFilter] = useState('all');
 
-  const fetchTasks = async (page: number = currentPage) => {
+  const fetchTasks = useCallback(async (page: number = currentPage) => {
     console.log('fetchTasks called, page:', page, 'activeFilter:', activeFilter);
     try {
       setError(null);
@@ -79,12 +78,12 @@ export function TaskList({ className }: TaskListProps) {
       setRefreshing(false);
       console.log('fetchTasks completed');
     }
-  };
+  }, [activeFilter, currentPage, pageSize]);
 
   useEffect(() => {
     setLoading(true);
     fetchTasks(1);
-  }, [activeFilter]);
+  }, [activeFilter, fetchTasks]);
 
   // 自动刷新：当存在运行中/待执行任务时，周期性刷新列表以展示进度与日志
   useEffect(() => {
@@ -97,7 +96,7 @@ export function TaskList({ className }: TaskListProps) {
     }, 1500);
 
     return () => clearInterval(timer);
-  }, [tasks, activeFilter, currentPage, loading, refreshing]);
+  }, [tasks, activeFilter, currentPage, loading, refreshing, fetchTasks]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

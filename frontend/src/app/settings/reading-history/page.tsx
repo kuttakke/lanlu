@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,11 +14,10 @@ export default function ReadingHistoryPage() {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [archives, setArchives] = useState<Archive[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // 加载阅读记录
-  const loadReadingHistory = async (silent = false) => {
+  const loadReadingHistory = useCallback(async (silent = false) => {
     try {
       if (!silent) {
         setLoading(true);
@@ -29,7 +28,6 @@ export default function ReadingHistoryPage() {
 
       if (response.success === 1) {
         setArchives(response.data);
-        setTotalCount(response.recordsTotal);
       } else {
         setError(t('readingHistory.loadError'));
       }
@@ -41,11 +39,11 @@ export default function ReadingHistoryPage() {
         setLoading(false);
       }
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     loadReadingHistory();
-  }, []);
+  }, [loadReadingHistory]);
 
   return (
     <div className="space-y-6">

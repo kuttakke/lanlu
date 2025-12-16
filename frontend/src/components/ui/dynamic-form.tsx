@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,8 +96,8 @@ export function DynamicForm({
 
   const fields = generateFields();
 
-  // 设置默认值
-  useEffect(() => {
+  // 使用useMemo计算合并后的值，避免在effect中调用setState
+  const mergedValues = useMemo(() => {
     const defaultValues: Record<string, any> = {};
     fields.forEach(field => {
       if (field.default !== undefined) {
@@ -108,10 +108,13 @@ export function DynamicForm({
         defaultValues[field.name] = '';
       }
     });
-
-    // 合并初始值和默认值
-    setValues({ ...defaultValues, ...initialValues });
+    return { ...defaultValues, ...initialValues };
   }, [fields, initialValues]);
+
+  // 当合并后的值变化时更新状态
+  useEffect(() => {
+    setValues(mergedValues);
+  }, [mergedValues]);
 
   // 验证单个字段
   const validateField = (field: DynamicFormField, value: any): string => {

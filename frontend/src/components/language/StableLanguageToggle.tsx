@@ -11,12 +11,14 @@ export function StableLanguageToggle() {
     // 从 localStorage 读取保存的语言设置
     const savedLanguage = localStorage.getItem('language') as 'zh' | 'en';
     if (savedLanguage && (savedLanguage === 'zh' || savedLanguage === 'en')) {
-      setLanguage(savedLanguage);
+      // 使用微任务来避免同步调用setState
+      Promise.resolve().then(() => setLanguage(savedLanguage));
     } else {
       // 尝试从浏览器语言检测
       const browserLanguage = navigator.language.toLowerCase();
       if (browserLanguage.startsWith('en')) {
-        setLanguage('en');
+        // 使用微任务来避免同步调用setState
+        Promise.resolve().then(() => setLanguage('en'));
       }
     }
   }, []);

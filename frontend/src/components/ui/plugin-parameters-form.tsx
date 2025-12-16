@@ -1,17 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { PluginParameter } from '@/lib/plugin-schema-service';
 
 interface PluginParametersFormProps {
@@ -33,11 +31,11 @@ export function PluginParametersForm({
   const { t } = useLanguage();
   const [values, setValues] = useState<Record<string, any>>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [validationResult, setValidationResult] = useState<ValidationResult>({ valid: true, errors: {} });
 
   // 设置默认值
-  useEffect(() => {
+  // 使用useMemo来避免在effect中调用setState
+  const mergedValues = useMemo(() => {
     const defaultValues: Record<string, any> = {};
     parameters.forEach((param, index) => {
       const paramName = `param${index}`;
@@ -49,13 +47,16 @@ export function PluginParametersForm({
         defaultValues[paramName] = '';
       }
     });
-
-    // 合并初始值和默认值
-    setValues({ ...defaultValues, ...initialValues });
+    return { ...defaultValues, ...initialValues };
   }, [parameters, initialValues]);
 
+  // 当合并后的值变化时更新状态
+  useEffect(() => {
+    setValues(mergedValues);
+  }, [mergedValues]);
+
   // 验证单个字段
-  const validateField = (param: PluginParameter, value: any, paramName: string): string => {
+  const validateField = (param: PluginParameter, value: any): string => {
     // 类型验证
     if (value !== null && value !== undefined && value !== '') {
       switch (param.type) {
@@ -90,7 +91,7 @@ export function PluginParametersForm({
     parameters.forEach((param, index) => {
       const paramName = `param${index}`;
       const value = values[paramName];
-      const error = validateField(param, value, paramName);
+      const error = validateField(param, value);
       if (error) {
         newErrors[paramName] = error;
         valid = false;
@@ -109,7 +110,7 @@ export function PluginParametersForm({
     const paramIndex = parseInt(paramName.replace('param', ''));
     if (!isNaN(paramIndex) && paramIndex < parameters.length) {
       const param = parameters[paramIndex];
-      const error = validateField(param, value, paramName);
+      const error = validateField(param, value);
       setErrors(prev => ({
         ...prev,
         [paramName]: error
@@ -149,7 +150,6 @@ export function PluginParametersForm({
           const paramName = `param${index}`;
           const value = values[paramName];
           const error = errors[paramName];
-          const isPasswordVisible = showPasswords[paramName];
 
           // 根据参数类型确定表单控件
           return (

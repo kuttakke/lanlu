@@ -15,12 +15,10 @@ import { Upload, User, Settings, LogOut } from "lucide-react"
 import { UploadDrawer } from "@/components/upload/UploadDrawer"
 import { useAuth } from "@/contexts/AuthContext"
 import { appEvents, AppEvents } from "@/lib/events"
-import { useRouter } from "next/navigation"
 
 export function UserMenu() {
   const { t } = useLanguage()
   const { token, user, logout } = useAuth()
-  const router = useRouter()
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
   const handleUploadComplete = (archiveId: string) => {

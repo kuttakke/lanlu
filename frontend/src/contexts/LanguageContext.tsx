@@ -21,24 +21,22 @@ const messages = {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('zh');
-
-  useEffect(() => {
-    // 只在客户端执行
+  // 使用函数初始化状态，避免在 effect 中调用 setState
+  const [language, setLanguage] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
       // 从 localStorage 读取保存的语言设置
       const savedLanguage = localStorage.getItem('language') as Language;
       if (savedLanguage && (savedLanguage === 'zh' || savedLanguage === 'en')) {
-        setLanguage(savedLanguage);
-      } else {
-        // 尝试从浏览器语言检测
-        const browserLanguage = navigator.language.toLowerCase();
-        if (browserLanguage.startsWith('en')) {
-          setLanguage('en');
-        }
+        return savedLanguage;
+      }
+      // 尝试从浏览器语言检测
+      const browserLanguage = navigator.language.toLowerCase();
+      if (browserLanguage.startsWith('en')) {
+        return 'en';
       }
     }
-  }, []);
+    return 'zh';
+  });
 
   useEffect(() => {
     // 只在客户端执行
@@ -91,6 +89,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 }
 
 export function useLanguage() {
+  // 使用 useContext 必须在组件的顶层调用，不能有条件判断
+  const context = useContext(LanguageContext);
+  
   // 只在服务端静态生成期间返回回退值，避免调用useContext
   // 客户端环境下正常使用 Context，即使是在静态导出模式下
   if (typeof window === 'undefined' && process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true') {
@@ -125,7 +126,6 @@ export function useLanguage() {
     };
   }
 
-  const context = useContext(LanguageContext);
   if (context === undefined) {
     throw new Error('useLanguage must be used within a LanguageProvider');
   }

@@ -11,7 +11,8 @@ export function HtmlRenderer({ html, className }: HtmlRendererProps) {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    // 使用微任务来避免同步调用setState
+    Promise.resolve().then(() => setIsClient(true));
   }, []);
 
   if (!isClient) {

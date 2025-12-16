@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/Header';
 import { SearchSidebar } from '@/components/layout/SearchSidebar';
 import { ArchiveService } from '@/lib/archive-service';
 import { appEvents, AppEvents } from '@/lib/events';
-import { Shuffle, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 

@@ -6,7 +6,7 @@ import { Languages } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export function LanguageToggle() {
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage } = useLanguage();
 
   const languages = [
     { code: 'zh', name: '中文' },

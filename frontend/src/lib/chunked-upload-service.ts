@@ -1,4 +1,4 @@
-import { apiClient, uploadClient } from './api';
+import { apiClient } from './api';
 
 // 上传元数据接口
 export interface UploadMetadata {
@@ -560,8 +560,8 @@ export class ChunkedUploadService {
       const session = JSON.parse(sessionData);
       const completedChunks = session.completedChunks || [];
       const totalChunks = session.totalChunks || 0;
-      const fileHash = session.fileHash || '';
-      const fileName = session.fileName || '';
+      // const fileHash = session.fileHash || '';
+      // const fileName = session.fileName || '';
 
       if (session.status === 'completed') {
         return { success: false, error: 'Upload already completed' };
@@ -714,14 +714,14 @@ export class ChunkedUploadService {
               }
 
               // 输出调试信息
-              console.log(`Upload session ${key}: status=${session.status}, age=${Math.round((now - createdAt) / (60 * 60 * 1000))}h, willClean=${isCompleted || isExpired}`);
-            }
-          } catch (parseError) {
-            // 如果数据损坏，也清理掉
-            corruptedSessions++;
-            keysToRemove.push(key);
-            console.warn(`Corrupted upload session data detected: ${key}`);
+            console.log(`Upload session ${key}: status=${session.status}, age=${Math.round((now - createdAt) / (60 * 60 * 1000))}h, willClean=${isCompleted || isExpired}`);
           }
+        } catch {
+          // 如果数据损坏，也清理掉
+          corruptedSessions++;
+          keysToRemove.push(key);
+          console.warn(`Corrupted upload session data detected: ${key}`);
+        }
         }
       }
 
