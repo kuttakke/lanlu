@@ -575,6 +575,85 @@ public class DatabaseConfig {
                 } catch (_: Exception) {}
             }
 
+            // user_favorites 表（用户收藏）
+            if (!tableExists(conn, "user_favorites")) {
+                logger.info("user_favorites表不存在，创建新的user_favorites表")
+                execUpdate(conn, """
+                    CREATE TABLE user_favorites (
+                        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                        user_id INTEGER NOT NULL,
+                        archive_id INTEGER NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (user_id, archive_id),
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (archive_id) REFERENCES archives(id) ON DELETE CASCADE
+                    )
+                """)
+                try {
+                    let createSql = "CREATE INDEX idx_user_favorites_user_id ON user_favorites (user_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_favorites_user_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_user_favorites_archive_id ON user_favorites (archive_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_favorites_archive_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_user_favorites_created_at ON user_favorites (created_at)"
+                    try {
+                        if (!indexExists(conn, "idx_user_favorites_created_at")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                logger.info("user_favorites表创建成功")
+            } else {
+                logger.info("user_favorites表已存在，检查并补全索引")
+                try {
+                    let createSql = "CREATE INDEX idx_user_favorites_user_id ON user_favorites (user_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_favorites_user_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_user_favorites_archive_id ON user_favorites (archive_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_favorites_archive_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_user_favorites_created_at ON user_favorites (created_at)"
+                    try {
+                        if (!indexExists(conn, "idx_user_favorites_created_at")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+            }
+
             // archive_tags 表（archives.id <-> tags.id）
             if (!tableExists(conn, "archive_tags")) {
                 logger.info("archive_tags表不存在，创建新的archive_tags表")

@@ -1,39 +1,52 @@
-// 收藏功能服务 - 占位实现
-// TODO: 等待后端API实现后替换为真实的API调用
+// 收藏功能服务 - 用户级别的档案收藏管理
+import { apiClient } from './api';
 
 export class FavoriteService {
-  // 检查档案是否已收藏
-  static async isFavorite(arcid: string): Promise<boolean> {
-    // TODO: 实现真实的API调用
-    console.log('检查收藏状态:', arcid);
-    return false;
-  }
-
   // 添加收藏
   static async addFavorite(arcid: string): Promise<boolean> {
-    // TODO: 实现真实的API调用
-    console.log('添加收藏:', arcid);
-    return true;
+    try {
+      const response = await apiClient.put(`/api/archives/${arcid}/favorite`);
+      return response.data.success === 1;
+    } catch (error) {
+      console.error('添加收藏失败:', error);
+      return false;
+    }
   }
 
   // 取消收藏
   static async removeFavorite(arcid: string): Promise<boolean> {
-    // TODO: 实现真实的API调用
-    console.log('取消收藏:', arcid);
-    return true;
+    try {
+      const response = await apiClient.delete(`/api/archives/${arcid}/favorite`);
+      return response.data.success === 1;
+    } catch (error) {
+      console.error('取消收藏失败:', error);
+      return false;
+    }
   }
 
-  // 切换收藏状态
-  static async toggleFavorite(arcid: string): Promise<boolean> {
-    // TODO: 实现真实的API调用
-    console.log('切换收藏状态:', arcid);
-    return true;
+  // 切换收藏状态（需要传入当前状态）
+  static async toggleFavorite(arcid: string, currentIsFavorite: boolean): Promise<boolean> {
+    try {
+      // 根据当前状态切换
+      if (currentIsFavorite) {
+        return await this.removeFavorite(arcid);
+      } else {
+        return await this.addFavorite(arcid);
+      }
+    } catch (error) {
+      console.error('切换收藏状态失败:', error);
+      return false;
+    }
   }
 
   // 获取收藏列表
   static async getFavorites(): Promise<string[]> {
-    // TODO: 实现真实的API调用
-    console.log('获取收藏列表');
-    return [];
+    try {
+      const response = await apiClient.get('/api/favorites');
+      return response.data.favorites || [];
+    } catch (error) {
+      console.error('获取收藏列表失败:', error);
+      return [];
+    }
   }
 }

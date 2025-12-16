@@ -14,11 +14,12 @@ import { TagInput } from '@/components/ui/tag-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit, CheckCircle, RotateCcw, Play } from 'lucide-react';
+import { BookOpen, Download, Calendar, FileText, Clock, HardDrive, Folder, Info, X, ChevronLeft, ChevronRight, Eye, Edit, CheckCircle, RotateCcw, Play, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { TagI18nService } from '@/lib/tag-i18n-service';
+import { FavoriteService } from '@/lib/favorite-service';
 
 function ArchiveDetailContent() {
   const searchParams = useSearchParams();
@@ -68,6 +69,8 @@ function ArchiveDetailContent() {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(0);
   const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set());
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   useEffect(() => {
     async function fetchMetadata() {
@@ -80,6 +83,8 @@ function ArchiveDetailContent() {
       try {
         const data = await ArchiveService.getMetadata(id);
         setMetadata(data);
+        // 从元数据中获取收藏状态
+        setIsFavorite(data.isfavorite || false);
       } catch (err) {
         console.error('Failed to fetch archive metadata:', err);
         setError(t('archive.fetchError'));
@@ -90,6 +95,23 @@ function ArchiveDetailContent() {
 
     fetchMetadata();
   }, [id, t]);
+
+  // 处理收藏点击
+  const handleFavoriteClick = async () => {
+    if (!id || favoriteLoading) return;
+
+    setFavoriteLoading(true);
+    try {
+      const success = await FavoriteService.toggleFavorite(id, isFavorite);
+      if (success) {
+        setIsFavorite(!isFavorite);
+      }
+    } catch (error) {
+      console.error('收藏操作失败:', error);
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   // 获取档案专属的 tag i18n
   useEffect(() => {
@@ -688,6 +710,16 @@ function ArchiveDetailContent() {
 	                          >
 	                            <Download className="w-4 h-4 mr-2" />
 	                            {t('archive.download')}
+	                          </Button>
+	                          {/* 收藏按钮 */}
+	                          <Button
+	                            variant="outline"
+	                            className={`w-full ${isFavorite ? 'text-red-500 border-red-500' : ''}`}
+	                            onClick={handleFavoriteClick}
+	                            disabled={favoriteLoading}
+	                          >
+	                            <Heart className={`w-4 h-4 mr-2 ${isFavorite ? 'fill-current' : ''}`} />
+	                            {favoriteLoading ? t('common.loading') : (isFavorite ? t('common.unfavorite') : t('common.favorite'))}
 	                          </Button>
 	                          {/* 已读/取消已读按钮 */}
 	                          {metadata.isnew ? (

@@ -92,6 +92,24 @@ public class ArchiveRoutes {
             ArchiveController.clearIsNew(ctx)
         })
 
+        // 添加收藏
+        router.put("/api/archives/{id}/favorite", { ctx =>
+            if (!AuthMiddleware.requiredAuth(ctx)) { return }
+            ArchiveController.addFavorite(ctx)
+        })
+
+        // 取消收藏
+        router.delete("/api/archives/{id}/favorite", { ctx =>
+            if (!AuthMiddleware.requiredAuth(ctx)) { return }
+            ArchiveController.removeFavorite(ctx)
+        })
+
+        // 获取用户的所有收藏
+        router.get("/api/favorites", { ctx =>
+            if (!AuthMiddleware.requiredAuth(ctx)) { return }
+            ArchiveController.getFavorites(ctx)
+        })
+
         // 分片上传 - 初始化上传会话
         router.post("/api/archives/upload/init", { ctx =>
             if (!AuthMiddleware.requiredAuth(ctx)) { return }

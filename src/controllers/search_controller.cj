@@ -78,8 +78,9 @@ public class SearchController {
         // 获取用户ID（可选）
         let userIdOpt = AuthMiddleware.optionalUser(ctx)
 
-        // 批量获取用户的 isNew 状态
+        // 批量获取用户的 isNew 状态和收藏状态
         var isNewMap = HashMap<Int64, Bool>()
+        var isFavoriteMap = HashMap<Int64, Bool>()
         match (userIdOpt) {
             case Some(userId) =>
                 // 收集所有归档的内部ID
@@ -92,6 +93,7 @@ public class SearchController {
                 }
                 if (archiveIds.size > 0) {
                     isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
+                    isFavoriteMap = UserFavoriteDao.getBatchFavoriteStatus(userId, archiveIds.toArray())
                 }
             case None => ()
         }
@@ -105,13 +107,18 @@ public class SearchController {
             }
             isFirst = false
 
-            // 获取用户级别的 isNew 状态
+            // 获取用户级别的 isNew 状态和收藏状态
             let internalId = getArchiveInternalId(archive.id)
             var isNew = true  // 默认为新
+            var isFavorite = false  // 默认未收藏
             if (internalId > 0) {
                 match (isNewMap.get(internalId)) {
                     case Some(status) => isNew = status
                     case None => isNew = true  // 没有记录，默认为新
+                }
+                match (isFavoriteMap.get(internalId)) {
+                    case Some(status) => isFavorite = status
+                    case None => isFavorite = false  // 没有记录，默认未收藏
                 }
             }
 
@@ -120,6 +127,7 @@ public class SearchController {
             archivesJson = archivesJson + "\"extension\":\"${archive.extension()}\","
             archivesJson = archivesJson + "\"filename\":\"${archive.filename}\","
             archivesJson = archivesJson + "\"isnew\":${isNew},"
+            archivesJson = archivesJson + "\"isfavorite\":${isFavorite},"
             archivesJson = archivesJson + "\"lastreadtime\":${archive.lastreadtime()},"
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
             archivesJson = archivesJson + "\"progress\":${archive.progress},"
@@ -160,8 +168,9 @@ public class SearchController {
         // 获取用户ID（可选）
         let userIdOpt = AuthMiddleware.optionalUser(ctx)
 
-        // 批量获取用户的 isNew 状态
+        // 批量获取用户的 isNew 状态和收藏状态
         var isNewMap = HashMap<Int64, Bool>()
+        var isFavoriteMap = HashMap<Int64, Bool>()
         match (userIdOpt) {
             case Some(userId) =>
                 // 收集所有归档的内部ID
@@ -174,6 +183,7 @@ public class SearchController {
                 }
                 if (archiveIds.size > 0) {
                     isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
+                    isFavoriteMap = UserFavoriteDao.getBatchFavoriteStatus(userId, archiveIds.toArray())
                 }
             case None => ()
         }
@@ -187,13 +197,18 @@ public class SearchController {
             }
             isFirst = false
 
-            // 获取用户级别的 isNew 状态
+            // 获取用户级别的 isNew 状态和收藏状态
             let internalId = getArchiveInternalId(archive.id)
             var isNew = true  // 默认为新
+            var isFavorite = false  // 默认未收藏
             if (internalId > 0) {
                 match (isNewMap.get(internalId)) {
                     case Some(status) => isNew = status
                     case None => isNew = true  // 没有记录，默认为新
+                }
+                match (isFavoriteMap.get(internalId)) {
+                    case Some(status) => isFavorite = status
+                    case None => isFavorite = false  // 没有记录，默认未收藏
                 }
             }
 
@@ -202,6 +217,7 @@ public class SearchController {
             archivesJson = archivesJson + "\"extension\":\"${archive.extension()}\","
             archivesJson = archivesJson + "\"filename\":\"${archive.filename}\","
             archivesJson = archivesJson + "\"isnew\":${isNew},"
+            archivesJson = archivesJson + "\"isfavorite\":${isFavorite},"
             archivesJson = archivesJson + "\"lastreadtime\":${archive.lastreadtime()},"
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
             archivesJson = archivesJson + "\"progress\":${archive.progress},"

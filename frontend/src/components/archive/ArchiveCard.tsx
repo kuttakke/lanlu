@@ -23,7 +23,7 @@ function stripNamespace(tag: string): string {
 
 export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProps) {
   const { t, language } = useLanguage();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(archive.isfavorite || false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [tagI18nMap, setTagI18nMap] = useState<Record<string, string>>({});
 
@@ -68,28 +68,14 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
     };
   }, [archive.arcid, language, allTags.length]);
 
-  // 检查收藏状态
-  useEffect(() => {
-    const checkFavoriteStatus = async () => {
-      try {
-        const favorite = await FavoriteService.isFavorite(archive.arcid);
-        setIsFavorite(favorite);
-      } catch (error) {
-        console.error('检查收藏状态失败:', error);
-      }
-    };
-
-    checkFavoriteStatus();
-  }, [archive.arcid]);
-  
   // 处理收藏点击
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (favoriteLoading) return;
-    
+
     setFavoriteLoading(true);
     try {
-      const success = await FavoriteService.toggleFavorite(archive.arcid);
+      const success = await FavoriteService.toggleFavorite(archive.arcid, isFavorite);
       if (success) {
         setIsFavorite(!isFavorite);
       }

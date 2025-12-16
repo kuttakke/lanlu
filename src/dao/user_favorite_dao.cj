@@ -1,0 +1,376 @@
+package lrr4cj.dao
+
+import std.database.sql.*
+import std.collection.*
+import lrr4cj.config.*
+import lrr4cj.utils.*
+import stdx.log.*
+
+/**
+ * 用户收藏数据行
+ */
+public class UserFavoriteRow {
+    public var id: Int64 = 0
+    public var userId: Int64 = 0
+    public var archiveId: Int64 = 0
+    public var createdAt: String = ""
+
+    public init() {}
+}
+
+/**
+ * 用户收藏数据访问对象
+ * 管理用户级别的档案收藏功能
+ */
+public class UserFavoriteDao {
+    /**
+     * 添加收藏
+     */
+    public static func addFavorite(userId: Int64, archiveId: Int64): Bool {
+        let logger = getLogger("user_favorite_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 使用 INSERT OR IGNORE 避免重复收藏
+                    let stmt = conn.prepareStatement("""
+                        INSERT INTO user_favorites (user_id, archive_id, created_at)
+                        VALUES (?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT (user_id, archive_id) DO NOTHING
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("添加收藏失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                logger.error("无法连接到数据库")
+                return false
+        }
+    }
+
+    /**
+     * 取消收藏
+     */
+    public static func removeFavorite(userId: Int64, archiveId: Int64): Bool {
+        let logger = getLogger("user_favorite_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        DELETE FROM user_favorites
+                        WHERE user_id = ? AND archive_id = ?
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("取消收藏失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                logger.error("无法连接到数据库")
+                return false
+        }
+    }
+
+    /**
+     * 检查是否已收藏
+     */
+    public static func isFavorite(userId: Int64, archiveId: Int64): Bool {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT COUNT(*) FROM user_favorites
+                        WHERE user_id = ? AND archive_id = ?
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                let count = rs.getOrNull<Int64>(0) ?? 0
+                                return count > 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                    return false
+                } catch (_: Exception) {
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return false
+        }
+    }
+
+    /**
+     * 获取用户的所有收藏（返回 archive_id 列表）
+     */
+    public static func getUserFavorites(userId: Int64): Array<Int64> {
+        let result = ArrayList<Int64>()
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT archive_id FROM user_favorites
+                        WHERE user_id = ?
+                        ORDER BY created_at DESC
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let archiveId = rs.getOrNull<Int64>(0) ?? 0
+                                if (archiveId > 0) {
+                                    result.add(archiveId)
+                                }
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("user_favorite_dao").error("获取用户收藏失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("user_favorite_dao").error("无法连接到数据库")
+        }
+        return result.toArray()
+    }
+
+    /**
+     * 获取用户收藏的档案 arcid 列表
+     */
+    public static func getUserFavoriteArcids(userId: Int64): Array<String> {
+        let result = ArrayList<String>()
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT a.arcid FROM user_favorites uf
+                        JOIN archives a ON uf.archive_id = a.id
+                        WHERE uf.user_id = ?
+                        ORDER BY uf.created_at DESC
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let arcid = rs.getOrNull<String>(0) ?? ""
+                                if (arcid.size > 0) {
+                                    result.add(arcid)
+                                }
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("user_favorite_dao").error("获取用户收藏arcid失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("user_favorite_dao").error("无法连接到数据库")
+        }
+        return result.toArray()
+    }
+
+    /**
+     * 批量检查收藏状态
+     * 返回 Map<archiveId, isFavorite>
+     */
+    public static func getBatchFavoriteStatus(userId: Int64, archiveIds: Array<Int64>): HashMap<Int64, Bool> {
+        let result = HashMap<Int64, Bool>()
+
+        if (archiveIds.size == 0) {
+            return result
+        }
+
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 构建 IN 子句的占位符
+                    var inClause = ""
+                    for (i in 0..archiveIds.size) {
+                        if (i > 0) {
+                            inClause += ","
+                        }
+                        inClause += "?"
+                    }
+
+                    let sql = """
+                        SELECT archive_id FROM user_favorites
+                        WHERE user_id = ? AND archive_id IN (${inClause})
+                    """
+
+                    let stmt = conn.prepareStatement(sql)
+                    try {
+                        stmt.set(0, userId)
+                        var idx = 1
+                        for (archiveId in archiveIds) {
+                            stmt.set(idx, archiveId)
+                            idx = idx + 1
+                        }
+
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let archiveId = rs.getOrNull<Int64>(0) ?? 0
+                                result[archiveId] = true
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+
+                    // 对于没有收藏的档案，设置为 false
+                    for (archiveId in archiveIds) {
+                        if (!result.contains(archiveId)) {
+                            result[archiveId] = false
+                        }
+                    }
+                } catch (_: Exception) {
+                    // 出错时，所有档案默认为未收藏
+                    for (archiveId in archiveIds) {
+                        result[archiveId] = false
+                    }
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                // 无法连接时，所有档案默认为未收藏
+                for (archiveId in archiveIds) {
+                    result[archiveId] = false
+                }
+        }
+
+        return result
+    }
+
+    /**
+     * 删除用户的所有收藏记录
+     */
+    public static func deleteByUserId(userId: Int64): Bool {
+        let logger = getLogger("user_favorite_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("DELETE FROM user_favorites WHERE user_id = ?")
+                    try {
+                        stmt.set(0, userId)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("删除用户收藏失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return false
+        }
+    }
+
+    /**
+     * 删除特定档案的所有收藏记录
+     */
+    public static func deleteByArchiveId(archiveId: Int64): Bool {
+        let logger = getLogger("user_favorite_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("DELETE FROM user_favorites WHERE archive_id = ?")
+                    try {
+                        stmt.set(0, archiveId)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("删除档案收藏失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return false
+        }
+    }
+
+    /**
+     * 获取收藏数量
+     */
+    public static func getFavoriteCount(userId: Int64): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT COUNT(*) FROM user_favorites WHERE user_id = ?
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                    return 0
+                } catch (_: Exception) {
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return 0
+        }
+    }
+}

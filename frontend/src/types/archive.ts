@@ -7,6 +7,7 @@ export interface Archive {
   pagecount: number;
   progress: number;
   isnew: boolean;  // 改为布尔值类型
+  isfavorite?: boolean;  // 用户收藏状态（可选，仅在需要时提供）
   extension: string;
   lastreadtime: number;
   size: number;
@@ -43,6 +44,7 @@ export interface ArchiveMetadata {
   summary: string;
   tags: string;
   isnew: boolean;  // 改为布尔值类型
+  isfavorite: boolean;  // 用户收藏状态
   pagecount: number;
   progress: number;
   lastreadtime: number;

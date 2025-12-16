@@ -110,16 +110,19 @@ public class ArchiveController {
         // 获取归档的内部数据库ID用于查询用户状态
         let archiveIdInt = getArchiveInternalId(id)
 
-        // 查询用户级别的 isNew 状态
+        // 查询用户级别的 isNew 状态和收藏状态
         var isNew = true  // 默认为新
+        var isFavorite = false  // 默认未收藏
         match (AuthMiddleware.optionalUser(ctx)) {
             case Some(userId) =>
                 if (archiveIdInt > 0) {
                     isNew = UserArchiveStatusDao.isNew(userId, archiveIdInt)
+                    isFavorite = UserFavoriteDao.isFavorite(userId, archiveIdInt)
                 }
             case None =>
-                // 未登录用户，默认为新
+                // 未登录用户，默认为新且未收藏
                 isNew = true
+                isFavorite = false
         }
 
         // 转换 last_read_time 为时间戳
@@ -146,6 +149,7 @@ public class ArchiveController {
         let tagsString = TagDao.getArchiveTags(archive.id)
         metadataJson += "\"tags\":\"${tagsString}\","
         metadataJson += "\"isnew\":${isNew},"  // 查询用户级别的 isNew 状态
+        metadataJson += "\"isfavorite\":${isFavorite},"  // 查询用户级别的收藏状态
         metadataJson += "\"pagecount\":${archive.pagecount},"
         metadataJson += "\"progress\":${archive.progress},"
         metadataJson += "\"lastreadtime\":${lastreadtime},"
@@ -721,6 +725,123 @@ public class ArchiveController {
                     ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
                     ctx.json(errorResponse)
                 }
+            case None => return  // requireUser 已经设置了错误响应
+        }
+    }
+
+    /**
+     * 添加收藏（PUT /api/archives/{id}/favorite）
+     */
+    public static func addFavorite(ctx: JoyContext): Unit {
+        // 获取用户ID
+        match (AuthMiddleware.requireUser(ctx)) {
+            case Some(userId) =>
+                let id = ctx.getParam("id").getOrThrow()
+
+                // 检查ID是否为空
+                if (id.size == 0) {
+                    let errorResponse = "{\"operation\":\"add_favorite\",\"error\":\"No archive ID specified.\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+                    ctx.json(errorResponse)
+                    return
+                }
+
+                // 检查归档是否存在
+                let archive = ArchiveModel.getArchiveById(id)
+                if (archive.id.size == 0) {
+                    let errorResponse = "{\"operation\":\"add_favorite\",\"error\":\"Archive not found\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                    ctx.json(errorResponse)
+                    return
+                }
+
+                // 获取归档的数据库内部ID
+                let archiveIdInt = getArchiveInternalId(id)
+                if (archiveIdInt <= 0) {
+                    let errorResponse = "{\"operation\":\"add_favorite\",\"error\":\"Archive not found\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                    ctx.json(errorResponse)
+                    return
+                }
+
+                // 添加收藏
+                let addSuccess = UserFavoriteDao.addFavorite(userId, archiveIdInt)
+
+                if (addSuccess) {
+                    let result = "{\"operation\":\"add_favorite\",\"success\":1}"
+                    ctx.json(result)
+                } else {
+                    let errorResponse = "{\"operation\":\"add_favorite\",\"error\":\"Failed to add favorite\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                    ctx.json(errorResponse)
+                }
+            case None => return  // requireUser 已经设置了错误响应
+        }
+    }
+
+    /**
+     * 取消收藏（DELETE /api/archives/{id}/favorite）
+     */
+    public static func removeFavorite(ctx: JoyContext): Unit {
+        // 获取用户ID
+        match (AuthMiddleware.requireUser(ctx)) {
+            case Some(userId) =>
+                let id = ctx.getParam("id").getOrThrow()
+
+                // 检查ID是否为空
+                if (id.size == 0) {
+                    let errorResponse = "{\"operation\":\"remove_favorite\",\"error\":\"No archive ID specified.\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+                    ctx.json(errorResponse)
+                    return
+                }
+
+                // 获取归档的数据库内部ID
+                let archiveIdInt = getArchiveInternalId(id)
+                if (archiveIdInt <= 0) {
+                    let errorResponse = "{\"operation\":\"remove_favorite\",\"error\":\"Archive not found\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                    ctx.json(errorResponse)
+                    return
+                }
+
+                // 取消收藏
+                let removeSuccess = UserFavoriteDao.removeFavorite(userId, archiveIdInt)
+
+                if (removeSuccess) {
+                    let result = "{\"operation\":\"remove_favorite\",\"success\":1}"
+                    ctx.json(result)
+                } else {
+                    let errorResponse = "{\"operation\":\"remove_favorite\",\"error\":\"Failed to remove favorite\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                    ctx.json(errorResponse)
+                }
+            case None => return  // requireUser 已经设置了错误响应
+        }
+    }
+
+    /**
+     * 获取用户的所有收藏（GET /api/favorites）
+     */
+    public static func getFavorites(ctx: JoyContext): Unit {
+        // 获取用户ID
+        match (AuthMiddleware.requireUser(ctx)) {
+            case Some(userId) =>
+                // 获取用户收藏的 arcid 列表
+                let arcids = UserFavoriteDao.getUserFavoriteArcids(userId)
+
+                // 构建JSON数组
+                var arcidsJson = "["
+                for (i in 0..arcids.size) {
+                    if (i > 0) {
+                        arcidsJson += ","
+                    }
+                    arcidsJson += "\"${arcids[i]}\""
+                }
+                arcidsJson += "]"
+
+                let result = "{\"operation\":\"get_favorites\",\"favorites\":${arcidsJson},\"success\":1}"
+                ctx.json(result)
             case None => return  // requireUser 已经设置了错误响应
         }
     }
