@@ -4,7 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, Suspense, useRef, memo } from 'react';
 import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
-import { imageCacheService } from '@/lib/image-cache';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Slider } from '@/components/ui/slider';
@@ -197,39 +196,29 @@ function ReaderContent() {
     });
   }, []);
 
-  // 缓存图片
+  // 缓存图片 - 简化为直接使用原始 URL
   const cacheImage = useCallback(async (url: string, index: number) => {
-    try {
-      const cachedUrl = await imageCacheService.getOrCacheImage(url);
-      setCachedPages(prev => {
-        const newCachedPages = [...prev];
-        newCachedPages[index] = cachedUrl;
-        return newCachedPages;
-      });
-    } catch (error) {
-      console.error('Error caching image:', error);
-      // 如果缓存失败，使用原始URL
-      setCachedPages(prev => {
-        const newCachedPages = [...prev];
-        newCachedPages[index] = url;
-        return newCachedPages;
-      });
-    }
+    // 直接使用原始 URL，浏览器会自动处理缓存
+    setCachedPages(prev => {
+      const newCachedPages = [...prev];
+      newCachedPages[index] = url;
+      return newCachedPages;
+    });
   }, []);
 
   const handleImageLoad = useCallback((pageIndex: number, imgElement?: HTMLImageElement) => {
+    // 原子性地更新两个状态，避免中间状态导致白屏
     setImagesLoading(prev => {
       const newSet = new Set(prev);
       newSet.delete(pageIndex);
       return newSet;
     });
-    // 标记图片为已加载
     setLoadedImages(prev => {
       const newSet = new Set(prev);
       newSet.add(pageIndex);
       return newSet;
     });
-    
+
     // 如果是条漫模式且提供了图片元素，记录图片高度
     if (readingMode === 'webtoon' && imgElement) {
       // 优化PC端显示：为PC端设置更合适的宽度限制
@@ -240,14 +229,14 @@ function ReaderContent() {
 
       const aspectRatio = imgElement.naturalHeight / imgElement.naturalWidth;
       const imageHeight = maxContainerWidth * aspectRatio;
-      
+
       setImageHeights(prev => {
         const newHeights = [...prev];
         newHeights[pageIndex] = imageHeight;
         return newHeights;
       });
-      
-      // 预加载相邻图片
+
+      // 预加载相邻图片 - 只添加加载队列，不直接调用缓存
       const preloadAdjacent = (index: number) => {
         // 预加载前一张和后一张图片
         [index - 1, index + 1].forEach(adjacentIndex => {
@@ -257,15 +246,16 @@ function ReaderContent() {
               updated.add(adjacentIndex);
               return updated;
             });
-            cacheImage(pages[adjacentIndex], adjacentIndex);
+            // 不在这里调用 cacheImage，避免重复缓存
+            // 缓存逻辑由 useEffect 统一管理
           }
         });
       };
-      
+
       // 延迟预加载，避免影响当前图片加载
       setTimeout(() => preloadAdjacent(pageIndex), 100);
     }
-  }, [readingMode, loadedImages, imagesLoading, pages, cacheImage]);
+  }, [readingMode, loadedImages, imagesLoading, pages]); // 移除 cacheImage 依赖
 
   // 计算可见范围的函数
   const calculateVisibleRange = useCallback((scrollTop: number, containerHeight: number) => {
@@ -775,11 +765,13 @@ function ReaderContent() {
             {/* 图片显示区域 */}
             <div className="flex items-center justify-center w-full h-full relative max-w-7xl mx-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
               {imagesLoading.has(currentPage) && !loadedImages.has(currentPage) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
-                  <Spinner size="lg" />
+                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                  <div className="bg-background/80 backdrop-blur-sm rounded-full p-3 shadow-lg">
+                    <Spinner size="lg" />
+                  </div>
                 </div>
               )}
-              
+
               <div
                 className="relative flex items-center justify-center w-full h-full"
                 style={{
@@ -798,16 +790,19 @@ function ReaderContent() {
                     className={`
                       object-contain select-none touch-none
                       max-w-full max-h-full w-full h-full
-                      ${imagesLoading.has(currentPage) && !loadedImages.has(currentPage) ? 'opacity-0' : 'opacity-100'}
+                      transition-opacity duration-200 ease-in-out
                     `}
                     style={{
                       maxHeight: '100%',
-                      height: '100%'
+                      height: '100%',
+                      opacity: loadedImages.has(currentPage) ? 1 : 0.3
                     }}
                     onLoadingComplete={() => {
                       handleImageLoad(currentPage);
-                      // 图片加载完成后缓存它
-                      cacheImage(pages[currentPage], currentPage);
+                      // 图片加载完成后缓存它（优化：只在缓存中没有该图片时才缓存）
+                      if (!cachedPages[currentPage]) {
+                        cacheImage(pages[currentPage], currentPage);
+                      }
                     }}
                     onError={() => handleImageError(currentPage)}
                     onDoubleClick={(e) => handleDoubleClick(e, 0)}
@@ -890,13 +885,15 @@ function ReaderContent() {
                   <div key={actualIndex} className="relative w-full">
                     {imagesLoading.has(actualIndex) && !loadedImages.has(actualIndex) && (
                       <div
-                        className="absolute inset-0 flex items-center justify-center bg-black/30 z-20"
+                        className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
                         style={{
                           height: `${imageHeight}px`,
                           minHeight: '100px'
                         }}
                       >
-                        <Spinner size="lg" />
+                        <div className="bg-background/80 backdrop-blur-sm rounded-full p-3 shadow-lg">
+                          <Spinner size="lg" />
+                        </div>
                       </div>
                     )}
                     
@@ -915,7 +912,7 @@ function ReaderContent() {
                           fill
                           className={`
                             object-contain select-none
-                            ${imagesLoading.has(actualIndex) && !loadedImages.has(actualIndex) ? 'opacity-0' : 'opacity-100'}
+                            transition-opacity duration-200 ease-in-out
                           `}
                           style={{
                             // 确保图片不会超出容器宽度
@@ -924,11 +921,15 @@ function ReaderContent() {
                             width: 'auto',
                             height: 'auto',
                             display: 'block',
-                            margin: '0 auto'
+                            margin: '0 auto',
+                            opacity: loadedImages.has(actualIndex) ? 1 : 0.3
                           }}
                           onLoadingComplete={() => {
                             handleImageLoad(actualIndex);
-                            cacheImage(page, actualIndex);
+                            // 图片加载完成后缓存它（优化：只在缓存中没有该图片时才缓存）
+                            if (!cachedPages[actualIndex]) {
+                              cacheImage(page, actualIndex);
+                            }
                           }}
                           onError={() => handleImageError(actualIndex)}
                           onDoubleClick={(e) => handleDoubleClick(e, actualIndex)}
