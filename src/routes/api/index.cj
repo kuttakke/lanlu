@@ -10,6 +10,7 @@ import lrr4cj.routes.api.tankoubons.*
 import lrr4cj.routes.api.shinobu.*
 import lrr4cj.routes.api.auth.*
 import lrr4cj.routes.api.tag_i18n.*
+import lrr4cj.routes.api.user.*
 import lrr4cj.controllers.*
 
 /**
@@ -42,7 +43,10 @@ public func registerApiRoutes(router: JoyRouters) {
 
     // 注册Tag i18n路由
     registerTagI18nRoutes(router)
-    
+
+    // 注册用户统计路由
+    UserRoutes.configure(router)
+
     // 注册服务器信息路由
     router.get("/api/info", { ctx =>
         InfoController.getServerInfo(ctx)

@@ -1,0 +1,304 @@
+package lrr4cj.dao
+
+import std.database.sql.*
+import std.collection.*
+import lrr4cj.config.*
+import lrr4cj.utils.*
+import stdx.log.*
+
+/**
+ * 阅读趋势数据项
+ */
+public class ReadingTrendItem {
+    public var date: String = ""
+    public var count: Int64 = 0
+
+    public init() {}
+
+    public init(date: String, count: Int64) {
+        this.date = date
+        this.count = count
+    }
+}
+
+/**
+ * 用户统计数据访问对象
+ * 提供用户阅读统计、趋势分析等功能
+ */
+public class UserStatsDao {
+    /**
+     * 获取用户已读档案数量
+     */
+    public static func getReadCount(userId: Int64): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT COUNT(*) FROM user_archive_status
+                        WHERE user_id = ? AND is_new = false
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                    return 0
+                } catch (_: Exception) {
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return 0
+        }
+    }
+
+    /**
+     * 获取用户总阅读页数
+     * 计算用户已读档案的 progress 总和
+     */
+    public static func getTotalPagesRead(userId: Int64): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT COALESCE(SUM(a.progress), 0) as total_pages
+                        FROM user_archive_status uas
+                        INNER JOIN archives a ON uas.archive_id = a.id
+                        WHERE uas.user_id = ? AND uas.is_new = false
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                    return 0
+                } catch (_: Exception) {
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return 0
+        }
+    }
+
+    /**
+     * 获取档案总数
+     */
+    public static func getTotalArchives(): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("SELECT COUNT(*) FROM archives")
+                    try {
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                    return 0
+                } catch (_: Exception) {
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return 0
+        }
+    }
+
+    /**
+     * 获取阅读趋势（按日期分组统计）
+     * @param userId 用户ID
+     * @param days 统计天数
+     * @return 按日期分组的阅读数量列表
+     */
+    public static func getReadingTrend(userId: Int64, days: Int32): Array<ReadingTrendItem> {
+        let result = ArrayList<ReadingTrendItem>()
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT DATE(updated_at) as date, COUNT(*) as count
+                        FROM user_archive_status
+                        WHERE user_id = ? AND is_new = false
+                          AND updated_at >= DATE('now', '-' || ? || ' days')
+                        GROUP BY DATE(updated_at)
+                        ORDER BY date ASC
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, days)
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let item = ReadingTrendItem()
+                                item.date = rs.getOrNull<String>(0) ?? ""
+                                item.count = rs.getOrNull<Int64>(1) ?? 0
+                                result.add(item)
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("user_stats_dao").error("获取阅读趋势失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("user_stats_dao").error("无法连接到数据库")
+        }
+        return result.toArray()
+    }
+
+    /**
+     * 获取最近阅读的档案
+     * @param userId 用户ID
+     * @param limit 返回数量限制
+     * @return 最近阅读的档案列表
+     */
+    public static func getRecentReadArchives(userId: Int64, limit: Int32): Array<ArchiveData> {
+        let result = ArrayList<ArchiveData>()
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT awt.arcid, awt.filename, awt.title, awt.summary, awt.thumbhash,
+                               awt.created_at, awt.updated_at, awt.relative_path, awt.file_size,
+                               awt.pagecount, awt.last_read_time, awt.progress, awt.tags
+                        FROM archives_with_tags awt
+                        INNER JOIN archives a ON awt.arcid = a.arcid
+                        INNER JOIN user_archive_status uas ON a.id = uas.archive_id
+                        WHERE uas.user_id = ? AND uas.is_new = false
+                        ORDER BY uas.updated_at DESC
+                        LIMIT ?
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, limit)
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let archive = ArchiveData()
+                                archive.id = rs.getOrNull<String>(0) ?? ""
+                                archive.filename = rs.getOrNull<String>(1) ?? ""
+                                archive.title = rs.getOrNull<String>(2) ?? ""
+                                archive.summary = rs.getOrNull<String>(3) ?? ""
+                                archive.thumbhash = rs.getOrNull<String>(4) ?? ""
+                                archive.created_at = rs.getOrNull<String>(5) ?? ""
+                                archive.updated_at = rs.getOrNull<String>(6) ?? ""
+                                archive.relative_path = rs.getOrNull<String>(7) ?? ""
+                                archive.file_size = rs.getOrNull<Int64>(8) ?? 0
+                                archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
+                                archive.tags = rs.getOrNull<String>(12) ?? ""
+                                result.add(archive)
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("user_stats_dao").error("获取最近阅读档案失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("user_stats_dao").error("无法连接到数据库")
+        }
+        return result.toArray()
+    }
+
+    /**
+     * 获取最近收藏的档案
+     * @param userId 用户ID
+     * @param limit 返回数量限制
+     * @return 最近收藏的档案列表
+     */
+    public static func getRecentFavoriteArchives(userId: Int64, limit: Int32): Array<ArchiveData> {
+        let result = ArrayList<ArchiveData>()
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT awt.arcid, awt.filename, awt.title, awt.summary, awt.thumbhash,
+                               awt.created_at, awt.updated_at, awt.relative_path, awt.file_size,
+                               awt.pagecount, awt.last_read_time, awt.progress, awt.tags
+                        FROM archives_with_tags awt
+                        INNER JOIN archives a ON awt.arcid = a.arcid
+                        INNER JOIN user_favorites uf ON a.id = uf.archive_id
+                        WHERE uf.user_id = ?
+                        ORDER BY uf.created_at DESC
+                        LIMIT ?
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, limit)
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let archive = ArchiveData()
+                                archive.id = rs.getOrNull<String>(0) ?? ""
+                                archive.filename = rs.getOrNull<String>(1) ?? ""
+                                archive.title = rs.getOrNull<String>(2) ?? ""
+                                archive.summary = rs.getOrNull<String>(3) ?? ""
+                                archive.thumbhash = rs.getOrNull<String>(4) ?? ""
+                                archive.created_at = rs.getOrNull<String>(5) ?? ""
+                                archive.updated_at = rs.getOrNull<String>(6) ?? ""
+                                archive.relative_path = rs.getOrNull<String>(7) ?? ""
+                                archive.file_size = rs.getOrNull<Int64>(8) ?? 0
+                                archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
+                                archive.tags = rs.getOrNull<String>(12) ?? ""
+                                result.add(archive)
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("user_stats_dao").error("获取最近收藏档案失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("user_stats_dao").error("无法连接到数据库")
+        }
+        return result.toArray()
+    }
+}

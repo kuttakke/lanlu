@@ -477,5 +477,22 @@
     "saveConfiguration": "保存配置",
     "noConfigurationRequired": "无需配置",
     "noConfigurableParameters": "此插件没有可配置的参数"
+  },
+  "dashboard": {
+    "title": "仪表板",
+    "description": "查看您的阅读统计和最近活动",
+    "favorites": "收藏数量",
+    "readArchives": "已读档案",
+    "totalPagesRead": "总阅读页数",
+    "totalArchives": "档案总数",
+    "readingTrend": "阅读趋势",
+    "readCount": "阅读数",
+    "last7Days": "最近7天",
+    "recentRead": "最近阅读",
+    "recentFavorites": "最近收藏",
+    "noRecentRead": "暂无阅读记录",
+    "noRecentFavorites": "暂无收藏记录",
+    "noTrendData": "暂无趋势数据",
+    "viewAll": "查看全部"
   }
 }
