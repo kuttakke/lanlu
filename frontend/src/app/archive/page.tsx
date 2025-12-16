@@ -149,9 +149,9 @@ function ArchiveDetailContent() {
       
       try {
         const data = await ArchiveService.getFiles(id);
-        setArchivePages(data);
+        setArchivePages(data.pages);
         // 初始显示前10页
-        const initialPages = data.slice(0, pageSize);
+        const initialPages = data.pages.slice(0, pageSize);
         setDisplayPages(initialPages);
         setCurrentPage(0);
       } catch (err) {

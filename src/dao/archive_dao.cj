@@ -150,6 +150,38 @@ public class ArchiveDao {
     }
 
     /**
+     * 根据 arcid 获取 archives 表的内部 ID（INTEGER）
+     */
+    public static func getArchiveInternalId(arcid: String): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("SELECT id FROM archives WHERE arcid = ?")
+                    try {
+                        stmt.set(0, arcid)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("archive_dao").error("查询归档内部ID失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (closeException: Exception) {}
+                }
+            case None => getLogger("archive_dao").error("无法连接到数据库")
+        }
+        return 0
+    }
+
+    /**
      * 搜索归档
      */
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String): (Array<ArchiveData>, Int64) {

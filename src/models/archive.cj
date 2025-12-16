@@ -141,6 +141,13 @@ public class ArchiveModel {
     }
 
     /**
+     * 根据 arcid 获取 archives 表的内部 ID
+     */
+    public static func getArchiveIdByArcid(arcid: String): Int64 {
+        return ArchiveDao.getArchiveInternalId(arcid)
+    }
+
+    /**
      * 搜索归档
      */
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String): (Array<Archive>, Int64) {

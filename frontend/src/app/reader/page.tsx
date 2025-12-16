@@ -70,7 +70,11 @@ function ReaderContent() {
 
       try {
         const data = await ArchiveService.getFiles(id);
-        setPages(data);
+        setPages(data.pages);
+        // 恢复阅读进度
+        if (data.progress > 0 && data.progress < data.pages.length) {
+          setCurrentPage(data.progress);
+        }
       } catch (err) {
         console.error('Failed to fetch archive pages:', err);
         setError('Failed to fetch archive pages');

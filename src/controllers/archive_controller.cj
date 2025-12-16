@@ -347,7 +347,7 @@ public class ArchiveController {
     // GET /api/archives/{id}/files
     public static func getFiles(ctx: JoyContext): Unit {
         let id = ctx.getParam("id").getOrThrow()
-        
+
         // 检查ID是否为空
         if (id.size == 0) {
             let errorResponse = "{\"operation\":\"get_file_list\",\"error\":\"No archive ID specified.\",\"success\":0}"
@@ -355,14 +355,14 @@ public class ArchiveController {
             ctx.json(errorResponse)
             return
         }
-        
+
         // 获取查询参数
         let imagesOnlyParam = ctx.getQuery("images_only")
         let imagesOnly = match (imagesOnlyParam) {
             case Some(i) => i == "true" || i == "1"
             case None => true  // 默认只返回图片文件
         }
-        
+
         // 检查归档是否存在
         let archive = ArchiveModel.getArchiveById(id)
         if (archive.id.size == 0) {
@@ -371,20 +371,20 @@ public class ArchiveController {
             ctx.json(errorResponse)
             return
         }
-        
+
         // 获取ShinobuService实例
         let shinobu = ShinobuService.getInstance()
-        
-        
+
+
         // 获取归档中的文件列表
         let pageFiles = shinobu.getArchiveFileList(id)
-        
+
         // 如果不需要只返回图片文件，获取所有文件
         if (!imagesOnly) {
             // 这里可以添加获取所有文件的逻辑
             // 目前保持只返回图片文件
         }
-        
+
         // 构建页面URL列表
         var pagesJson = "["
         for (i in 0..pageFiles.size) {
@@ -396,12 +396,25 @@ public class ArchiveController {
             pagesJson = pagesJson + "\"${pageUrl}\""
         }
         pagesJson = pagesJson + "]"
-        
+
+        // 获取用户的阅读进度（如果用户已登录）
+        var progressJson = "0"  // 默认进度为0
+        match (AuthMiddleware.optionalUser(ctx)) {
+            case Some(userId) =>
+                let archiveIdInt = ArchiveModel.getArchiveIdByArcid(id)
+                if (archiveIdInt > 0) {
+                    let userProgress = UserArchiveStatusDao.getProgress(userId, archiveIdInt)
+                    progressJson = userProgress.toString()
+                }
+            case None => ()  // 用户未登录，使用默认进度
+        }
+
         // 构建响应JSON
         var responseJson = "{"
-        responseJson = responseJson + "\"pages\":${pagesJson}"
+        responseJson = responseJson + "\"pages\":${pagesJson},"
+        responseJson = responseJson + "\"progress\":${progressJson}"
         responseJson = responseJson + "}"
-        
+
         ctx.json(responseJson)
     }
 

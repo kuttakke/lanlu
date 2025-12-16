@@ -73,9 +73,12 @@ export class ArchiveService {
     await apiClient.put(`/api/archives/${id}/metadata?${params.toString()}`);
   }
 
-  static async getFiles(id: string): Promise<string[]> {
+  static async getFiles(id: string): Promise<{ pages: string[]; progress: number }> {
     const response = await apiClient.get(`/api/archives/${id}/files`);
-    return response.data.pages || [];
+    return {
+      pages: response.data.pages || [],
+      progress: response.data.progress || 0
+    };
   }
 
   static async getArchive(id: string): Promise<any> {
