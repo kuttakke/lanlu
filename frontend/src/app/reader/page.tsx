@@ -45,16 +45,19 @@ function ReaderContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [readingMode, setReadingMode] = useState<ReadingMode>(() => {
-    // 从localStorage读取保存的阅读模式，但先检查是否在静态生成环境中
-    if (typeof window === 'undefined' || process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true') {
-      return 'single-ltr'; // 默认阅读模式
+    // 从localStorage读取保存的阅读模式
+    if (typeof window !== 'undefined') {
+      try {
+        const savedMode = localStorage.getItem('reader-reading-mode');
+        if (savedMode && ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'].includes(savedMode)) {
+          return savedMode as ReadingMode;
+        }
+      } catch (e) {
+        // 忽略localStorage访问错误
+        console.warn('Failed to read reading mode from localStorage:', e);
+      }
     }
-    
-    const savedMode = localStorage.getItem('reader-reading-mode');
-    if (savedMode && ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'].includes(savedMode)) {
-      return savedMode as ReadingMode;
-    }
-    return 'single-ltr';
+    return 'single-ltr'; // 默认阅读模式
   });
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
