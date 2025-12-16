@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, Suspense, useRef, memo } from 'react';
 import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
+import { FavoriteService } from '@/lib/favorite-service';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Slider } from '@/components/ui/slider';
@@ -14,7 +15,8 @@ import {
   ArrowLeft,
   Book,
   ArrowRight,
-  ArrowDown
+  ArrowDown,
+  Heart
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -59,6 +61,7 @@ function ReaderContent() {
   const [imagesLoading, setImagesLoading] = useState<Set<number>>(new Set());
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set()); // 跟踪已加载的图片
   const [showToolbar, setShowToolbar] = useState(true);
+  const [isFavorited, setIsFavorited] = useState(false); // 收藏状态
   const [scale, setScale] = useState(1);
   const [translateX, setTranslateX] = useState(0);
   const [translateY, setTranslateY] = useState(0);
@@ -96,6 +99,15 @@ function ReaderContent() {
         if (initialPage > 0) {
           setImagesLoading(new Set([initialPage]));
         }
+
+        // 获取收藏状态
+        try {
+          const favorites = await FavoriteService.getFavorites();
+          setIsFavorited(favorites.includes(id));
+        } catch (favErr) {
+          console.error('Failed to fetch favorite status:', favErr);
+          // 收藏状态失败不影响阅读体验，静默处理
+        }
       } catch (err) {
         console.error('Failed to fetch archive pages:', err);
         setError('Failed to fetch archive pages');
@@ -128,6 +140,28 @@ function ReaderContent() {
       // 静默失败，不影响阅读体验
     }
   }, [id]);
+
+  // 切换收藏状态
+  const toggleFavorite = useCallback(async (e?: React.MouseEvent) => {
+    if (!id) return;
+
+    // 阻止事件冒泡
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    try {
+      if (isFavorited) {
+        await FavoriteService.removeFavorite(id);
+        setIsFavorited(false);
+      } else {
+        await FavoriteService.addFavorite(id);
+        setIsFavorited(true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+      // 可以显示错误提示，但静默失败更符合用户体验
+    }
+  }, [id, isFavorited]);
 
   // 监听页码变化并更新进度
   useEffect(() => {
@@ -697,16 +731,16 @@ function ReaderContent() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">{t('reader.back')}</span>
               </Button>
-              
+
               {/* 主题切换按钮 */}
               <ThemeButton />
-              
+
               {/* 语言切换按钮 */}
               <div onClick={(e) => e.stopPropagation()}>
                 <ReaderLanguageToggle />
               </div>
             </div>
-            
+
             {/* 右侧：阅读模式切换 */}
             <Button
               variant="outline"
@@ -721,9 +755,10 @@ function ReaderContent() {
         </div>
       </div>
 
-      {/* 悬浮进度条 - 所有阅读模式都显示 */}
-      <div className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-background/95 backdrop-blur-sm border border-border rounded-full px-6 py-3 transition-opacity duration-300 z-50 shadow-lg ${showToolbar ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="flex items-center space-x-4">
+      {/* 悬浮进度条和收藏按钮 - 紧挨在一起的两个独立区域 */}
+      <div className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-3 transition-opacity duration-300 z-50 ${showToolbar ? 'opacity-100' : 'opacity-0'}`}>
+        {/* 进度条区域 */}
+        <div className="bg-background/95 backdrop-blur-sm border border-border rounded-full px-4 py-3 shadow-lg">
           <div className="flex items-center space-x-2">
             <Slider
               value={[currentPage]}
@@ -750,6 +785,27 @@ function ReaderContent() {
             <span className="text-sm whitespace-nowrap font-medium text-foreground">{currentPage + 1}/{pages.length}</span>
           </div>
         </div>
+
+        {/* 收藏按钮区域 - 仅在未收藏时显示 */}
+        {!isFavorited && (
+          <div className="bg-background/95 backdrop-blur-sm border border-border rounded-full p-0 shadow-lg">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleFavorite}
+              className={`
+                rounded-full p-0 h-11 w-11
+                transition-all duration-200 ease-in-out
+                hover:scale-110 active:scale-95
+                text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20
+              `}
+              style={{ padding: '3px' }}
+              title="收藏"
+            >
+              <Heart className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* 主要阅读区域 */}
