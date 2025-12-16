@@ -1,0 +1,280 @@
+package lrr4cj.dao
+
+import std.database.sql.*
+import stdx.log.*
+import std.collection.*
+import lrr4cj.config.*
+import lrr4cj.utils.*
+
+public class UserArchiveStatusRow {
+    public var id: Int64 = 0
+    public var userId: Int64 = 0
+    public var archiveId: Int64 = 0
+    public var isNew: Bool = true
+    public var createdAt: String = ""
+    public var updatedAt: String = ""
+
+    public init() {}
+}
+
+public class UserArchiveStatusDao {
+    /**
+     * 设置归档为新状态（针对特定用户）
+     */
+    public static func setIsNew(userId: Int64, archiveId: Int64): Bool {
+        let logger = getLogger("user_archive_status_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 使用 UPSERT 语法（INSERT ... ON CONFLICT）
+                    let stmt = conn.prepareStatement("""
+                        INSERT INTO user_archive_status (user_id, archive_id, is_new, updated_at)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT (user_id, archive_id)
+                        DO UPDATE SET is_new = true, updated_at = CURRENT_TIMESTAMP
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        stmt.set(2, true)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("设置isNew标记失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                logger.error("无法连接到数据库")
+                return false
+        }
+    }
+
+    /**
+     * 清除新状态/标记为已读（针对特定用户）
+     */
+    public static func clearIsNew(userId: Int64, archiveId: Int64): Bool {
+        let logger = getLogger("user_archive_status_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 使用 UPSERT 语法
+                    let stmt = conn.prepareStatement("""
+                        INSERT INTO user_archive_status (user_id, archive_id, is_new, updated_at)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT (user_id, archive_id)
+                        DO UPDATE SET is_new = false, updated_at = CURRENT_TIMESTAMP
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        stmt.set(2, false)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("清除isNew标记失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                logger.error("无法连接到数据库")
+                return false
+        }
+    }
+
+    /**
+     * 获取用户对特定归档的状态
+     */
+    public static func getStatus(userId: Int64, archiveId: Int64): Option<UserArchiveStatusRow> {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT id, user_id, archive_id, is_new, created_at, updated_at
+                        FROM user_archive_status
+                        WHERE user_id = ? AND archive_id = ?
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                let row = UserArchiveStatusRow()
+                                row.id = rs.getOrNull<Int64>(0) ?? 0
+                                row.userId = rs.getOrNull<Int64>(1) ?? 0
+                                row.archiveId = rs.getOrNull<Int64>(2) ?? 0
+                                row.isNew = rs.getOrNull<Bool>(3) ?? true
+                                row.createdAt = rs.getOrNull<String>(4) ?? ""
+                                row.updatedAt = rs.getOrNull<String>(5) ?? ""
+                                return Some(row)
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                    return None
+                } catch (_: Exception) {
+                    return None
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return None
+        }
+    }
+
+    /**
+     * 检查归档对于特定用户是否为新
+     * 如果没有记录，默认返回 true（新归档）
+     */
+    public static func isNew(userId: Int64, archiveId: Int64): Bool {
+        match (getStatus(userId, archiveId)) {
+            case Some(row) => return row.isNew
+            case None => return true  // 没有记录，默认为新
+        }
+    }
+
+    /**
+     * 批量获取用户对多个归档的状态
+     * 返回 Map<archiveId, isNew>
+     */
+    public static func getBatchStatus(userId: Int64, archiveIds: Array<Int64>): HashMap<Int64, Bool> {
+        let result = HashMap<Int64, Bool>()
+
+        if (archiveIds.size == 0) {
+            return result
+        }
+
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 构建 IN 子句的占位符
+                    var inClause = ""
+                    for (i in 0..archiveIds.size) {
+                        if (i > 0) {
+                            inClause += ","
+                        }
+                        inClause += "?"
+                    }
+
+                    let sql = """
+                        SELECT archive_id, is_new
+                        FROM user_archive_status
+                        WHERE user_id = ? AND archive_id IN (${inClause})
+                    """
+
+                    let stmt = conn.prepareStatement(sql)
+                    try {
+                        stmt.set(0, userId)
+                        var idx = 1
+                        for (archiveId in archiveIds) {
+                            stmt.set(idx, archiveId)
+                            idx = idx + 1
+                        }
+
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let archiveId = rs.getOrNull<Int64>(0) ?? 0
+                                let isNew = rs.getOrNull<Bool>(1) ?? true
+                                result[archiveId] = isNew
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+
+                    // 对于没有记录的归档，默认为新
+                    for (archiveId in archiveIds) {
+                        if (!result.contains(archiveId)) {
+                            result[archiveId] = true
+                        }
+                    }
+                } catch (_: Exception) {
+                    // 出错时，所有归档默认为新
+                    for (archiveId in archiveIds) {
+                        result[archiveId] = true
+                    }
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                // 无法连接时，所有归档默认为新
+                for (archiveId in archiveIds) {
+                    result[archiveId] = true
+                }
+        }
+
+        return result
+    }
+
+    /**
+     * 删除用户的所有归档状态记录
+     */
+    public static func deleteByUserId(userId: Int64): Bool {
+        let logger = getLogger("user_archive_status_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("DELETE FROM user_archive_status WHERE user_id = ?")
+                    try {
+                        stmt.set(0, userId)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("删除用户归档状态失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return false
+        }
+    }
+
+    /**
+     * 删除特定归档的所有用户状态记录
+     */
+    public static func deleteByArchiveId(archiveId: Int64): Bool {
+        let logger = getLogger("user_archive_status_dao")
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("DELETE FROM user_archive_status WHERE archive_id = ?")
+                    try {
+                        stmt.set(0, archiveId)
+                        stmt.update()
+                        return true
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    logger.error("删除归档状态失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return false
+        }
+    }
+}

@@ -11,6 +11,7 @@ import stdx.log.*
 /**
  * 归档数据结构
  * 为了避免循环依赖，这个数据结构独立于 Archive 模型类
+ * 注意：isNew 字段已移除，现在使用用户级别的已读状态（user_archive_status 表）
  */
 public class ArchiveData {
     public var id: String = ""
@@ -22,7 +23,6 @@ public class ArchiveData {
     public var updated_at: String = ""
     public var relative_path: String = ""
     public var file_size: Int64 = 0
-    public var isNew: Bool = false
     public var pagecount: Int32 = 0
     public var last_read_time: String = ""
     public var progress: Int32 = 0
@@ -65,7 +65,7 @@ public class ArchiveDao {
                 var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives ORDER BY id")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress FROM archives ORDER BY id")
                     try {
                         let rs = stmt.query()
                         try {
@@ -80,10 +80,9 @@ public class ArchiveDao {
                                 archive.updated_at = rs.getOrNull<String>(6) ?? ""
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                                archive.isNew = rs.getOrNull<Bool>(9) ?? false
-                                archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(11) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(12) ?? 0
+                                archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 archives.add(archive)
                             }
                         } finally {
@@ -114,7 +113,7 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives WHERE arcid = ?")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress FROM archives WHERE arcid = ?")
                     try {
                         stmt.set(0, id)
                         let rs = stmt.query()
@@ -130,10 +129,9 @@ public class ArchiveDao {
                                 archive.updated_at = rs.getOrNull<String>(6) ?? ""
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                                archive.isNew = rs.getOrNull<Bool>(9) ?? false
-                                archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(11) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(12) ?? 0
+                                archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 return archive
                             }
                         } finally {
@@ -183,9 +181,10 @@ public class ArchiveDao {
                     whereConditions.add("(title LIKE ? OR filename LIKE ? OR tags LIKE ? OR summary LIKE ?)")
                 }
                 
-                // 添加新归档过滤条件
+                // newOnly 过滤已移除 - 现在使用用户级别的已读状态
+                // 如需支持 newOnly，请在调用层使用 UserArchiveStatusDao
                 if (newOnly) {
-                    whereConditions.add("isnew = true")
+                    // 忽略 newOnly 参数，因为已读状态现在是用户级别的
                 }
                 
                 // 添加无标签过滤条件
@@ -230,7 +229,7 @@ public class ArchiveDao {
                 }
                 
                 // 然后查询分页数据，使用archives_with_tags视图获取标签信息
-                var sql = "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress, tags FROM archives_with_tags"
+                var sql = "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress, tags FROM archives_with_tags"
                 
                 // 使用相同的 WHERE 条件
                 if (whereConditions.size > 0) {
@@ -300,13 +299,12 @@ public class ArchiveDao {
                             archive.thumbhash = rs.getOrNull<String>(4) ?? ""
                             archive.created_at = rs.getOrNull<String>(5) ?? ""
                             archive.updated_at = rs.getOrNull<String>(6) ?? ""
-                            archive.tags = rs.getOrNull<String>(13) ?? ""
                             archive.relative_path = rs.getOrNull<String>(7) ?? ""
                             archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                            archive.isNew = rs.getOrNull<Bool>(9) ?? false
-                            archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
-                            archive.last_read_time = rs.getOrNull<String>(11) ?? ""
-                            archive.progress = rs.getOrNull<Int32>(12) ?? 0
+                            archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                            archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                            archive.progress = rs.getOrNull<Int32>(11) ?? 0
+                            archive.tags = rs.getOrNull<String>(12) ?? ""
                             archives.add(archive)
                         } catch (e: Exception) {
                             getLogger("archive_dao").error("读取字段时出错", ("error", e.message))
@@ -342,7 +340,7 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "INSERT INTO archives (arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                        "INSERT INTO archives (arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                     try {
                         stmt.set(0, archive.id)
                         stmt.set(1, archive.title)
@@ -353,10 +351,9 @@ public class ArchiveDao {
                         stmt.set(6, archive.updated_at)
                         stmt.set(7, archive.relative_path)
                         stmt.set(8, archive.file_size)
-                        stmt.set(9, archive.isNew)
-                        stmt.set(10, archive.pagecount)
-                        stmt.set(11, archive.last_read_time)
-                        stmt.set(12, archive.progress)
+                        stmt.set(9, archive.pagecount)
+                        stmt.set(10, archive.last_read_time)
+                        stmt.set(11, archive.progress)
                         stmt.update()
                         return true  // 简化实现，假设更新成功
                     } finally {
@@ -383,8 +380,8 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     // 使用数据库的默认值来处理时间戳，避免格式问题
-                    let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, isnew, pagecount, last_read_time, progress) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                    
+                    let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, pagecount, last_read_time, progress) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
                     let stmt = conn.prepareStatement(sql)
                     try {
                         stmt.set(0, archiveId)
@@ -394,10 +391,9 @@ public class ArchiveDao {
                         stmt.set(4, "")  // thumbhash
                         stmt.set(5, filePath)  // relative_path
                         stmt.set(6, fileSize)
-                        stmt.set(7, true)  // isnew
-                        stmt.set(8, 0)  // pagecount
-                        stmt.set(9, DateTime.now())  // last_read_time
-                        stmt.set(10, 0)  // progress
+                        stmt.set(7, 0)  // pagecount
+                        stmt.set(8, DateTime.now())  // last_read_time
+                        stmt.set(9, 0)  // progress
                         stmt.update()
                     } finally {
                         stmt.close()
@@ -425,7 +421,7 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "UPDATE archives SET title = ?, filename = ?, summary = ?, thumbhash = ?, updated_at = ?, relative_path = ?, file_size = ?, isnew = ?, pagecount = ?, last_read_time = ?, progress = ? WHERE arcid = ?")
+                        "UPDATE archives SET title = ?, filename = ?, summary = ?, thumbhash = ?, updated_at = ?, relative_path = ?, file_size = ?, pagecount = ?, last_read_time = ?, progress = ? WHERE arcid = ?")
                     try {
                         stmt.set(0, archive.title)
                         stmt.set(1, archive.filename)
@@ -434,11 +430,10 @@ public class ArchiveDao {
                         stmt.set(4, archive.updated_at)
                         stmt.set(5, archive.relative_path)
                         stmt.set(6, archive.file_size)
-                        stmt.set(7, archive.isNew)
-                        stmt.set(8, archive.pagecount)
-                        stmt.set(9, archive.last_read_time)
-                        stmt.set(10, archive.progress)
-                        stmt.set(11, archive.id)
+                        stmt.set(7, archive.pagecount)
+                        stmt.set(8, archive.last_read_time)
+                        stmt.set(9, archive.progress)
+                        stmt.set(10, archive.id)
                         stmt.update()
                         return true
                     } finally {
@@ -611,7 +606,7 @@ public class ArchiveDao {
                 try {
                     var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives WHERE thumbhash = '' OR thumbhash IS NULL ORDER BY id")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress FROM archives WHERE thumbhash = '' OR thumbhash IS NULL ORDER BY id")
                     try {
                         let rs = stmt.query()
                         try {
@@ -626,10 +621,10 @@ public class ArchiveDao {
                                 archive.updated_at = rs.getOrNull<String>(6) ?? ""
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                                archive.isNew = rs.getOrNull<Bool>(9) ?? false
-                                archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(11) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(12) ?? 0
+                                // archive.isNew 已移除
+                                archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 archives.add(archive)
                             }
                         } finally {
@@ -687,7 +682,7 @@ public class ArchiveDao {
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) => try {
-                let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives WHERE relative_path = ?")
+                let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress FROM archives WHERE relative_path = ?")
                 stmt.set(0, filePath)
                 let rs = stmt.query()
                 
@@ -702,10 +697,10 @@ public class ArchiveDao {
                     archive.updated_at = rs.getOrNull<String>(6) ?? ""
                     archive.relative_path = rs.getOrNull<String>(7) ?? ""
                     archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                    archive.isNew = rs.getOrNull<Bool>(9) ?? false
-                    archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
-                    archive.last_read_time = rs.getOrNull<String>(11) ?? ""
-                    archive.progress = rs.getOrNull<Int32>(12) ?? 0
+                    // archive.isNew 已移除
+                    archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                    archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                    archive.progress = rs.getOrNull<Int32>(11) ?? 0
                     
                     conn.close()
                     return Some(archive)
@@ -732,7 +727,7 @@ public class ArchiveDao {
         match (connOpt) {
             case Some(conn) =>
                 try {
-                    let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives WHERE relative_path = ? AND filename = ?")
+                    let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress FROM archives WHERE relative_path = ? AND filename = ?")
                     try {
                         stmt.set(0, relativePath)
                         stmt.set(1, filename)
@@ -749,10 +744,10 @@ public class ArchiveDao {
                                 archive.updated_at = rs.getOrNull<String>(6) ?? ""
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                                archive.isNew = rs.getOrNull<Bool>(9) ?? false
-                                archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(11) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(12) ?? 0
+                                // archive.isNew 已移除
+                                archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 return Some(archive)
                             }
                             return None
@@ -818,7 +813,7 @@ public class ArchiveDao {
             case Some(conn) => try {
                 // 使用 archives_with_tags 视图获取包含标签的数据
                 let stmt = conn.prepareStatement(
-                    "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress, tags FROM archives_with_tags WHERE arcid = ?")
+                    "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress, tags FROM archives_with_tags WHERE arcid = ?")
                 stmt.set(0, id)
                 let rs = stmt.query()
 
@@ -833,11 +828,11 @@ public class ArchiveDao {
                     archive.updated_at = rs.getOrNull<String>(6) ?? ""
                     archive.relative_path = rs.getOrNull<String>(7) ?? ""
                     archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                    archive.isNew = rs.getOrNull<Bool>(9) ?? false
-                    archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
-                    archive.last_read_time = rs.getOrNull<String>(11) ?? ""
-                    archive.progress = rs.getOrNull<Int32>(12) ?? 0
-                    archive.tags = rs.getOrNull<String>(13) ?? ""
+                    // archive.isNew 已移除
+                    archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                    archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                    archive.progress = rs.getOrNull<Int32>(11) ?? 0
+                    archive.tags = rs.getOrNull<String>(12) ?? ""
                     
                     // 关闭查询的资源
                     rs.close()
@@ -859,61 +854,4 @@ public class ArchiveDao {
         return ArchiveData()
     }
 
-    /**
-     * 设置归档的isNew标记
-     */
-    public static func setIsNew(id: String): Bool {
-        let connOpt = DatabaseConfig.createConnection()
-        match (connOpt) {
-            case Some(conn) =>
-                try {
-                    let stmt = conn.prepareStatement("UPDATE archives SET isnew = ? WHERE arcid = ?")
-                    try {
-                        stmt.set(0, true)
-                        stmt.set(1, id)
-                        stmt.update()
-                        return true
-                    } finally {
-                        stmt.close()
-                    }
-                } catch (e: Exception) {
-                    getLogger("archive_dao").error("设置isNew标记失败", ("error", e.message))
-                    return false
-                } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
-                }
-            case None =>
-                getLogger("archive_dao").error("无法连接到数据库")
-                return false
-        }
-    }
-
-    /**
-     * 清除归档的isNew标记
-     */
-    public static func clearIsNew(id: String): Bool {
-        let connOpt = DatabaseConfig.createConnection()
-        match (connOpt) {
-            case Some(conn) =>
-                try {
-                    let stmt = conn.prepareStatement("UPDATE archives SET isnew = ? WHERE arcid = ?")
-                    try {
-                        stmt.set(0, false)
-                        stmt.set(1, id)
-                        stmt.update()
-                        return true
-                    } finally {
-                        stmt.close()
-                    }
-                } catch (e: Exception) {
-                    getLogger("archive_dao").error("清除isNew标记失败", ("error", e.message))
-                    return false
-                } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
-                }
-            case None =>
-                getLogger("archive_dao").error("无法连接到数据库")
-                return false
-        }
-    }
 }

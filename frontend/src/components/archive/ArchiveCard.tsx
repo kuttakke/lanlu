@@ -123,7 +123,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
         <div className="hidden w-full h-full bg-muted flex items-center justify-center">
           <span className="text-muted-foreground">{t('archive.noCover')}</span>
         </div>
-        {archive.isnew === 'true' && (
+        {archive.isnew && (
           <Badge className="absolute top-2 right-2 bg-red-500">
             {t('archive.new')}
           </Badge>

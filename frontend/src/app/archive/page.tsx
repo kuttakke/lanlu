@@ -615,7 +615,7 @@ function ArchiveDetailContent() {
 	                          </div>
 	                          <div className="flex items-center justify-between gap-3">
 	                            <span className="text-muted-foreground">{t('archive.status')}</span>
-	                            <span>{metadata.isnew === 'true' ? t('archive.statusNew') : t('archive.statusRead')}</span>
+	                            <span>{metadata.isnew ? t('archive.statusNew') : t('archive.statusRead')}</span>
 	                          </div>
 	                          <div className="flex items-center justify-between gap-3">
 	                            <span className="text-muted-foreground">{t('archive.updatedAt')}</span>
@@ -690,7 +690,7 @@ function ArchiveDetailContent() {
 	                            {t('archive.download')}
 	                          </Button>
 	                          {/* 已读/取消已读按钮 */}
-	                          {metadata.isnew === 'true' ? (
+	                          {metadata.isnew ? (
 	                            <Button
 	                              variant="outline"
 	                              className="w-full"
@@ -874,7 +874,7 @@ function ArchiveDetailContent() {
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">{t('archive.status')}</span>
-                    <span>{metadata.isnew === 'true' ? t('archive.statusNew') : t('archive.statusRead')}</span>
+                    <span>{metadata.isnew ? t('archive.statusNew') : t('archive.statusRead')}</span>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">

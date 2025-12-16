@@ -7,9 +7,12 @@ import lrr4cj.models.*
 import lrr4cj.utils.*
 import lrr4cj.dao.*
 import lrr4cj.services.*
+import lrr4cj.config.*
+import lrr4cj.middleware.*
 import std.time.*
 import std.fs.*
 import std.convert.*
+import std.database.sql.*
 
 public class ArchiveController {
     // GET /api/archives
@@ -36,7 +39,7 @@ public class ArchiveController {
             archivesJson += "\"updated_at\":\"${archive.updated_at}\","
             archivesJson += "\"relative_path\":\"${archive.relative_path}\","
             archivesJson += "\"file_size\":${archive.file_size},"
-            archivesJson += "\"isnew\":${archive.isNew},"
+            archivesJson += "\"isnew\":${archive.isNew},"  // 返回布尔值
             archivesJson += "\"pagecount\":${archive.pagecount},"
             archivesJson += "\"last_read_time\":\"${archive.last_read_time}\","
             archivesJson += "\"progress\":${archive.progress}"
@@ -86,7 +89,7 @@ public class ArchiveController {
     // GET /api/archives/{id}/metadata
     public static func getMetadata(ctx: JoyContext): Unit {
         let id = ctx.getParam("id").getOrThrow()
-        
+
         // 检查ID是否为空
         if (id.size == 0) {
             let errorResponse = "{\"error\":\"No archive ID specified.\",\"success\":0}"
@@ -94,7 +97,7 @@ public class ArchiveController {
             ctx.json(errorResponse)
             return
         }
-        
+
         // 获取档案元数据（包含标签）
         let archive = ArchiveDao.getArchiveMetadataById(id)
         if (archive.id.size == 0) {
@@ -103,7 +106,22 @@ public class ArchiveController {
             ctx.json(errorResponse)
             return
         }
-        
+
+        // 获取归档的内部数据库ID用于查询用户状态
+        let archiveIdInt = getArchiveInternalId(id)
+
+        // 查询用户级别的 isNew 状态
+        var isNew = true  // 默认为新
+        match (AuthMiddleware.optionalUser(ctx)) {
+            case Some(userId) =>
+                if (archiveIdInt > 0) {
+                    isNew = UserArchiveStatusDao.isNew(userId, archiveIdInt)
+                }
+            case None =>
+                // 未登录用户，默认为新
+                isNew = true
+        }
+
         // 转换 last_read_time 为时间戳
         let lastreadtime = try {
             // 如果 last_read_time 不为空，尝试解析为时间戳
@@ -117,7 +135,7 @@ public class ArchiveController {
         } catch (e: Exception) {
             Int64(0)
         }
-        
+
         // 手动构建JSON响应，符合API文档规范
         var metadataJson = "{"
         metadataJson += "\"arcid\":\"${archive.id}\","
@@ -127,7 +145,7 @@ public class ArchiveController {
         // 从标签关联表获取实际标签数据
         let tagsString = TagDao.getArchiveTags(archive.id)
         metadataJson += "\"tags\":\"${tagsString}\","
-        metadataJson += "\"isnew\":\"${archive.isNew}\","
+        metadataJson += "\"isnew\":${isNew},"  // 查询用户级别的 isNew 状态
         metadataJson += "\"pagecount\":${archive.pagecount},"
         metadataJson += "\"progress\":${archive.progress},"
         metadataJson += "\"lastreadtime\":${lastreadtime},"
@@ -574,74 +592,136 @@ public class ArchiveController {
     }
 
     /**
+     * 根据 arcid 获取归档的数据库内部ID
+     */
+    private static func getArchiveInternalId(arcid: String): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("SELECT id FROM archives WHERE arcid = ?")
+                    try {
+                        stmt.set(0, arcid)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (_: Exception) {
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return 0
+        }
+        return 0
+    }
+
+    /**
      * 设置归档的isNew标记（PUT /api/archives/{id}/isnew）
+     * 现在使用用户级别的已读状态
      */
     public static func setIsNew(ctx: JoyContext): Unit {
-        let id = ctx.getParam("id").getOrThrow()
+        // 获取用户ID
+        match (AuthMiddleware.requireUser(ctx)) {
+            case Some(userId) =>
+                let id = ctx.getParam("id").getOrThrow()
 
-        // 检查ID是否为空
-        if (id.size == 0) {
-            let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"No archive ID specified.\",\"success\":0}"
-            ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
-            ctx.json(errorResponse)
-            return
-        }
+                // 检查ID是否为空
+                if (id.size == 0) {
+                    let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"No archive ID specified.\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+                    ctx.json(errorResponse)
+                    return
+                }
 
-        // 检查归档是否存在
-        let archive = ArchiveModel.getArchiveById(id)
-        if (archive.id.size == 0) {
-            let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"Archive not found\",\"success\":0}"
-            ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
-            ctx.json(errorResponse)
-            return
-        }
+                // 检查归档是否存在
+                let archive = ArchiveModel.getArchiveById(id)
+                if (archive.id.size == 0) {
+                    let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"Archive not found\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                    ctx.json(errorResponse)
+                    return
+                }
 
-        // 更新isNew标记为true
-        let updateSuccess = ArchiveDao.setIsNew(id)
+                // 获取归档的数据库内部ID
+                let archiveIdInt = getArchiveInternalId(id)
+                if (archiveIdInt <= 0) {
+                    let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"Archive not found\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                    ctx.json(errorResponse)
+                    return
+                }
 
-        if (updateSuccess) {
-            let result = "{\"operation\":\"set_isnew\",\"success\":1}"
-            ctx.json(result)
-        } else {
-            let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"Failed to set isNew flag\",\"success\":0}"
-            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
-            ctx.json(errorResponse)
+                // 更新用户级别的isNew标记为true
+                let updateSuccess = UserArchiveStatusDao.setIsNew(userId, archiveIdInt)
+
+                if (updateSuccess) {
+                    let result = "{\"operation\":\"set_isnew\",\"success\":1}"
+                    ctx.json(result)
+                } else {
+                    let errorResponse = "{\"operation\":\"set_isnew\",\"error\":\"Failed to set isNew flag\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                    ctx.json(errorResponse)
+                }
+            case None => return  // requireUser 已经设置了错误响应
         }
     }
 
     /**
      * 清除归档的isNew标记（DELETE /api/archives/{id}/isnew）
+     * 现在使用用户级别的已读状态
      */
     public static func clearIsNew(ctx: JoyContext): Unit {
-        let id = ctx.getParam("id").getOrThrow()
+        // 获取用户ID
+        match (AuthMiddleware.requireUser(ctx)) {
+            case Some(userId) =>
+                let id = ctx.getParam("id").getOrThrow()
 
-        // 检查ID是否为空
-        if (id.size == 0) {
-            let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"No archive ID specified.\",\"success\":0}"
-            ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
-            ctx.json(errorResponse)
-            return
-        }
+                // 检查ID是否为空
+                if (id.size == 0) {
+                    let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"No archive ID specified.\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+                    ctx.json(errorResponse)
+                    return
+                }
 
-        // 检查归档是否存在
-        let archive = ArchiveModel.getArchiveById(id)
-        if (archive.id.size == 0) {
-            let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"Archive not found\",\"success\":0}"
-            ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
-            ctx.json(errorResponse)
-            return
-        }
+                // 检查归档是否存在
+                let archive = ArchiveModel.getArchiveById(id)
+                if (archive.id.size == 0) {
+                    let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"Archive not found\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                    ctx.json(errorResponse)
+                    return
+                }
 
-        // 更新isNew标记为false
-        let updateSuccess = ArchiveDao.clearIsNew(id)
+                // 获取归档的数据库内部ID
+                let archiveIdInt = getArchiveInternalId(id)
+                if (archiveIdInt <= 0) {
+                    let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"Archive not found\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                    ctx.json(errorResponse)
+                    return
+                }
 
-        if (updateSuccess) {
-            let result = "{\"operation\":\"clear_isnew\",\"success\":1}"
-            ctx.json(result)
-        } else {
-            let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"Failed to clear isNew flag\",\"success\":0}"
-            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
-            ctx.json(errorResponse)
+                // 更新用户级别的isNew标记为false
+                let updateSuccess = UserArchiveStatusDao.clearIsNew(userId, archiveIdInt)
+
+                if (updateSuccess) {
+                    let result = "{\"operation\":\"clear_isnew\",\"success\":1}"
+                    ctx.json(result)
+                } else {
+                    let errorResponse = "{\"operation\":\"clear_isnew\",\"error\":\"Failed to clear isNew flag\",\"success\":0}"
+                    ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                    ctx.json(errorResponse)
+                }
+            case None => return  // requireUser 已经设置了错误响应
         }
     }
 }

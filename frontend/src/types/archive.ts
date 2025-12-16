@@ -6,7 +6,7 @@ export interface Archive {
   tags: string;
   pagecount: number;
   progress: number;
-  isnew: string;
+  isnew: boolean;  // 改为布尔值类型
   extension: string;
   lastreadtime: number;
   size: number;
@@ -42,7 +42,7 @@ export interface ArchiveMetadata {
   filename: string;
   summary: string;
   tags: string;
-  isnew: string;
+  isnew: boolean;  // 改为布尔值类型
   pagecount: number;
   progress: number;
   lastreadtime: number;

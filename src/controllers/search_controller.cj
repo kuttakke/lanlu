@@ -4,27 +4,63 @@ import cjoy.*
 import cjoy.json.*
 import lrr4cj.models.*
 import lrr4cj.views.*
+import lrr4cj.dao.*
+import lrr4cj.middleware.*
+import lrr4cj.config.*
 import std.convert.*
 import std.time.*
 import std.random.*
+import std.collection.*
 
 /**
  * 搜索控制器
  */
 public class SearchController {
     /**
+     * 根据 arcid 获取归档的数据库内部ID
+     */
+    private static func getArchiveInternalId(arcid: String): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("SELECT id FROM archives WHERE arcid = ?")
+                    try {
+                        stmt.set(0, arcid)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (_: Exception) {
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None => return 0
+        }
+        return 0
+    }
+
+    /**
      * 搜索归档
      */
     public static func searchArchives(ctx: JoyContext) {
         let category = ctx.getQuery("category") ?? ""
         let filter = ctx.getQuery("filter") ?? ""
-        
+
         // 处理分页参数，设置默认值
         let startStr = ctx.getQuery("start") ?? "0"
         let countStr = ctx.getQuery("count") ?? "20"
         let sortby = ctx.getQuery("sortby") ?? "title"
         let order = ctx.getQuery("order") ?? "asc"
-        
+
         // 解析分页参数
         let start = try {
             Int32.parse(startStr)
@@ -36,9 +72,30 @@ public class SearchController {
         } catch (e: Exception) {
             20i32
         }
-        
+
         let (archives, totalCount) = ArchiveModel.searchArchives(filter, category, Int32(start), Int32(count), sortby, order)
-        
+
+        // 获取用户ID（可选）
+        let userIdOpt = AuthMiddleware.optionalUser(ctx)
+
+        // 批量获取用户的 isNew 状态
+        var isNewMap = HashMap<Int64, Bool>()
+        match (userIdOpt) {
+            case Some(userId) =>
+                // 收集所有归档的内部ID
+                var archiveIds = ArrayList<Int64>()
+                for (archive in archives) {
+                    let internalId = getArchiveInternalId(archive.id)
+                    if (internalId > 0) {
+                        archiveIds.add(internalId)
+                    }
+                }
+                if (archiveIds.size > 0) {
+                    isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
+                }
+            case None => ()
+        }
+
         // 手动构建JSON数组，按照API文档要求的格式
         var archivesJson = "["
         var isFirst = true
@@ -47,12 +104,22 @@ public class SearchController {
                 archivesJson += ","
             }
             isFirst = false
-            
+
+            // 获取用户级别的 isNew 状态
+            let internalId = getArchiveInternalId(archive.id)
+            var isNew = true  // 默认为新
+            if (internalId > 0) {
+                match (isNewMap.get(internalId)) {
+                    case Some(status) => isNew = status
+                    case None => isNew = true  // 没有记录，默认为新
+                }
+            }
+
             archivesJson += "{"
             archivesJson = archivesJson + "\"arcid\":\"${archive.id}\","
             archivesJson = archivesJson + "\"extension\":\"${archive.extension()}\","
             archivesJson = archivesJson + "\"filename\":\"${archive.filename}\","
-            archivesJson = archivesJson + "\"isnew\":\"${archive.isNew}\","
+            archivesJson = archivesJson + "\"isnew\":${isNew},"
             archivesJson = archivesJson + "\"lastreadtime\":${archive.lastreadtime()},"
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
             archivesJson = archivesJson + "\"progress\":${archive.progress},"
@@ -63,7 +130,7 @@ public class SearchController {
             archivesJson += "}"
         }
         archivesJson += "]"
-        
+
         let result = "{\"data\":" + archivesJson + ",\"draw\":0,\"recordsFiltered\":" + totalCount.toString() + ",\"recordsTotal\":" + totalCount.toString() + "}"
         ctx.json(result)
     }
@@ -77,7 +144,7 @@ public class SearchController {
         let countStr = ctx.getQuery("count") ?? "5"
         let newOnlyStr = ctx.getQuery("newonly") ?? "false"
         let untaggedOnlyStr = ctx.getQuery("untaggedonly") ?? "false"
-        
+
         let count = try {
             Int32.parse(countStr)
         } catch (e: Exception) {
@@ -85,11 +152,32 @@ public class SearchController {
         }
         let newOnly = newOnlyStr == "true"
         let untaggedOnly = untaggedOnlyStr == "true"
-        
+
         // 使用数据库级别的随机排序和过滤条件来获取随机归档
         // 将过滤条件移到SQL查询中，提高性能
         let (resultArchives, totalCount) = ArchiveModel.searchArchives(filter, category, 0, count, "RANDOM()", "desc", newOnly, untaggedOnly)
-        
+
+        // 获取用户ID（可选）
+        let userIdOpt = AuthMiddleware.optionalUser(ctx)
+
+        // 批量获取用户的 isNew 状态
+        var isNewMap = HashMap<Int64, Bool>()
+        match (userIdOpt) {
+            case Some(userId) =>
+                // 收集所有归档的内部ID
+                var archiveIds = ArrayList<Int64>()
+                for (archive in resultArchives) {
+                    let internalId = getArchiveInternalId(archive.id)
+                    if (internalId > 0) {
+                        archiveIds.add(internalId)
+                    }
+                }
+                if (archiveIds.size > 0) {
+                    isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
+                }
+            case None => ()
+        }
+
         // 手动构建JSON数组，按照API文档要求的格式
         var archivesJson = "["
         var isFirst = true
@@ -98,12 +186,22 @@ public class SearchController {
                 archivesJson += ","
             }
             isFirst = false
-            
+
+            // 获取用户级别的 isNew 状态
+            let internalId = getArchiveInternalId(archive.id)
+            var isNew = true  // 默认为新
+            if (internalId > 0) {
+                match (isNewMap.get(internalId)) {
+                    case Some(status) => isNew = status
+                    case None => isNew = true  // 没有记录，默认为新
+                }
+            }
+
             archivesJson += "{"
             archivesJson = archivesJson + "\"arcid\":\"${archive.id}\","
             archivesJson = archivesJson + "\"extension\":\"${archive.extension()}\","
             archivesJson = archivesJson + "\"filename\":\"${archive.filename}\","
-            archivesJson = archivesJson + "\"isnew\":\"${archive.isNew}\","
+            archivesJson = archivesJson + "\"isnew\":${isNew},"
             archivesJson = archivesJson + "\"lastreadtime\":${archive.lastreadtime()},"
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
             archivesJson = archivesJson + "\"progress\":${archive.progress},"
@@ -114,7 +212,7 @@ public class SearchController {
             archivesJson += "}"
         }
         archivesJson += "]"
-        
+
         let result = "{\"data\":" + archivesJson + ",\"recordsTotal\":" + count.toString() + "}"
         ctx.json(result)
     }

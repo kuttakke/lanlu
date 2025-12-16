@@ -45,6 +45,30 @@ public class AuthMiddleware {
     public static func optionalAuth(ctx: JoyContext) {
         // 可选认证，不做任何处理
     }
+
+    /**
+     * 可选获取用户ID（不会返回401错误）
+     * 如果用户已登录返回 Some(userId)，否则返回 None
+     */
+    public static func optionalUser(ctx: JoyContext): Option<Int64> {
+        match (getBearerToken(ctx)) {
+            case Some(tokenRaw) =>
+                match (getUserIdByToken(tokenRaw)) {
+                    case Some(uid) => return Some(uid)
+                    case None =>
+                        match (AuthUtils.tryDecodeBase64ToUtf8(tokenRaw)) {
+                            case Some(decoded) =>
+                                match (getUserIdByToken(decoded)) {
+                                    case Some(uid2) => return Some(uid2)
+                                    case None => ()
+                                }
+                            case None => ()
+                        }
+                }
+            case None => ()
+        }
+        return None
+    }
     
     /**
      * 任何有效凭据即可（用户token 或 API_KEY）

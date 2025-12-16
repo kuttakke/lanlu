@@ -340,7 +340,6 @@ public class DatabaseConfig {
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         relative_path TEXT DEFAULT '',
                         file_size BIGINT DEFAULT 0,
-                        isnew BOOLEAN DEFAULT true,
                         pagecount INTEGER DEFAULT 0,
                         last_read_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         progress INTEGER DEFAULT 0
@@ -359,7 +358,6 @@ public class DatabaseConfig {
                     ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
                     ("relative_path", "TEXT DEFAULT ''"),
                     ("file_size", "BIGINT DEFAULT 0"),
-                    ("isnew", "BOOLEAN DEFAULT true"),
                     ("pagecount", "INTEGER DEFAULT 0"),
                     ("last_read_time", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
                     ("progress", "INTEGER DEFAULT 0")
@@ -369,6 +367,17 @@ public class DatabaseConfig {
                     if (!columnExists(conn, "archives", column)) {
                         logger.info("archives表缺少列 ${column}，添加中")
                         execUpdate(conn, "ALTER TABLE archives ADD COLUMN ${column} ${definition}")
+                    }
+                }
+
+                // 移除旧的 isnew 列（如果存在）
+                if (columnExists(conn, "archives", "isnew")) {
+                    logger.info("archives表存在旧的isnew列，准备移除")
+                    try {
+                        execUpdate(conn, "ALTER TABLE archives DROP COLUMN isnew")
+                        logger.info("archives表的isnew列已成功移除")
+                    } catch (e: Exception) {
+                        logger.warn("移除archives表的isnew列失败: ${e.toString()}")
                     }
                 }
 
@@ -505,6 +514,67 @@ public class DatabaseConfig {
                 }
             }
 
+            // user_archive_status 表（用户级别的归档状态）
+            if (!tableExists(conn, "user_archive_status")) {
+                logger.info("user_archive_status表不存在，创建新的user_archive_status表")
+                execUpdate(conn, """
+                    CREATE TABLE user_archive_status (
+                        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                        user_id INTEGER NOT NULL,
+                        archive_id INTEGER NOT NULL,
+                        is_new BOOLEAN DEFAULT true,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (user_id, archive_id),
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (archive_id) REFERENCES archives(id) ON DELETE CASCADE
+                    )
+                """)
+                try {
+                    let createSql = "CREATE INDEX idx_user_archive_status_user_id ON user_archive_status (user_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_archive_status_user_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_user_archive_status_archive_id ON user_archive_status (archive_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_archive_status_archive_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                logger.info("user_archive_status表创建成功")
+            } else {
+                logger.info("user_archive_status表已存在，检查并补全索引")
+                try {
+                    let createSql = "CREATE INDEX idx_user_archive_status_user_id ON user_archive_status (user_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_archive_status_user_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+                try {
+                    let createSql = "CREATE INDEX idx_user_archive_status_archive_id ON user_archive_status (archive_id)"
+                    try {
+                        if (!indexExists(conn, "idx_user_archive_status_archive_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
+            }
+
             // archive_tags 表（archives.id <-> tags.id）
             if (!tableExists(conn, "archive_tags")) {
                 logger.info("archive_tags表不存在，创建新的archive_tags表")
@@ -582,7 +652,6 @@ public class DatabaseConfig {
                     a.updated_at,
                     a.relative_path,
                     a.file_size,
-                    a.isnew,
                     a.pagecount,
                     a.last_read_time,
                     a.progress,
@@ -593,7 +662,7 @@ public class DatabaseConfig {
                 GROUP BY
                     a.arcid, a.filename, a.title, a.summary, a.thumbhash,
                     a.created_at, a.updated_at, a.relative_path, a.file_size,
-                    a.isnew, a.pagecount, a.last_read_time, a.progress
+                    a.pagecount, a.last_read_time, a.progress
             """)
 
             logger.info("归档/标签相关表与视图初始化完成")

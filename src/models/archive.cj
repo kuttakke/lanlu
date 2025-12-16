@@ -10,6 +10,7 @@ import dotenv.Dotenv
 
 /**
  * 归档数据模型
+ * 注意：isNew 字段已移除，现在使用用户级别的已读状态（user_archive_status 表）
  */
 public class Archive {
     public var id: String = ""
@@ -21,11 +22,12 @@ public class Archive {
     public var updated_at: String = ""
     public var relative_path: String = ""
     public var file_size: Int64 = 0
-    public var isNew: Bool = false
     public var pagecount: Int32 = 0
     public var last_read_time: String = ""
     public var progress: Int32 = 0
     public var tags: String = ""
+    // isNew 字段已移除 - 现在使用 UserArchiveStatusDao 来管理用户级别的已读状态
+    public var isNew: Bool = false  // 保留用于向后兼容，但不再从数据库读取
     
     /**
      * 获取文件扩展名
@@ -81,24 +83,24 @@ public class ArchiveModel {
                 var archives: ArrayList<Archive> = ArrayList<Archive>()
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, isnew, pagecount, last_read_time, progress FROM archives ORDER BY id")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress FROM archives ORDER BY id")
                     let rs = stmt.query()
 
                     while (rs.next()) {
                         let archive = Archive()
-                        archive.id = rs.getOrNull<String>(1) ?? ""
-                        archive.title = rs.getOrNull<String>(2) ?? ""
-                        archive.filename = rs.getOrNull<String>(3) ?? ""
-                        archive.summary = rs.getOrNull<String>(4) ?? ""
-                        archive.thumbhash = rs.getOrNull<String>(5) ?? ""
-                        archive.created_at = rs.getOrNull<String>(6) ?? ""
-                        archive.updated_at = rs.getOrNull<String>(7) ?? ""
-                        archive.relative_path = rs.getOrNull<String>(8) ?? ""
-                        archive.file_size = rs.getOrNull<Int64>(9) ?? 0
-                        archive.isNew = rs.getOrNull<Bool>(10) ?? false
-                        archive.pagecount = rs.getOrNull<Int32>(11) ?? 0
-                        archive.last_read_time = rs.getOrNull<String>(12) ?? ""
-                        archive.progress = rs.getOrNull<Int32>(13) ?? 0
+                        archive.id = rs.getOrNull<String>(0) ?? ""
+                        archive.title = rs.getOrNull<String>(1) ?? ""
+                        archive.filename = rs.getOrNull<String>(2) ?? ""
+                        archive.summary = rs.getOrNull<String>(3) ?? ""
+                        archive.thumbhash = rs.getOrNull<String>(4) ?? ""
+                        archive.created_at = rs.getOrNull<String>(5) ?? ""
+                        archive.updated_at = rs.getOrNull<String>(6) ?? ""
+                        archive.relative_path = rs.getOrNull<String>(7) ?? ""
+                        archive.file_size = rs.getOrNull<Int64>(8) ?? 0
+                        // archive.isNew 不再从数据库读取，保持默认值 false
+                        archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
+                        archive.last_read_time = rs.getOrNull<String>(10) ?? ""
+                        archive.progress = rs.getOrNull<Int32>(11) ?? 0
                         archives.add(archive)
                     }
 
@@ -130,7 +132,7 @@ public class ArchiveModel {
         archive.updated_at = archiveData.updated_at
         archive.relative_path = archiveData.relative_path
         archive.file_size = archiveData.file_size
-        archive.isNew = archiveData.isNew
+        // archive.isNew 不再从数据库读取，保持默认值 false
         archive.pagecount = archiveData.pagecount
         archive.last_read_time = archiveData.last_read_time
         archive.progress = archiveData.progress
@@ -159,7 +161,7 @@ public class ArchiveModel {
             archive.updated_at = data.updated_at
             archive.relative_path = data.relative_path
             archive.file_size = data.file_size
-            archive.isNew = data.isNew
+            // archive.isNew 不再从数据库读取，保持默认值 false
             archive.pagecount = data.pagecount
             archive.last_read_time = data.last_read_time
             archive.progress = data.progress
@@ -192,7 +194,7 @@ public class ArchiveModel {
             archive.updated_at = data.updated_at
             archive.relative_path = data.relative_path
             archive.file_size = data.file_size
-            archive.isNew = data.isNew
+            // archive.isNew 不再从数据库读取，保持默认值 false
             archive.pagecount = data.pagecount
             archive.last_read_time = data.last_read_time
             archive.progress = data.progress
