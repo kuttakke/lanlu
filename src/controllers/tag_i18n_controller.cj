@@ -302,7 +302,9 @@ public class TagI18nController {
 
             // 将请求体流式落盘，避免把大 JSON 全量读入内存/写入DB(parameters)
             let taskDir = Path("${CACHE_DIR}/task/${taskId.toString()}")
-            Directory.create(taskDir, recursive: true)
+            if (!exists(taskDir)) {
+                Directory.create(taskDir, recursive: true)
+            }
             let jsonFile = Path("${taskDir}/tag_i18n_import.json")
             let fileData = ctx.readRawData()
             try (file = File(jsonFile, Write)) {
@@ -353,7 +355,9 @@ public class TagI18nController {
 
             let taskId = taskData.id
             let taskDir = Path("${CACHE_DIR}/task/${taskId.toString()}")
-            Directory.create(taskDir, recursive: true)
+            if (!exists(taskDir)) {
+                Directory.create(taskDir, recursive: true)
+            }
             let jsonFile = Path("${taskDir}/tag_i18n_import.json")
 
             MinionTaskDao.updateTaskParameters(taskId, jsonFile.toString())
