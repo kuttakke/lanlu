@@ -110,6 +110,18 @@ function ReaderContent() {
     }
     return false; // 默认关闭
   });
+  const [autoPlayInterval, setAutoPlayInterval] = useState<number>(() => {
+    // 从localStorage读取保存的自动翻页间隔时间（秒）
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('reader-auto-play-interval');
+        return saved ? parseInt(saved, 10) : 3; // 默认3秒
+      } catch (e) {
+        console.warn('Failed to read auto play interval from localStorage:', e);
+      }
+    }
+    return 3; // 默认3秒
+  });
   const [splitCoverMode, setSplitCoverMode] = useState<boolean>(() => {
     // 从localStorage读取保存的拆分封面设置
     if (typeof window !== 'undefined') {
@@ -803,6 +815,13 @@ function ReaderContent() {
     }
   }, [autoPlayMode]);
 
+  // 保存自动翻页间隔时间到localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('reader-auto-play-interval', String(autoPlayInterval));
+    }
+  }, [autoPlayInterval]);
+
   // 保存拆分封面设置到localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -816,6 +835,43 @@ function ReaderContent() {
       localStorage.setItem('reader-double-tap-zoom', String(doubleTapZoom));
     }
   }, [doubleTapZoom]);
+
+  // 自动翻页定时器
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    if (autoPlayMode && pages.length > 0) {
+      // 设置定时器
+      intervalId = setInterval(() => {
+        // 检查是否到达最后一页
+        if (doublePageMode) {
+          // 双页模式：检查是否到达最后两页
+          if (currentPage >= pages.length - (splitCoverMode && currentPage === 0 ? 1 : 2)) {
+            // 到达最后一页，停止自动翻页
+            setAutoPlayMode(false);
+            return;
+          }
+        } else {
+          // 单页模式：检查是否到达最后一页
+          if (currentPage >= pages.length - 1) {
+            // 到达最后一页，停止自动翻页
+            setAutoPlayMode(false);
+            return;
+          }
+        }
+        
+        // 执行翻页
+        handleNextPage();
+      }, autoPlayInterval * 1000); // 转换为毫秒
+    }
+    
+    // 清理函数
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [autoPlayMode, autoPlayInterval, currentPage, pages.length, doublePageMode, splitCoverMode, handleNextPage]);
 
   // 处理拆分封面模式切换时的页面调整
   useEffect(() => {
@@ -1161,13 +1217,7 @@ function ReaderContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setAutoPlayMode(!autoPlayMode);
-                    // 当启用自动翻页模式时，同时启用全屏模式
-                    if (!autoPlayMode && !isFullscreen) {
-                      toggleFullscreen();
-                    }
-                  }}
+                  onClick={() => setAutoPlayMode(!autoPlayMode)}
                   className={`
                     flex flex-col items-center justify-center h-16 w-16
                     rounded-lg border transition-all duration-200
@@ -1216,6 +1266,24 @@ function ReaderContent() {
                   <span className="text-xs">双击</span>
                 </Button>
               </div>
+              
+              {/* 自动翻页间隔时间调整 */}
+              {autoPlayMode && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">翻页间隔</span>
+                    <span className="text-sm text-muted-foreground">{autoPlayInterval}秒</span>
+                  </div>
+                  <Slider
+                    value={[autoPlayInterval]}
+                    onValueChange={(value) => setAutoPlayInterval(value[0])}
+                    max={10}
+                    min={1}
+                    step={1}
+                    className="w-full"
+                  />
+                </div>
+              )}
             </PopoverContent>
           </Popover>
         </div>
