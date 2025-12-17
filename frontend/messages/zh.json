@@ -557,6 +557,12 @@
     "noRecentRead": "暂无阅读记录",
     "noRecentFavorites": "暂无收藏记录",
     "noTrendData": "暂无趋势数据",
-    "viewAll": "查看全部"
+    "viewAll": "查看全部",
+    "lastNDays": "最近 {days} 天",
+    "totalRead": "总阅读",
+    "avgRead": "平均",
+    "mostActiveDay": "最活跃日",
+    "daysWithReads": "有阅读的天数",
+    "none": "无"
   }
 }

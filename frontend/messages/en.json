@@ -551,6 +551,12 @@
     "noRecentRead": "No reading history",
     "noRecentFavorites": "No favorites yet",
     "noTrendData": "No trend data available",
-    "viewAll": "View All"
+    "viewAll": "View All",
+    "lastNDays": "Last {days} Days",
+    "totalRead": "Total",
+    "avgRead": "Avg",
+    "mostActiveDay": "Most Active Day",
+    "daysWithReads": "Days with Reads",
+    "none": "None"
   }
 }

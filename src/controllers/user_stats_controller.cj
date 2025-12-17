@@ -41,22 +41,22 @@ public class UserStatsController {
 
     /**
      * 获取阅读趋势
-     * GET /api/user/reading-trend?days=7
+     * GET /api/user/reading-trend?days=30
      * 返回: [{date, count}, ...]
      */
     public static func getReadingTrend(ctx: JoyContext): Unit {
         let userIdOpt = AuthMiddleware.optionalUser(ctx)
         match (userIdOpt) {
             case Some(userId) =>
-                let daysStr = ctx.getQuery("days") ?? "7"
-                var days: Int32 = 7
+                let daysStr = ctx.getQuery("days") ?? "30"
+                var days: Int32 = 30
                 try {
                     days = Int32.parse(daysStr)
                     if (days <= 0 || days > 365) {
-                        days = 7
+                        days = 30
                     }
                 } catch (_: Exception) {
-                    days = 7
+                    days = 30
                 }
 
                 let trendData = UserStatsDao.getReadingTrend(userId, days)

@@ -32,7 +32,7 @@ export default function SettingsPage() {
       // 并行加载所有数据
       const [statsData, trendData, activityData] = await Promise.all([
         UserStatsService.getStats(),
-        UserStatsService.getReadingTrend(7),
+        UserStatsService.getReadingTrend(30),
         UserStatsService.getRecentActivity(5)
       ]);
 

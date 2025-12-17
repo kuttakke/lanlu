@@ -134,7 +134,7 @@ public class UserStatsDao {
      * 获取阅读趋势（按日期分组统计）
      * @param userId 用户ID
      * @param days 统计天数
-     * @return 按日期分组的阅读数量列表
+     * @return 按日期分组的阅读数量列表，包含所有日期（缺失日期填充0）
      */
     public static func getReadingTrend(userId: Int64, days: Int32): Array<ReadingTrendItem> {
         let result = ArrayList<ReadingTrendItem>()
@@ -146,7 +146,7 @@ public class UserStatsDao {
                         SELECT DATE(updated_at) as date, COUNT(*) as count
                         FROM user_archive_status
                         WHERE user_id = ? AND is_new = false
-                          AND updated_at >= DATE('now', '-' || ? || ' days')
+                          AND updated_at >= CURRENT_DATE - (? || ' days')::INTERVAL
                         GROUP BY DATE(updated_at)
                         ORDER BY date ASC
                     """)
@@ -155,10 +155,34 @@ public class UserStatsDao {
                         stmt.set(1, days)
                         let rs = stmt.query()
                         try {
+                            let trendMap = HashMap<String, Int64>()
+                            // 构建日期到数量的映射
                             while (rs.next()) {
+                                let date = rs.getOrNull<String>(0) ?? ""
+                                let count = rs.getOrNull<Int64>(1) ?? 0
+                                trendMap[date] = count
+                            }
+
+                            // 生成所有日期的数据，包括没有阅读记录的日期
+                            for (offset in 0..=days-1) {
                                 let item = ReadingTrendItem()
-                                item.date = rs.getOrNull<String>(0) ?? ""
-                                item.count = rs.getOrNull<Int64>(1) ?? 0
+                                // 计算日期：从今天往前推 offset 天
+                                let dateStmt = conn.prepareStatement("SELECT (CURRENT_DATE - (? || ' days')::INTERVAL)::DATE")
+                                try {
+                                    dateStmt.set(0, offset)
+                                    let dateRs = dateStmt.query()
+                                    try {
+                                        if (dateRs.next()) {
+                                            item.date = dateRs.getOrNull<String>(0) ?? ""
+                                        }
+                                    } finally {
+                                        dateRs.close()
+                                    }
+                                } finally {
+                                    dateStmt.close()
+                                }
+                                // 如果数据库中有该日期的数据则使用，否则为0
+                                item.count = trendMap.get(item.date) ?? 0
                                 result.add(item)
                             }
                         } finally {
