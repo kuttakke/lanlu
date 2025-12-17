@@ -23,7 +23,8 @@ import {
   Play,
   Scissors,
   Maximize,
-  Minimize
+  Minimize,
+  ZoomIn
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -84,6 +85,7 @@ function ReaderContent() {
   const [imageHeights, setImageHeights] = useState<number[]>([]); // 存储每张图片的高度
   const [containerHeight, setContainerHeight] = useState(0); // 容器高度
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 图片加载防抖引用
+  const lastTapRef = useRef<number>(0); // 用于跟踪最后一次点击时间
   const [doublePageMode, setDoublePageMode] = useState<boolean>(() => {
     // 从localStorage读取保存的双页拼合设置
     if (typeof window !== 'undefined') {
@@ -128,6 +130,18 @@ function ReaderContent() {
         return saved === 'true';
       } catch (e) {
         console.warn('Failed to read fullscreen mode from localStorage:', e);
+      }
+    }
+    return false; // 默认关闭
+  });
+  const [doubleTapZoom, setDoubleTapZoom] = useState<boolean>(() => {
+    // 从localStorage读取保存的双击放大设置
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('reader-double-tap-zoom');
+        return saved === 'true';
+      } catch (e) {
+        console.warn('Failed to read double tap zoom from localStorage:', e);
       }
     }
     return false; // 默认关闭
@@ -351,6 +365,60 @@ function ReaderContent() {
     setScale(1);
     setTranslateX(0);
     setTranslateY(0);
+  }, []);
+
+  // 处理双击放大
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (!doubleTapZoom) return;
+    
+    e.preventDefault();
+    
+    // 使用React内置的双击事件，不需要手动检测
+    if (scale === 1) {
+      // 放大到2倍
+      setScale(2);
+      
+      // 在双页模式下，使用整个容器来计算位置
+      let rect: DOMRect;
+      if (doublePageMode) {
+        // 获取包含两张图片的容器
+        const containerElement = (e.currentTarget as HTMLImageElement).closest('.flex.items-center.justify-center') as HTMLElement;
+        rect = containerElement.getBoundingClientRect();
+      } else {
+        // 单页模式，使用图片元素
+        const imgElement = e.currentTarget as HTMLImageElement;
+        rect = imgElement.getBoundingClientRect();
+      }
+      
+      // 计算点击位置相对于元素中心的偏移
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      
+      // 计算放大后的位移，并添加边界检查
+      const scaledWidth = rect.width * 2;
+      const scaledHeight = rect.height * 2;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // 计算最大允许的位移，确保放大后的内容不会完全超出屏幕
+      const maxTranslateX = Math.max(0, (scaledWidth - viewportWidth) / 2);
+      const maxTranslateY = Math.max(0, (scaledHeight - viewportHeight) / 2);
+      
+      // 限制位移范围
+      const limitedTranslateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, -x * 2));
+      const limitedTranslateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, -y * 2));
+      
+      setTranslateX(limitedTranslateX);
+      setTranslateY(limitedTranslateY);
+    } else {
+      // 重置缩放
+      resetTransform();
+    }
+  }, [doubleTapZoom, scale, resetTransform, doublePageMode]);
+
+  // 处理图片拖拽开始
+  const handleImageDragStart = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
   }, []);
 
   const handlePrevPage = useCallback(() => {
@@ -667,29 +735,6 @@ function ReaderContent() {
     setLastTouchDistance(0);
   }, [touchStart, touchEnd, handleNextPage, handlePrevPage, readingMode]);
 
-  // 双击放大/缩小
-  const handleDoubleClick = useCallback((e: React.MouseEvent, imageIndex?: number) => {
-    e.preventDefault();
-    if (scale === 1) {
-      const targetImage = imageIndex !== undefined ? imageRefs.current[imageIndex] : imageRefs.current[0];
-      const rect = targetImage?.getBoundingClientRect();
-      if (rect) {
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
-        setScale(2);
-        setTranslateX(-x * rect.width * 0.5);
-        setTranslateY(-y * rect.height * 0.5);
-      }
-    } else {
-      resetTransform();
-    }
-  }, [scale, resetTransform]);
-
-  // 防止图片拖拽
-  const handleImageDragStart = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
-
   const toggleReadingMode = () => {
     setReadingMode(prev => {
       const modes: ReadingMode[] = ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'];
@@ -764,6 +809,13 @@ function ReaderContent() {
       localStorage.setItem('reader-split-cover-mode', String(splitCoverMode));
     }
   }, [splitCoverMode]);
+
+  // 保存双击放大设置到localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('reader-double-tap-zoom', String(doubleTapZoom));
+    }
+  }, [doubleTapZoom]);
 
   // 处理拆分封面模式切换时的页面调整
   useEffect(() => {
@@ -1069,7 +1121,7 @@ function ReaderContent() {
               </Button>
             </PopoverTrigger>
             <PopoverContent align="center" sideOffset={12} className="w-auto p-3">
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1146,6 +1198,23 @@ function ReaderContent() {
                   {isFullscreen ? <Minimize className="w-5 h-5 mb-1" /> : <Maximize className="w-5 h-5 mb-1" />}
                   <span className="text-xs">全屏</span>
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDoubleTapZoom(!doubleTapZoom)}
+                  className={`
+                    flex flex-col items-center justify-center h-16 w-16
+                    rounded-lg border transition-all duration-200
+                    ${doubleTapZoom
+                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                    }
+                  `}
+                  title="双击放大"
+                >
+                  <ZoomIn className="w-5 h-5 mb-1" />
+                  <span className="text-xs">双击</span>
+                </Button>
               </div>
             </PopoverContent>
           </Popover>
@@ -1200,10 +1269,10 @@ function ReaderContent() {
               <div
                 className="relative flex items-center justify-center w-full h-full"
                 style={{
-                  transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-                  transition: 'transform 0.1s ease-out',
-                  cursor: scale > 1 ? 'grab' : 'default',
-                  maxHeight: '100%'
+                  maxHeight: '100%',
+                  transform: doublePageMode ? `scale(${scale}) translate(${translateX}px, ${translateY}px)` : 'none',
+                  transition: doublePageMode ? 'transform 0.1s ease-out' : 'none',
+                  cursor: doublePageMode && scale > 1 ? 'grab' : 'default'
                 }}
               >
                 <div className="relative w-full h-full flex">
@@ -1223,7 +1292,10 @@ function ReaderContent() {
                       style={{
                         maxHeight: '100%',
                         height: '100%',
-                        opacity: loadedImages.has(currentPage) ? 1 : 0.3
+                        opacity: loadedImages.has(currentPage) ? 1 : 0.3,
+                        transform: doublePageMode ? 'none' : `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                        transition: doublePageMode ? 'none' : 'transform 0.1s ease-out',
+                        cursor: doublePageMode ? 'pointer' : (scale > 1 ? 'grab' : 'default')
                       }}
                       onLoadingComplete={() => {
                         handleImageLoad(currentPage);
@@ -1233,7 +1305,7 @@ function ReaderContent() {
                         }
                       }}
                       onError={() => handleImageError(currentPage)}
-                      onDoubleClick={(e) => handleDoubleClick(e, 0)}
+                      onDoubleClick={(e) => handleDoubleClick(e)}
                       onDragStart={handleImageDragStart}
                       draggable={false}
                     />
@@ -1256,7 +1328,10 @@ function ReaderContent() {
                         style={{
                           maxHeight: '100%',
                           height: '100%',
-                          opacity: loadedImages.has(currentPage + 1) ? 1 : 0.3
+                          opacity: loadedImages.has(currentPage + 1) ? 1 : 0.3,
+                          transform: 'none',
+                          transition: 'none',
+                          cursor: 'pointer'
                         }}
                         onLoadingComplete={() => {
                           handleImageLoad(currentPage + 1);
@@ -1266,7 +1341,7 @@ function ReaderContent() {
                           }
                         }}
                         onError={() => handleImageError(currentPage + 1)}
-                        onDoubleClick={(e) => handleDoubleClick(e, 1)}
+                        onDoubleClick={(e) => handleDoubleClick(e)}
                         onDragStart={handleImageDragStart}
                         draggable={false}
                       />
@@ -1397,7 +1472,10 @@ function ReaderContent() {
                                 height: 'auto',
                                 display: 'block',
                                 margin: '0 auto',
-                                opacity: loadedImages.has(actualIndex) ? 1 : 0.3
+                                opacity: loadedImages.has(actualIndex) ? 1 : 0.3,
+                                transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                                transition: 'transform 0.1s ease-out',
+                                cursor: scale > 1 ? 'grab' : 'default'
                               }}
                               onLoadingComplete={() => {
                                 handleImageLoad(actualIndex);
@@ -1406,7 +1484,7 @@ function ReaderContent() {
                                 }
                               }}
                               onError={() => handleImageError(actualIndex)}
-                              onDoubleClick={(e) => handleDoubleClick(e, actualIndex)}
+                              onDoubleClick={(e) => handleDoubleClick(e)}
                               onDragStart={handleImageDragStart}
                               draggable={false}
                             />
