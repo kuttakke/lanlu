@@ -60,7 +60,7 @@
     "description": "漫画归档管理系统",
     "randomRecommendations": "随机推荐",
     "noRecommendations": "暂无推荐档案",
-    "allArchives": "所有档案",
+    "allArchives": "筛选归档",
     "searchResults": "搜索结果",
     "archivesCount": "共 {count} 个档案，第 {page} 页，共 {totalPages} 页",
     "noMatchingArchives": "没有找到匹配的档案",

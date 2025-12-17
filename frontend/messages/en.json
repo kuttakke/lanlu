@@ -59,7 +59,7 @@
     "description": "Comic Archive Management System",
     "randomRecommendations": "Random Recommendations",
     "noRecommendations": "No recommended archives",
-    "allArchives": "All Archives",
+    "allArchives": "Filtered Archives",
     "searchResults": "Search Results",
     "archivesCount": "Total {count} archives, page {page} of {totalPages}",
     "noMatchingArchives": "No matching archives found",
