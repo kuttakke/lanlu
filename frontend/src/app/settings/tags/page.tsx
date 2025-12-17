@@ -104,10 +104,10 @@ export default function TagsSettingsPage() {
     setTagsLoading(true);
     try {
       const params: any = {
-        page: currentPage,
-        pageSize,
+        limit: pageSize,
+        offset: (currentPage - 1) * pageSize,
       };
-      if (searchQuery) params.query = searchQuery;
+      if (searchQuery) params.q = searchQuery;
       if (selectedNamespace && selectedNamespace !== 'all') params.namespace = selectedNamespace;
 
       const response = await TagService.list(params);
@@ -123,13 +123,8 @@ export default function TagsSettingsPage() {
   // Load namespaces
   const loadNamespaces = async () => {
     try {
-      // Use TagService directly to get namespaces
-      // Since there's no direct method, we'll fetch all tags and extract unique namespaces
-      const response = await TagService.list({ limit: 1000 });
-      const uniqueNamespaces = Array.from(
-        new Set((response.items || []).map(tag => tag.namespace).filter(ns => ns))
-      ).sort();
-      setNamespaces(uniqueNamespaces);
+      const ns = await TagService.listNamespaces();
+      setNamespaces(ns);
     } catch (e) {
       // Silent fail for namespaces
     }
@@ -522,22 +517,74 @@ export default function TagsSettingsPage() {
               <p className="text-sm text-muted-foreground">
                 {t('settings.tagShowingRange', { from: ((currentPage - 1) * pageSize) + 1, to: Math.min(currentPage * pageSize, totalTags), total: totalTags })}
               </p>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1 || loading}
+                >
+                  «
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1 || loading}
                 >
-                  {t('common.previous')}
+                  ‹
+                </Button>
+                {(() => {
+                  const totalPages = Math.ceil(totalTags / pageSize);
+                  const pages: (number | string)[] = [];
+                  const maxVisible = 5;
+
+                  if (totalPages <= maxVisible + 2) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    if (currentPage > 3) pages.push('...');
+
+                    const start = Math.max(2, currentPage - 1);
+                    const end = Math.min(totalPages - 1, currentPage + 1);
+                    for (let i = start; i <= end; i++) pages.push(i);
+
+                    if (currentPage < totalPages - 2) pages.push('...');
+                    pages.push(totalPages);
+                  }
+
+                  return pages.map((page, idx) => (
+                    page === '...' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                    ) : (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCurrentPage(page as number)}
+                        disabled={loading}
+                        className="min-w-[32px]"
+                      >
+                        {page}
+                      </Button>
+                    )
+                  ));
+                })()}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalTags / pageSize), prev + 1))}
+                  disabled={currentPage * pageSize >= totalTags || loading}
+                >
+                  ›
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  onClick={() => setCurrentPage(Math.ceil(totalTags / pageSize))}
                   disabled={currentPage * pageSize >= totalTags || loading}
                 >
-                  {t('common.next')}
+                  »
                 </Button>
               </div>
             </div>
