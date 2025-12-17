@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { apiClient } from '@/lib/api';
@@ -170,11 +171,19 @@ export default function UsersSettingsPage() {
   if (!isAuthenticated) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              {t('settings.users')}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t('auth.loginToManageTokens')}</p>
+          </div>
+        </div>
         <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.usersTitle')}</CardTitle>
-            <CardDescription>{t('auth.loginToManageTokens')}</CardDescription>
-          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            {/* Empty content */}
+          </CardContent>
         </Card>
       </div>
     );
@@ -183,11 +192,19 @@ export default function UsersSettingsPage() {
   if (!isAdmin) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              {t('settings.users')}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t('common.accessDenied')}</p>
+          </div>
+        </div>
         <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.usersTitle')}</CardTitle>
-            <CardDescription>{t('common.accessDenied')}</CardDescription>
-          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            {/* Empty content */}
+          </CardContent>
         </Card>
       </div>
     );
@@ -195,6 +212,16 @@ export default function UsersSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            {t('settings.users')}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t('settings.usersDescription')}</p>
+        </div>
+      </div>
+
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <Card>

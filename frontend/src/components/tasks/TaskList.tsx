@@ -244,7 +244,7 @@ export function TaskList({ className }: TaskListProps) {
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="all" className="flex items-center space-x-2">
             <span>全部</span>
-            <Badge variant="secondary">{total}</Badge>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5 min-w-[1.25rem] h-5 flex items-center justify-center">{total}</Badge>
           </TabsTrigger>
           <TabsTrigger value="pending" className="flex items-center space-x-2">
             <Clock className="w-4 h-4" />

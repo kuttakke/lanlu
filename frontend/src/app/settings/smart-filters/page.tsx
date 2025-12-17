@@ -320,23 +320,22 @@ export default function SmartFiltersPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Filter className="w-5 h-5" />
+            {t('settings.smartFilters')}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t('settings.smartFiltersDescription')}</p>
+        </div>
+        <Button onClick={handleCreate}>
+          <Plus className="w-4 h-4 mr-2" />
+          {t('common.add')}
+        </Button>
+      </div>
+
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="w-5 h-5" />
-                {t('settings.smartFilters')}
-              </CardTitle>
-              <CardDescription>{t('settings.smartFiltersDescription')}</CardDescription>
-            </div>
-            <Button onClick={handleCreate}>
-              <Plus className="w-4 h-4 mr-2" />
-              {t('common.add')}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
+      <CardContent className="pt-6 space-y-4">
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">{t('common.loading')}</div>
           ) : filters.length === 0 ? (

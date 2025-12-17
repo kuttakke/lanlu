@@ -62,7 +62,6 @@ export default function SettingsTasksPage() {
         </div>
         <Button
           variant="outline"
-          size="sm"
           onClick={handleRefresh}
           className="flex items-center space-x-2"
         >

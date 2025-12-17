@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TagI18nService } from '@/lib/tag-i18n-service';
-import { Info } from 'lucide-react';
+import { Info, Tag } from 'lucide-react';
 
 type TagRow = {
   tag: string;
@@ -227,11 +227,19 @@ export default function TagI18nSettingsPage() {
   if (!isAuthenticated) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Tag className="w-5 h-5" />
+              {t('settings.tagI18n')}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t('auth.loginToManageTokens')}</p>
+          </div>
+        </div>
         <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.tagI18nTitle')}</CardTitle>
-            <CardDescription>{t('auth.loginToManageTokens')}</CardDescription>
-          </CardHeader>
+          <CardContent className="pt-6">
+            {/* Empty content */}
+          </CardContent>
         </Card>
       </div>
     );
@@ -240,11 +248,19 @@ export default function TagI18nSettingsPage() {
   if (!isAdmin) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Tag className="w-5 h-5" />
+              {t('settings.tagI18n')}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t('common.accessDenied')}</p>
+          </div>
+        </div>
         <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.tagI18nTitle')}</CardTitle>
-            <CardDescription>{t('common.accessDenied')}</CardDescription>
-          </CardHeader>
+          <CardContent className="pt-6">
+            {/* Empty content */}
+          </CardContent>
         </Card>
       </div>
     );
@@ -252,12 +268,18 @@ export default function TagI18nSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Tag className="w-5 h-5" />
+            {t('settings.tagI18n')}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t('settings.tagI18nDescription')}</p>
+        </div>
+      </div>
+
       <Card>
-        <CardHeader className="space-y-1">
-          <CardTitle>{t('settings.tagI18nTitle')}</CardTitle>
-          <CardDescription>{t('settings.tagI18nDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="pt-6 space-y-4">
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {successMsg ? <p className="text-sm text-green-600">{successMsg}</p> : null}
 
@@ -323,7 +345,7 @@ export default function TagI18nSettingsPage() {
           </div>
 
           <div className="rounded-md border border-border overflow-hidden bg-background">
-            <div className="hidden md:grid md:grid-cols-[1.2fr_1fr_1fr_auto] gap-3 text-[11px] font-medium text-muted-foreground px-4 py-2.5 border-b border-border bg-muted/20">
+            <div className="hidden md:grid md:grid-cols-[1.2fr_1fr_1fr_auto] gap-4 text-[11px] font-medium text-muted-foreground px-4 py-2.5 border-b border-border bg-muted/20">
               <div>{t('settings.tagI18nTag')}</div>
               <div>{t('settings.tagI18nZh')}</div>
               <div>{t('settings.tagI18nEn')}</div>
@@ -331,8 +353,8 @@ export default function TagI18nSettingsPage() {
             </div>
 
             {/* 新增行（合并在列表顶部） */}
-            <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr_auto] gap-3 px-4 py-3 border-b border-border bg-muted/10">
-              <div className="space-y-1">
+            <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr_auto] gap-4 px-4 py-3 border-b border-border bg-muted/10">
+              <div className="space-y-2">
                 <div className="md:hidden text-xs text-muted-foreground">{t('settings.tagI18nTag')}</div>
                 <Input
                   id="newTag"
@@ -343,7 +365,7 @@ export default function TagI18nSettingsPage() {
                   className="font-mono text-xs h-8"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <div className="md:hidden text-xs text-muted-foreground">{t('settings.tagI18nZh')}</div>
                 <Input
                   id="newZh"
@@ -354,7 +376,7 @@ export default function TagI18nSettingsPage() {
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <div className="md:hidden text-xs text-muted-foreground">{t('settings.tagI18nEn')}</div>
                 <Input
                   id="newEn"
@@ -379,9 +401,9 @@ export default function TagI18nSettingsPage() {
             rows.map((row) => (
                   <div
                     key={row.tag}
-                    className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr_auto] gap-3 px-4 py-3"
+                    className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr_auto] gap-4 px-4 py-3"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="md:hidden text-xs text-muted-foreground">{t('settings.tagI18nTag')}</div>
                       <div className="flex items-center gap-2">
                         <Input value={row.tag} disabled className="font-mono text-xs h-8" />
@@ -438,7 +460,7 @@ export default function TagI18nSettingsPage() {
                         </Popover>
                       </div>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="md:hidden text-xs text-muted-foreground">{t('settings.tagI18nZh')}</div>
                       <Input
                         value={row.zh}
@@ -451,7 +473,7 @@ export default function TagI18nSettingsPage() {
                         className="h-8 text-xs"
                       />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="md:hidden text-xs text-muted-foreground">{t('settings.tagI18nEn')}</div>
                       <Input
                         value={row.en}
