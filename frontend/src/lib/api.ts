@@ -77,6 +77,11 @@ apiClient.interceptors.request.use(
 // 导出skipRequest标志，用于在静态生成期间跳过API调用
 export { skipRequest };
 
+// 获取完整的API URL
+export const getApiUrl = (path: string): string => {
+  return `${baseURL}${path}`;
+};
+
 
 // 响应拦截器
 apiClient.interceptors.response.use(

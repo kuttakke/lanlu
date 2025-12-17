@@ -68,6 +68,7 @@
     "lastRead": "Last Read",
     "dateAdded": "Date Added",
     "pageCount": "Page Count",
+    "title": "Title",
     "size": "Size",
     "pages": "pages",
     "details": "Details",
@@ -474,7 +475,19 @@
     "formatJson": "Format JSON",
     "saveConfiguration": "Save Configuration",
     "noConfigurationRequired": "No Configuration Required",
-    "noConfigurableParameters": "This plugin doesn't have any configurable parameters"
+    "noConfigurableParameters": "This plugin doesn't have any configurable parameters",
+    "smartFilters": "Smart Filters",
+    "smartFiltersDescription": "Manage preset quick filters for the search sidebar",
+    "smartFilter": "Smart Filter",
+    "smartFilterDialogDescription": "Configure filter conditions for the smart filter",
+    "smartFilterName": "Name",
+    "smartFilterNamePlaceholder": "Enter filter name",
+    "smartFilterIcon": "Icon",
+    "smartFilterDateFrom": "Date From",
+    "smartFilterDateFromHint": "Relative days, e.g. -7 means 7 days ago",
+    "smartFilterDateTo": "Date To",
+    "smartFilterOrder": "Display Order",
+    "smartFilterDefault": "Default"
   },
   "dashboard": {
     "title": "Dashboard",

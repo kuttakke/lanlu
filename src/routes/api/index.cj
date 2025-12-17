@@ -11,6 +11,7 @@ import lrr4cj.routes.api.shinobu.*
 import lrr4cj.routes.api.auth.*
 import lrr4cj.routes.api.tag_i18n.*
 import lrr4cj.routes.api.user.*
+import lrr4cj.routes.api.smart_filters.*
 import lrr4cj.controllers.*
 
 /**
@@ -43,6 +44,9 @@ public func registerApiRoutes(router: JoyRouters) {
 
     // 注册Tag i18n路由
     registerTagI18nRoutes(router)
+
+    // 注册智能分类路由
+    registerSmartFilterRoutes(router)
 
     // 注册用户统计路由
     UserRoutes.configure(router)

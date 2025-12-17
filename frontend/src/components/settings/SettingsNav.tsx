@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Package, ListTodo, KeyRound, Users, Tag, Heart, BookOpen } from 'lucide-react';
+import { LayoutGrid, Package, ListTodo, KeyRound, Users, Tag, Heart, BookOpen, Filter } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,7 @@ const baseSections: SettingsSection[] = [
   { id: 'plugins', href: '/settings/plugins', icon: Package, titleKey: 'settings.plugins', requiresAdmin: true },
   { id: 'tasks', href: '/settings/tasks', icon: ListTodo, titleKey: 'settings.tasks', requiresAdmin: true },
   { id: 'tag-i18n', href: '/settings/tag-i18n', icon: Tag, titleKey: 'settings.tagI18n', requiresAdmin: true },
+  { id: 'smart-filters', href: '/settings/smart-filters', icon: Filter, titleKey: 'settings.smartFilters', requiresAdmin: true },
 ];
 
 export function SettingsNav() {

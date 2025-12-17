@@ -717,6 +717,46 @@ public class DatabaseConfig {
                 } catch (_: Exception) {}
             }
 
+            // smart_filters 表（智能分类/快速筛选）
+            if (!tableExists(conn, "smart_filters")) {
+                logger.info("smart_filters表不存在，创建新的smart_filters表")
+                execUpdate(conn, """
+                    CREATE TABLE smart_filters (
+                        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                        name VARCHAR(255) NOT NULL,
+                        name_en VARCHAR(255) DEFAULT '',
+                        icon VARCHAR(64) DEFAULT '',
+                        query TEXT DEFAULT '',
+                        sort_by VARCHAR(64) DEFAULT '',
+                        sort_order VARCHAR(16) DEFAULT 'desc',
+                        date_from VARCHAR(32) DEFAULT '',
+                        date_to VARCHAR(32) DEFAULT '',
+                        newonly BOOLEAN DEFAULT false,
+                        untaggedonly BOOLEAN DEFAULT false,
+                        sort_order_num INTEGER DEFAULT 0,
+                        enabled BOOLEAN DEFAULT true,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                // 插入默认的智能分类
+                execUpdate(conn, """
+                    INSERT INTO smart_filters (name, name_en, icon, newonly, sort_order_num)
+                    VALUES ('未读档案', 'Unread Archives', 'BookOpen', true, 1)
+                """)
+                execUpdate(conn, """
+                    INSERT INTO smart_filters (name, name_en, icon, untaggedonly, sort_order_num)
+                    VALUES ('无标签档案', 'Untagged Archives', 'Tag', true, 2)
+                """)
+                execUpdate(conn, """
+                    INSERT INTO smart_filters (name, name_en, icon, date_from, sort_by, sort_order, sort_order_num)
+                    VALUES ('最近一周', 'Last Week', 'Calendar', '-7', 'date_added', 'desc', 3)
+                """)
+                logger.info("smart_filters表创建成功，已插入默认分类")
+            } else {
+                logger.info("smart_filters表已存在")
+            }
+
             // archive_tags 表（archives.id <-> tags.id）
             if (!tableExists(conn, "archive_tags")) {
                 logger.info("archive_tags表不存在，创建新的archive_tags表")
