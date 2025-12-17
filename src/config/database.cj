@@ -440,121 +440,93 @@ public class DatabaseConfig {
                 }
             }
 
-            // tags 表
+            // tags 表（新结构：namespace + name + translations JSONB）
             if (!tableExists(conn, "tags")) {
                 logger.info("tags表不存在，创建新的tags表")
                 execUpdate(conn, """
                     CREATE TABLE tags (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-                        name VARCHAR(255) NOT NULL UNIQUE,
-                        namespace VARCHAR(255) DEFAULT '',
-                        value TEXT DEFAULT '',
-                        weight INTEGER DEFAULT 1,
+                        namespace VARCHAR(64) NOT NULL DEFAULT '',
+                        name VARCHAR(255) NOT NULL,
+                        translations JSONB NOT NULL DEFAULT '{}',
+                        links TEXT DEFAULT '',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (namespace, name)
                     )
                 """)
+                // 创建索引
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_tags_namespace ON tags (namespace)")
+                } catch (_: Exception) {}
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_tags_name ON tags (name)")
+                } catch (_: Exception) {}
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_tags_translations ON tags USING GIN (translations)")
+                } catch (_: Exception) {}
                 logger.info("tags表创建成功")
             } else {
-                logger.info("tags表已存在，检查并补全缺失列")
-                let columnsToAdd = [
-                    ("namespace", "VARCHAR(255) DEFAULT ''"),
-                    ("value", "TEXT DEFAULT ''"),
-                    ("weight", "INTEGER DEFAULT 1"),
-                    ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
-                    ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-                ]
-                for ((column, definition) in columnsToAdd) {
-                    if (!columnExists(conn, "tags", column)) {
-                        logger.info("tags表缺少列 ${column}，添加中")
-                        execUpdate(conn, "ALTER TABLE tags ADD COLUMN ${column} ${definition}")
-                    }
-                }
-                try {
-                    let createSql = "CREATE UNIQUE INDEX tags_name_key ON tags (name)"
+                logger.info("tags表已存在，检查是否需要迁移到新结构")
+                // 检查是否是旧结构（有 value 列但没有 translations 列）
+                let hasOldStructure = columnExists(conn, "tags", "value") && !columnExists(conn, "tags", "translations")
+                if (hasOldStructure) {
+                    logger.info("检测到旧的tags表结构，需要迁移")
+                    // 删除旧表，创建新表
                     try {
-                        if (!indexExists(conn, "tags_name_key")) {
-                            execUpdate(conn, createSql)
+                        // 先删除依赖的视图
+                        if (viewExists(conn, "archives_with_tags")) {
+                            execUpdate(conn, "DROP VIEW archives_with_tags")
                         }
-                    } catch (_: Exception) {
-                        execUpdate(conn, createSql)
+                        // 删除 archive_tags 表（因为有外键约束）
+                        if (tableExists(conn, "archive_tags")) {
+                            execUpdate(conn, "DROP TABLE archive_tags")
+                        }
+                        // 删除旧 tags 表
+                        execUpdate(conn, "DROP TABLE tags")
+                        // 创建新 tags 表
+                        execUpdate(conn, """
+                            CREATE TABLE tags (
+                                id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                                namespace VARCHAR(64) NOT NULL DEFAULT '',
+                                name VARCHAR(255) NOT NULL,
+                                translations JSONB NOT NULL DEFAULT '{}',
+                                links TEXT DEFAULT '',
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                UNIQUE (namespace, name)
+                            )
+                        """)
+                        try {
+                            execUpdate(conn, "CREATE INDEX idx_tags_namespace ON tags (namespace)")
+                        } catch (_: Exception) {}
+                        try {
+                            execUpdate(conn, "CREATE INDEX idx_tags_name ON tags (name)")
+                        } catch (_: Exception) {}
+                        try {
+                            execUpdate(conn, "CREATE INDEX idx_tags_translations ON tags USING GIN (translations)")
+                        } catch (_: Exception) {}
+                        logger.info("tags表迁移成功")
+                    } catch (e: Exception) {
+                        logger.error("tags表迁移失败: ${e.toString()}")
                     }
-                } catch (e: Exception) {
-                    logger.warn("创建tags.name唯一索引失败（可忽略）: ${e.toString()}")
+                } else if (!columnExists(conn, "tags", "translations")) {
+                    // 新结构但缺少某些列
+                    logger.info("tags表结构不完整，添加缺失列")
+                    try {
+                        execUpdate(conn, "ALTER TABLE tags ADD COLUMN translations JSONB NOT NULL DEFAULT '{}'")
+                    } catch (_: Exception) {}
+                    try {
+                        execUpdate(conn, "ALTER TABLE tags ADD COLUMN links TEXT DEFAULT ''")
+                    } catch (_: Exception) {}
                 }
             }
 
-            // tag_i18n 表（tag -> lang -> text）
-            if (!tableExists(conn, "tag_i18n")) {
-                logger.info("tag_i18n表不存在，创建新的tag_i18n表")
-                execUpdate(conn, """
-                    CREATE TABLE tag_i18n (
-                        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-                        tag VARCHAR(255) NOT NULL,
-                        lang VARCHAR(16) NOT NULL,
-                        text TEXT NOT NULL DEFAULT '',
-                        intro TEXT NOT NULL DEFAULT '',
-                        links TEXT NOT NULL DEFAULT '',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE (tag, lang)
-                    )
-                """)
-                logger.info("tag_i18n表创建成功")
-            } else {
-                logger.info("tag_i18n表已存在，检查并补全缺失列")
-                let columnsToAdd = [
-                    ("text", "TEXT NOT NULL DEFAULT ''"),
-                    ("intro", "TEXT NOT NULL DEFAULT ''"),
-                    ("links", "TEXT NOT NULL DEFAULT ''"),
-                    ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
-                    ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-                ]
-                for ((column, definition) in columnsToAdd) {
-                    if (!columnExists(conn, "tag_i18n", column)) {
-                        logger.info("tag_i18n表缺少列 ${column}，添加中")
-                        execUpdate(conn, "ALTER TABLE tag_i18n ADD COLUMN ${column} ${definition}")
-                    }
-                }
-
-                // 检查 lang 列长度（lang 列应为 VARCHAR(16)，足够存储语言代码如 zh, en 等）
-                try {
-                    let checkLangLength = conn.prepareStatement("""
-                        SELECT character_maximum_length
-                        FROM information_schema.columns
-                        WHERE table_schema = 'public' AND table_name = 'tag_i18n' AND column_name = 'lang'
-                    """)
-                    let rs = checkLangLength.query()
-                    try {
-                        if (rs.next()) {
-                            let currentLength = rs.getOrNull<Int64>(0) ?? 0
-                            if (currentLength >= 16) {
-                                logger.info("tag_i18n表的lang列长度检查通过: ${currentLength.toString()}")
-                            } else {
-                                logger.warn("tag_i18n表的lang列长度异常: ${currentLength.toString()}，建议检查表结构")
-                            }
-                        }
-                    } finally {
-                        rs.close()
-                    }
-                    checkLangLength.close()
-                } catch (e: Exception) {
-                    logger.warn("检查lang列长度失败: ${e.toString()}")
-                }
-
-                // 唯一索引（如果旧表未建 UNIQUE 约束）
-                try {
-                    let createSql = "CREATE UNIQUE INDEX tag_i18n_tag_lang_key ON tag_i18n (tag, lang)"
-                    try {
-                        if (!indexExists(conn, "tag_i18n_tag_lang_key")) {
-                            execUpdate(conn, createSql)
-                        }
-                    } catch (_: Exception) {
-                        execUpdate(conn, createSql)
-                    }
-                } catch (e: Exception) {
-                    logger.warn("创建tag_i18n(tag,lang)唯一索引失败（可忽略）: ${e.toString()}")
-                }
+            // 删除旧的 tag_i18n 表（如果存在）
+            if (tableExists(conn, "tag_i18n")) {
+                logger.info("检测到旧的tag_i18n表，正在删除（数据已合并到tags表）")
+                execUpdate(conn, "DROP TABLE tag_i18n")
+                logger.info("tag_i18n表已删除")
             }
 
             // user_archive_status 表（用户级别的归档状态）
@@ -835,7 +807,11 @@ public class DatabaseConfig {
                     a.relative_path,
                     a.file_size,
                     a.pagecount,
-                    COALESCE(string_agg(t.name, ',' ORDER BY t.name), '') AS tags
+                    COALESCE(string_agg(
+                        CASE WHEN t.namespace != '' AND t.namespace IS NOT NULL
+                             THEN t.namespace || ':' || t.name
+                             ELSE t.name
+                        END, ',' ORDER BY t.namespace, t.name), '') AS tags
                 FROM archives a
                 LEFT JOIN archive_tags atg ON atg.archive_id = a.id
                 LEFT JOIN tags t ON t.id = atg.tag_id

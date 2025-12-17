@@ -152,7 +152,7 @@ public class TaskPoolService {
                 UploadProcessTaskRunner.run(task.id, task.parameters)
             case "metadata_plugin" =>
                 MetadataPluginTaskRunner.run(task.id, task.parameters)
-            case "tag_i18n_import" =>
+            case "tag_import" =>
                 TagI18nImportTaskRunner.run(task.id, task.parameters)
             case _ =>
                 TaskIO.appendLog(task.id, "Unknown task type: ${task.taskType}")

@@ -22,7 +22,7 @@ if (!data) {
   throw new Error('Unsupported format: expected { data: [...] }');
 }
 
-const map = {};
+const tags = [];
 let namespaces = 0;
 let items = 0;
 
@@ -57,15 +57,16 @@ function pickText(v) {
 }
 
 for (const block of data) {
-  const ns = String(block?.namespace || '').trim();
-  if (!ns || ns === 'rows') continue;
+  const namespace = String(block?.namespace || '').trim();
+  if (!namespace || namespace === 'rows') continue;
   const dict = block?.data;
   if (!dict || typeof dict !== 'object' || Array.isArray(dict)) continue;
   namespaces += 1;
 
   for (const [rawTag, payload] of Object.entries(dict)) {
-    const tag = `${ns}:${rawTag}`;
     const name = pickText(payload?.name);
+    if (!name) continue;
+
     const intro = pickText(payload?.intro);
 
     let links = '';
@@ -80,24 +81,29 @@ for (const block of data) {
       }
     }
 
-    if (!name) continue;
-    map[tag] = {
-      zh: { text: name, intro, links },
-      en: { text: '', intro: '', links: '' },
+    // 只添加实际存在的语言翻译
+    const translations = {
+      zh: {
+        text: name,
+        intro,
+      },
     };
+
+    tags.push({
+      namespace,
+      name: rawTag,
+      translations,
+      links,
+    });
     items += 1;
   }
 }
 
 const out = {
-  generated_at: new Date().toISOString(),
-  source: json?.repo || 'unknown',
-  head: json?.head?.sha || '',
-  format: 'tag_i18n_rich_v1',
-  map,
+  tags,
 };
 
 fs.writeFileSync(outputPath, JSON.stringify(out, null, 2), 'utf8');
 
 // eslint-disable-next-line no-console
-console.log(`Wrote ${items} tag mappings from ${namespaces} namespaces -> ${outputPath}`);
+console.log(`Converted ${items} tags from ${namespaces} namespaces -> ${outputPath}`);

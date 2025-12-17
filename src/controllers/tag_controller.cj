@@ -13,26 +13,13 @@ import lrr4cj.utils.*
 import lrr4cj.views.*
 
 /**
- * Tag i18n 映射控制器
- * - 普通接口：按语言返回 map（用于前端展示）
+ * 标签控制器
+ * - 普通接口：获取标签翻译映射（用于前端展示）
  * - 管理接口：管理员维护、导入导出
  */
-public class TagI18nController {
+public class TagController {
     private static let CACHE_DIR = "./data/cache"
     private static let IMPORT_CHUNK_SIZE: Int64 = 1536 * 1024 // 1.5MB
-
-    private static func jsonValueToString(value: JsonValue): String {
-        match (value) {
-            case s: JsonString => return s.getValue()
-            case _ => return value.toString()
-        }
-    }
-
-    private static func getJsonString(obj: JsonObject, key: String): String {
-        let fields = obj.getFields()
-        if (!fields.contains(key)) { return "" }
-        return jsonValueToString(fields[key]).trimAscii()
-    }
 
     private static func escapeJsonString(str: String): String {
         var escaped = str
@@ -52,22 +39,31 @@ public class TagI18nController {
         return lang
     }
 
+    private static func getJsonString(obj: JsonObject, key: String): String {
+        let fields = obj.getFields()
+        if (!fields.contains(key)) { return "" }
+        match (fields[key]) {
+            case s: JsonString => return s.getValue().trimAscii()
+            case _ => return fields[key].toString().trimAscii()
+        }
+    }
+
     /**
-     * GET /api/tags/i18n?lang=zh|en[&arcid=...]
-     * 返回: { lang, map: { "<tag>": "<text>" } }
+     * GET /api/tags/translations?lang=zh|en[&arcid=...]
+     * 返回: { lang, map: { "<namespace:name>": "<text>" } }
      * 如果提供 arcid，则只返回该档案相关的 tag 翻译
      */
-    public static func getTagI18nMap(ctx: JoyContext): Unit {
+    public static func getTranslations(ctx: JoyContext): Unit {
         let lang = langFromQuery(ctx)
         let arcid = (ctx.getQuery("arcid") ?? "").trimAscii()
 
-        var rows = TagI18nDao.getByLang(lang)
+        var translationsMap = TagDao.getTranslationsMap(lang)
 
         // 如果指定了 arcid，则只返回该档案相关的 tag 翻译
         if (arcid.size > 0) {
             let archive = ArchiveDao.getArchiveMetadataById(arcid)
             if (archive.id.size == 0) {
-                ResponseView.successJson(ctx, "{\"lang\":\"${escapeJsonString(lang)}\",\"map\":{}}", "获取tag i18n成功")
+                ResponseView.successJson(ctx, "{\"lang\":\"${escapeJsonString(lang)}\",\"map\":{}}", "获取标签翻译成功")
                 return
             }
 
@@ -85,98 +81,147 @@ public class TagI18nController {
             }
 
             // 过滤：只保留档案拥有的 tag
-            var filteredRows = ArrayList<TagI18nEntry>()
-            for (row in rows) {
-                if (tagSet.contains(row.tag)) {
-                    filteredRows.add(row)
+            var filteredMap = HashMap<String, String>()
+            for ((tag, text) in translationsMap) {
+                if (tagSet.contains(tag)) {
+                    filteredMap[tag] = text
                 }
             }
-            rows = filteredRows.toArray()
+            translationsMap = filteredMap
         }
 
         var mapJson = "{"
         var first = true
-        for (row in rows) {
+        for ((tag, text) in translationsMap) {
             if (!first) { mapJson = mapJson + "," } else { first = false }
-            mapJson = mapJson + "\"" + escapeJsonString(row.tag) + "\":\"" + escapeJsonString(row.text) + "\""
+            mapJson = mapJson + "\"" + escapeJsonString(tag) + "\":\"" + escapeJsonString(text) + "\""
         }
         mapJson = mapJson + "}"
 
         let data = "{\"lang\":\"${escapeJsonString(lang)}\",\"map\":${mapJson}}"
-        ResponseView.successJson(ctx, data, "获取tag i18n成功")
+        ResponseView.successJson(ctx, data, "获取标签翻译成功")
     }
 
     /**
-     * GET /api/admin/tag_i18n?q=...&limit=...&offset=...
-     * 返回: { items: [{tag,lang,text,updated_at}, ...] }
+     * GET /api/tags?namespace=...&q=...&limit=...&offset=...
+     * 返回: { items: [...], total, limit, offset }
      */
-    public static func adminList(ctx: JoyContext): Unit {
-        let q = (ctx.getQuery("q") ?? "").trimAscii()
-        let limitStr = (ctx.getQuery("limit") ?? "5000").trimAscii()
-        let offsetStr = (ctx.getQuery("offset") ?? "0").trimAscii()
-        var limit: Int32 = 5000
-        var offset: Int32 = 0
-        try { limit = Int32.parse(limitStr) } catch (_: Exception) {}
-        try { offset = Int32.parse(offsetStr) } catch (_: Exception) {}
-
-        let rows = TagI18nDao.list(q: q, limit: limit, offset: offset)
-        var itemsJson = "["
-        var first = true
-        for (row in rows) {
-            if (!first) { itemsJson = itemsJson + "," } else { first = false }
-            itemsJson = itemsJson + "{\"tag\":\"${escapeJsonString(row.tag)}\",\"lang\":\"${escapeJsonString(row.lang)}\",\"text\":\"${escapeJsonString(row.text)}\",\"updated_at\":\"${escapeJsonString(row.updated_at)}\"}"
-        }
-        itemsJson = itemsJson + "]"
-
-        let data = "{\"items\":${itemsJson}}"
-        ResponseView.successJson(ctx, data, "获取tag i18n列表成功")
-    }
-
-    /**
-     * GET /api/admin/tag_i18n/merged?q=...&limit=...&offset=...
-     * 返回: { items: [{tag,zh,en}], total, limit, offset }
-     */
-    public static func adminListMerged(ctx: JoyContext): Unit {
+    public static func list(ctx: JoyContext): Unit {
+        let namespaceStr = (ctx.getQuery("namespace") ?? "").trimAscii()
         let q = (ctx.getQuery("q") ?? "").trimAscii()
         let limitStr = (ctx.getQuery("limit") ?? "100").trimAscii()
         let offsetStr = (ctx.getQuery("offset") ?? "0").trimAscii()
-        var limit: Int32 = 100
-        var offset: Int32 = 0
-        try { limit = Int32.parse(limitStr) } catch (_: Exception) {}
-        try { offset = Int32.parse(offsetStr) } catch (_: Exception) {}
+
+        var limit: Int64 = 100
+        var offset: Int64 = 0
+        try { limit = Int64.parse(limitStr) } catch (_: Exception) {}
+        try { offset = Int64.parse(offsetStr) } catch (_: Exception) {}
 
         if (limit <= 0) { limit = 100 }
         if (limit > 2000) { limit = 2000 }
         if (offset < 0) { offset = 0 }
 
-        let total = TagI18nDao.countMerged(q: q)
-        let rows = TagI18nDao.listMerged(q: q, limit: limit, offset: offset)
+        let namespace: ?String = if (namespaceStr.size > 0) { Some(namespaceStr) } else { None }
+        let query: ?String = if (q.size > 0) { Some(q) } else { None }
+
+        let total = TagDao.count(namespace, query)
+        let rows = TagDao.list(namespace, query, limit, offset)
 
         var itemsJson = "["
         var first = true
         for (row in rows) {
             if (!first) { itemsJson = itemsJson + "," } else { first = false }
             itemsJson = itemsJson + "{"
-            itemsJson = itemsJson + "\"tag\":\"${escapeJsonString(row.tag)}\","
-            itemsJson = itemsJson + "\"zh\":\"${escapeJsonString(row.zh)}\","
-            itemsJson = itemsJson + "\"en\":\"${escapeJsonString(row.en)}\","
-            itemsJson = itemsJson + "\"zh_intro\":\"${escapeJsonString(row.zh_intro)}\","
-            itemsJson = itemsJson + "\"en_intro\":\"${escapeJsonString(row.en_intro)}\","
-            itemsJson = itemsJson + "\"zh_links\":\"${escapeJsonString(row.zh_links)}\","
-            itemsJson = itemsJson + "\"en_links\":\"${escapeJsonString(row.en_links)}\""
+            itemsJson = itemsJson + "\"id\":${row.id.toString()},"
+            itemsJson = itemsJson + "\"namespace\":\"${escapeJsonString(row.namespace)}\","
+            itemsJson = itemsJson + "\"name\":\"${escapeJsonString(row.name)}\","
+
+            // 序列化 translations
+            var translationsJson = "{"
+            var tFirst = true
+            for ((lang, t) in row.translations) {
+                if (!tFirst) { translationsJson = translationsJson + "," } else { tFirst = false }
+                translationsJson = translationsJson + "\"${escapeJsonString(lang)}\":{\"text\":\"${escapeJsonString(t.text)}\",\"intro\":\"${escapeJsonString(t.intro)}\"}"
+            }
+            translationsJson = translationsJson + "}"
+
+            itemsJson = itemsJson + "\"translations\":${translationsJson},"
+            itemsJson = itemsJson + "\"links\":\"${escapeJsonString(row.links)}\","
+            itemsJson = itemsJson + "\"created_at\":\"${escapeJsonString(row.created_at)}\","
+            itemsJson = itemsJson + "\"updated_at\":\"${escapeJsonString(row.updated_at)}\""
             itemsJson = itemsJson + "}"
         }
         itemsJson = itemsJson + "]"
 
         let data = "{\"items\":${itemsJson},\"total\":${total.toString()},\"limit\":${limit.toString()},\"offset\":${offset.toString()}}"
-        ResponseView.successJson(ctx, data, "获取tag i18n分页列表成功")
+        ResponseView.successJson(ctx, data, "获取标签列表成功")
     }
 
     /**
-     * GET /api/admin/tag_i18n/tags
-     * 返回: { tags: ["artist:...", ...] }
+     * GET /api/tags/{id}
      */
-    public static func adminListTags(ctx: JoyContext): Unit {
+    public static func getById(ctx: JoyContext): Unit {
+        let idStr = (ctx.getParam("id") ?? "").trimAscii()
+        if (idStr.size == 0) {
+            ctx.status(400)
+            ResponseView.errorJson(ctx, "id is required", 400)
+            return
+        }
+
+        var id: Int64 = 0
+        try { id = Int64.parse(idStr) } catch (_: Exception) {
+            ctx.status(400)
+            ResponseView.errorJson(ctx, "invalid id", 400)
+            return
+        }
+
+        match (TagDao.getById(id)) {
+            case Some(tag) =>
+                var translationsJson = "{"
+                var tFirst = true
+                for ((lang, t) in tag.translations) {
+                    if (!tFirst) { translationsJson = translationsJson + "," } else { tFirst = false }
+                    translationsJson = translationsJson + "\"${escapeJsonString(lang)}\":{\"text\":\"${escapeJsonString(t.text)}\",\"intro\":\"${escapeJsonString(t.intro)}\"}"
+                }
+                translationsJson = translationsJson + "}"
+
+                var data = "{"
+                data = data + "\"id\":${tag.id.toString()},"
+                data = data + "\"namespace\":\"${escapeJsonString(tag.namespace)}\","
+                data = data + "\"name\":\"${escapeJsonString(tag.name)}\","
+                data = data + "\"translations\":${translationsJson},"
+                data = data + "\"links\":\"${escapeJsonString(tag.links)}\","
+                data = data + "\"created_at\":\"${escapeJsonString(tag.created_at)}\","
+                data = data + "\"updated_at\":\"${escapeJsonString(tag.updated_at)}\""
+                data = data + "}"
+                ResponseView.successJson(ctx, data, "获取标签成功")
+            case None =>
+                ctx.status(404)
+                ResponseView.errorJson(ctx, "tag not found", 404)
+        }
+    }
+
+    /**
+     * GET /api/tags/namespaces
+     * 返回所有命名空间
+     */
+    public static func listNamespaces(ctx: JoyContext): Unit {
+        let namespaces = TagDao.listNamespaces()
+        var json = "["
+        var first = true
+        for (ns in namespaces) {
+            if (!first) { json = json + "," } else { first = false }
+            json = json + "\"" + escapeJsonString(ns) + "\""
+        }
+        json = json + "]"
+        ResponseView.successJson(ctx, "{\"namespaces\":${json}}", "获取命名空间列表成功")
+    }
+
+    /**
+     * GET /api/admin/tags/names
+     * 返回所有标签名（用于自动补全）
+     */
+    public static func adminListTagNames(ctx: JoyContext): Unit {
         let tags = TagDao.listAllTagNames()
         var tagsJson = "["
         var first = true
@@ -185,15 +230,15 @@ public class TagI18nController {
             tagsJson = tagsJson + "\"" + escapeJsonString(tag) + "\""
         }
         tagsJson = tagsJson + "]"
-        ResponseView.successJson(ctx, "{\"tags\":${tagsJson}}", "获取标签列表成功")
+        ResponseView.successJson(ctx, "{\"tags\":${tagsJson}}", "获取标签名列表成功")
     }
 
     /**
-     * PUT /api/admin/tag_i18n
-     * body: { tag, lang, text }
+     * POST /api/admin/tags
+     * body: { namespace, name, translations: { zh: {text, intro}, en: {...} }, links }
      */
-    public static func adminUpsert(ctx: JoyContext): Unit {
-        let logger = getLogger("tag_i18n_controller")
+    public static func adminCreate(ctx: JoyContext): Unit {
+        let logger = getLogger("tag_controller")
         try {
             let body = ctx.readString()
             if (body.trimAscii().size == 0) {
@@ -203,49 +248,128 @@ public class TagI18nController {
             }
 
             let json = JsonValue.fromStr(body)
-            var tag = ""
-            var lang = ""
-            var text = ""
+            var namespace = ""
+            var name = ""
+            var links = ""
+            var translations = HashMap<String, TagTranslation>()
+
             match (json) {
                 case obj: JsonObject =>
-                    tag = getJsonString(obj, "tag")
-                    lang = getJsonString(obj, "lang")
-                    text = getJsonString(obj, "text")
+                    namespace = getJsonString(obj, "namespace")
+                    name = getJsonString(obj, "name")
+                    links = getJsonString(obj, "links")
+
+                    let fields = obj.getFields()
+                    if (fields.contains("translations")) {
+                        match (fields["translations"]) {
+                            case tObj: JsonObject =>
+                                translations = parseTranslationsFromJson(tObj)
+                            case _ => ()
+                        }
+                    }
                 case _ => ()
             }
 
-            if (tag.size == 0 || lang.size == 0) {
+            if (name.size == 0) {
                 ctx.status(400)
-                ResponseView.errorJson(ctx, "tag and lang are required", 400)
+                ResponseView.errorJson(ctx, "name is required", 400)
                 return
             }
 
-            let ok = TagI18nDao.upsert(tag, lang, text)
-            if (!ok) {
+            let id = TagDao.create(namespace, name, translations, links)
+            if (id == 0) {
                 ctx.status(500)
-                ResponseView.errorJson(ctx, "Upsert failed", 500)
+                ResponseView.errorJson(ctx, "Create failed", 500)
                 return
             }
-            ResponseView.successJson(ctx, "{\"success\":1}", "保存成功")
+            ResponseView.successJson(ctx, "{\"success\":1,\"id\":${id.toString()}}", "创建成功")
         } catch (e: Exception) {
-            logger.error("adminUpsert异常", ("error", e.message))
+            logger.error("adminCreate异常", ("error", e.message))
             ctx.status(500)
             ResponseView.errorJson(ctx, "Internal error", 500)
         }
     }
 
     /**
-     * DELETE /api/admin/tag_i18n?tag=...&lang=...
+     * PUT /api/admin/tags/{id}
+     * body: { translations: {...}, links }
+     */
+    public static func adminUpdate(ctx: JoyContext): Unit {
+        let logger = getLogger("tag_controller")
+        try {
+            let idStr = (ctx.getParam("id") ?? "").trimAscii()
+            if (idStr.size == 0) {
+                ctx.status(400)
+                ResponseView.errorJson(ctx, "id is required", 400)
+                return
+            }
+
+            var id: Int64 = 0
+            try { id = Int64.parse(idStr) } catch (_: Exception) {
+                ctx.status(400)
+                ResponseView.errorJson(ctx, "invalid id", 400)
+                return
+            }
+
+            let body = ctx.readString()
+            if (body.trimAscii().size == 0) {
+                ctx.status(400)
+                ResponseView.errorJson(ctx, "Empty body", 400)
+                return
+            }
+
+            let json = JsonValue.fromStr(body)
+            var links = ""
+            var translations = HashMap<String, TagTranslation>()
+
+            match (json) {
+                case obj: JsonObject =>
+                    links = getJsonString(obj, "links")
+
+                    let fields = obj.getFields()
+                    if (fields.contains("translations")) {
+                        match (fields["translations"]) {
+                            case tObj: JsonObject =>
+                                translations = parseTranslationsFromJson(tObj)
+                            case _ => ()
+                        }
+                    }
+                case _ => ()
+            }
+
+            let ok = TagDao.update(id, translations, links)
+            if (!ok) {
+                ctx.status(500)
+                ResponseView.errorJson(ctx, "Update failed", 500)
+                return
+            }
+            ResponseView.successJson(ctx, "{\"success\":1}", "更新成功")
+        } catch (e: Exception) {
+            logger.error("adminUpdate异常", ("error", e.message))
+            ctx.status(500)
+            ResponseView.errorJson(ctx, "Internal error", 500)
+        }
+    }
+
+    /**
+     * DELETE /api/admin/tags/{id}
      */
     public static func adminDelete(ctx: JoyContext): Unit {
-        let tag = (ctx.getQuery("tag") ?? "").trimAscii()
-        let lang = (ctx.getQuery("lang") ?? "").trimAscii()
-        if (tag.size == 0 || lang.size == 0) {
+        let idStr = (ctx.getParam("id") ?? "").trimAscii()
+        if (idStr.size == 0) {
             ctx.status(400)
-            ResponseView.errorJson(ctx, "tag and lang are required", 400)
+            ResponseView.errorJson(ctx, "id is required", 400)
             return
         }
-        let ok = TagI18nDao.delete(tag, lang)
+
+        var id: Int64 = 0
+        try { id = Int64.parse(idStr) } catch (_: Exception) {
+            ctx.status(400)
+            ResponseView.errorJson(ctx, "invalid id", 400)
+            return
+        }
+
+        let ok = TagDao.delete(id)
         if (!ok) {
             ctx.status(500)
             ResponseView.errorJson(ctx, "Delete failed", 500)
@@ -255,39 +379,48 @@ public class TagI18nController {
     }
 
     /**
-     * GET /api/admin/tag_i18n/export
-     * 返回: { entries: [{tag,lang,text}], generated_at }
+     * GET /api/admin/tags/export
+     * 返回: { tags: [...], generated_at }
      */
     public static func adminExport(ctx: JoyContext): Unit {
-        let rows = TagI18nDao.list(q: "", limit: 200000, offset: 0)
-        var entriesJson = "["
+        let rows = TagDao.list(None, None, 200000, 0)
+        var itemsJson = "["
         var first = true
         for (row in rows) {
-            if (!first) { entriesJson = entriesJson + "," } else { first = false }
-            entriesJson = entriesJson + "{\"tag\":\"${escapeJsonString(row.tag)}\",\"lang\":\"${escapeJsonString(row.lang)}\",\"text\":\"${escapeJsonString(row.text)}\"}"
+            if (!first) { itemsJson = itemsJson + "," } else { first = false }
+            itemsJson = itemsJson + "{"
+            itemsJson = itemsJson + "\"namespace\":\"${escapeJsonString(row.namespace)}\","
+            itemsJson = itemsJson + "\"name\":\"${escapeJsonString(row.name)}\","
+
+            var translationsJson = "{"
+            var tFirst = true
+            for ((lang, t) in row.translations) {
+                if (!tFirst) { translationsJson = translationsJson + "," } else { tFirst = false }
+                translationsJson = translationsJson + "\"${escapeJsonString(lang)}\":{\"text\":\"${escapeJsonString(t.text)}\",\"intro\":\"${escapeJsonString(t.intro)}\"}"
+            }
+            translationsJson = translationsJson + "}"
+
+            itemsJson = itemsJson + "\"translations\":${translationsJson},"
+            itemsJson = itemsJson + "\"links\":\"${escapeJsonString(row.links)}\""
+            itemsJson = itemsJson + "}"
         }
-        entriesJson = entriesJson + "]"
+        itemsJson = itemsJson + "]"
 
         let now = DateTime.nowUTC().toString()
-        let data = "{\"generated_at\":\"${escapeJsonString(now)}\",\"entries\":${entriesJson}}"
+        let data = "{\"generated_at\":\"${escapeJsonString(now)}\",\"tags\":${itemsJson}}"
         ResponseView.successJson(ctx, data, "导出成功")
     }
 
     /**
-     * POST /api/admin/tag_i18n/import
-     *
-     * 兼容三种格式：
-     * 1) { "entries": [ {tag,lang,text}, ... ] }
-     * 2) [ {tag,lang,text}, ... ]
-     * 3) { "map": { "<tag>": { "zh": "...", "en": "..." }, ... } }  或直接以该对象作为根
+     * POST /api/admin/tags/import
+     * 支持 EhTagTranslation 格式和简化格式
      */
     public static func adminImport(ctx: JoyContext): Unit {
-        let logger = getLogger("tag_i18n_controller")
+        let logger = getLogger("tag_controller")
         try {
-            // 改为 TaskPool 异步导入：避免大文件导入请求超时
             let taskData = MinionTaskData()
-            taskData.name = "Tag i18n 导入"
-            taskData.taskType = "tag_i18n_import"
+            taskData.name = "标签导入"
+            taskData.taskType = "tag_import"
             taskData.status = "waiting_upload"
             taskData.progress = 0
             taskData.message = "等待上传导入文件"
@@ -300,12 +433,11 @@ public class TagI18nController {
             }
             let taskId = taskData.id
 
-            // 将请求体流式落盘，避免把大 JSON 全量读入内存/写入DB(parameters)
             let taskDir = Path("${CACHE_DIR}/task/${taskId.toString()}")
             if (!exists(taskDir)) {
                 Directory.create(taskDir, recursive: true)
             }
-            let jsonFile = Path("${taskDir}/tag_i18n_import.json")
+            let jsonFile = Path("${taskDir}/tag_import.json")
             let fileData = ctx.readRawData()
             try (file = File(jsonFile, Write)) {
                 file.write(fileData)
@@ -320,10 +452,10 @@ public class TagI18nController {
 
             MinionTaskDao.updateTaskParameters(taskId, jsonFile.toString())
             MinionTaskDao.updateTaskStatus(taskId, "pending", "文件已上传，等待导入", 0)
-            TaskIO.appendLog(taskId, "enqueued tag_i18n_import")
+            TaskIO.appendLog(taskId, "enqueued tag_import")
             TaskPoolService.getInstance().notifyTaskAvailable()
 
-            let data = "{\"success\":1,\"job\":${taskId.toString()},\"operation\":\"tag_i18n_import\"}"
+            let data = "{\"success\":1,\"job\":${taskId.toString()},\"operation\":\"tag_import\"}"
             ResponseView.successJson(ctx, data, "已入队导入任务")
         } catch (e: Exception) {
             logger.error("adminImport异常", ("error", e.message))
@@ -333,15 +465,14 @@ public class TagI18nController {
     }
 
     /**
-     * POST /api/admin/tag_i18n/import/init
-     * 创建导入任务并返回 jobId（不做解析，解析在 TaskPool 中执行）
+     * POST /api/admin/tags/import/init
      */
     public static func adminImportInit(ctx: JoyContext): Unit {
-        let logger = getLogger("tag_i18n_controller")
+        let logger = getLogger("tag_controller")
         try {
             let taskData = MinionTaskData()
-            taskData.name = "Tag i18n 导入"
-            taskData.taskType = "tag_i18n_import"
+            taskData.name = "标签导入"
+            taskData.taskType = "tag_import"
             taskData.status = "waiting_upload"
             taskData.progress = 0
             taskData.message = "等待上传导入文件"
@@ -358,12 +489,12 @@ public class TagI18nController {
             if (!exists(taskDir)) {
                 Directory.create(taskDir, recursive: true)
             }
-            let jsonFile = Path("${taskDir}/tag_i18n_import.json")
+            let jsonFile = Path("${taskDir}/tag_import.json")
 
             MinionTaskDao.updateTaskParameters(taskId, jsonFile.toString())
             TaskIO.appendLog(taskId, "created, waiting_upload")
 
-            let data = "{\"success\":1,\"job\":${taskId.toString()},\"operation\":\"tag_i18n_import\",\"chunk_size\":${IMPORT_CHUNK_SIZE.toString()}}"
+            let data = "{\"success\":1,\"job\":${taskId.toString()},\"operation\":\"tag_import\",\"chunk_size\":${IMPORT_CHUNK_SIZE.toString()}}"
             ResponseView.successJson(ctx, data, "已创建导入任务")
         } catch (e: Exception) {
             logger.error("adminImportInit异常", ("error", e.message))
@@ -373,11 +504,10 @@ public class TagI18nController {
     }
 
     /**
-     * PUT /api/admin/tag_i18n/import/chunk?job=...&chunkIndex=...&totalChunks=...
-     * 上传分片到缓存目录
+     * PUT /api/admin/tags/import/chunk?job=...&chunkIndex=...&totalChunks=...
      */
     public static func adminImportUploadChunk(ctx: JoyContext): Unit {
-        let logger = getLogger("tag_i18n_controller")
+        let logger = getLogger("tag_controller")
         try {
             let jobStr = (ctx.getQuery("job") ?? "").trimAscii()
             let chunkIndexStr = (ctx.getQuery("chunkIndex") ?? "").trimAscii()
@@ -419,7 +549,7 @@ public class TagI18nController {
             }
 
             let taskData = MinionTaskDao.getTaskDataById(jobId)
-            if (taskData.id == 0 || taskData.taskType != "tag_i18n_import") {
+            if (taskData.id == 0 || taskData.taskType != "tag_import") {
                 ctx.status(404)
                 ResponseView.errorJson(ctx, "job not found", 404)
                 return
@@ -459,7 +589,7 @@ public class TagI18nController {
 
             TaskIO.appendLog(jobId, "uploaded chunk=${chunkIndex.toString()}/${totalChunks.toString()} size=${size.toString()}")
 
-            let data = "{\"success\":1,\"job\":${jobId.toString()},\"operation\":\"tag_i18n_import\"}"
+            let data = "{\"success\":1,\"job\":${jobId.toString()},\"operation\":\"tag_import\"}"
             ResponseView.successJson(ctx, data, "已上传分片")
         } catch (e: Exception) {
             logger.error("adminImportUploadChunk异常", ("error", e.message))
@@ -521,11 +651,10 @@ public class TagI18nController {
     }
 
     /**
-     * POST /api/admin/tag_i18n/import/complete?job=...&totalChunks=...
-     * 合并分片并将任务状态切回 pending 以便 TaskPool 执行
+     * POST /api/admin/tags/import/complete?job=...&totalChunks=...
      */
     public static func adminImportUploadComplete(ctx: JoyContext): Unit {
-        let logger = getLogger("tag_i18n_controller")
+        let logger = getLogger("tag_controller")
         try {
             let jobStr = (ctx.getQuery("job") ?? "").trimAscii()
             let totalChunksStr = (ctx.getQuery("totalChunks") ?? "").trimAscii()
@@ -557,7 +686,7 @@ public class TagI18nController {
             }
 
             let taskData = MinionTaskDao.getTaskDataById(jobId)
-            if (taskData.id == 0 || taskData.taskType != "tag_i18n_import") {
+            if (taskData.id == 0 || taskData.taskType != "tag_import") {
                 ctx.status(404)
                 ResponseView.errorJson(ctx, "job not found", 404)
                 return
@@ -578,7 +707,6 @@ public class TagI18nController {
             let jsonFile = Path(jsonPathStr)
             let chunkDir = jsonFile.parent
 
-            // 预检查分片是否都存在
             for (i in 0..totalChunks) {
                 let chunkFile = Path("${chunkDir.toString()}/chunk_${Int64(i).toString()}.bin")
                 if (!exists(chunkFile)) {
@@ -597,7 +725,6 @@ public class TagI18nController {
                 return
             }
 
-            // 清理分片
             for (i in 0..totalChunks) {
                 let chunkFile = Path("${chunkDir.toString()}/chunk_${Int64(i).toString()}.bin")
                 try { remove(chunkFile) } catch (_: Exception) {}
@@ -607,12 +734,41 @@ public class TagI18nController {
             MinionTaskDao.updateTaskStatus(jobId, "pending", "文件已上传，等待导入", 0)
             TaskPoolService.getInstance().notifyTaskAvailable()
 
-            let data = "{\"success\":1,\"job\":${jobId.toString()},\"operation\":\"tag_i18n_import\"}"
+            let data = "{\"success\":1,\"job\":${jobId.toString()},\"operation\":\"tag_import\"}"
             ResponseView.successJson(ctx, data, "已合并分片并入队导入")
         } catch (e: Exception) {
             logger.error("adminImportUploadComplete异常", ("error", e.message))
             ctx.status(500)
             ResponseView.errorJson(ctx, "Internal error", 500)
         }
+    }
+
+    // ============ 辅助方法 ============
+
+    private static func parseTranslationsFromJson(obj: JsonObject): HashMap<String, TagTranslation> {
+        var result = HashMap<String, TagTranslation>()
+        let fields = obj.getFields()
+        for ((lang, value) in fields) {
+            let t = TagTranslation()
+            match (value) {
+                case innerObj: JsonObject =>
+                    let innerFields = innerObj.getFields()
+                    if (innerFields.contains("text")) {
+                        match (innerFields["text"]) {
+                            case s: JsonString => t.text = s.getValue()
+                            case _ => ()
+                        }
+                    }
+                    if (innerFields.contains("intro")) {
+                        match (innerFields["intro"]) {
+                            case s: JsonString => t.intro = s.getValue()
+                            case _ => ()
+                        }
+                    }
+                case _ => ()
+            }
+            result[lang] = t
+        }
+        return result
     }
 }

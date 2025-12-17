@@ -19,7 +19,7 @@ import { BookOpen, Download, Info, X, Eye, Edit, CheckCircle, RotateCcw, Play, H
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { TagI18nService } from '@/lib/tag-i18n-service';
+import { TagService } from '@/lib/tag-service';
 import { FavoriteService } from '@/lib/favorite-service';
 
 function ArchiveDetailContent() {
@@ -122,7 +122,7 @@ function ArchiveDetailContent() {
 
     (async () => {
       try {
-        const map = await TagI18nService.getMap(language, id);
+        const map = await TagService.getTranslations(language, id);
         if (!cancelled) {
           setTagI18nMap(map || {});
         }
@@ -295,7 +295,7 @@ function ArchiveDetailContent() {
       await fetchMetadata();
       // 重新获取 tag i18n 映射，确保新标签的翻译能够及时显示
       try {
-        const map = await TagI18nService.getMap(language, metadata.arcid);
+        const map = await TagService.getTranslations(language, metadata.arcid);
         setTagI18nMap(map || {});
       } catch (e) {
         console.error('Failed to fetch tag i18n:', e);
@@ -350,7 +350,7 @@ function ArchiveDetailContent() {
       }
       // 重新获取 tag i18n 映射，确保插件更新后的标签翻译能够及时显示
       try {
-        const map = await TagI18nService.getMap(language, metadata.arcid);
+        const map = await TagService.getTranslations(language, metadata.arcid);
         setTagI18nMap(map || {});
       } catch (e) {
         console.error('Failed to fetch tag i18n:', e);

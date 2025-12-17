@@ -9,7 +9,10 @@ import lrr4cj.utils.*
 
 /**
  * tag_i18n_import 任务执行器（运行在TaskPool中）
- * parameters: 导入请求的原始 JSON（支持 entries 数组 / 直接数组 / map）
+ * parameters: 导入请求的原始 JSON
+ *
+ * 支持新格式：
+ * {"tags": [{"namespace": "...", "name": "...", "translations": {"zh": {...}, "en": {...}}}]}
  */
 public class TagI18nImportTaskRunner {
     private static func escapeJsonString(str: String): String {
@@ -45,7 +48,7 @@ public class TagI18nImportTaskRunner {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "INSERT INTO tag_i18n (tag, lang, text, intro, links) VALUES (?, ?, ?, ?, ?) ON CONFLICT (tag, lang) DO UPDATE SET text = EXCLUDED.text, intro = EXCLUDED.intro, links = EXCLUDED.links, updated_at = CURRENT_TIMESTAMP")
+                        "INSERT INTO tags (namespace, name, translations, links) VALUES (?, ?, ?::jsonb, ?) ON CONFLICT (namespace, name) DO UPDATE SET translations = EXCLUDED.translations, links = EXCLUDED.links, updated_at = CURRENT_TIMESTAMP")
 
                     var received: Int64 = 0
                     var imported: Int64 = 0
@@ -62,16 +65,15 @@ public class TagI18nImportTaskRunner {
                         }
                     }
 
-                    func addEntryAndUpsert(tag: String, lang: String, text: String, intro: String, links: String): Unit {
-                        let t = tag.trimAscii()
-                        let l = lang.trimAscii()
-                        if (t.size == 0 || l.size == 0) { return }
+                    func addTag(namespace: String, name: String, translations: String, links: String): Unit {
+                        let ns = namespace.trimAscii()
+                        let nm = name.trimAscii()
+                        if (ns.size == 0 || nm.size == 0) { return }
                         received += 1
-                        stmt.set(0, t)
-                        stmt.set(1, l)
-                        stmt.set(2, text)
-                        stmt.set(3, intro)
-                        stmt.set(4, links)
+                        stmt.set(0, ns)
+                        stmt.set(1, nm)
+                        stmt.set(2, translations)
+                        stmt.set(3, links)
                         stmt.update()
                         imported += 1
                         tickProgress()
@@ -92,56 +94,31 @@ public class TagI18nImportTaskRunner {
                         }
                     }
 
-                    func readTextOrRaw(r: JsonReader): String {
-                        match (r.peek()) {
-                            case Some(BeginObject) =>
-                                var textOrRaw = ""
-                                r.startObject()
-                                while (r.peek() != EndObject) {
-                                    let name = r.readName()
-                                    match (name) {
-                                        case "text" =>
-                                            textOrRaw = readValueAsString(r).trimAscii()
-                                        case "raw" =>
-                                            if (textOrRaw.size == 0) { textOrRaw = readValueAsString(r).trimAscii() } else { r.skip() }
-                                        case _ =>
-                                            r.skip()
-                                    }
-                                }
-                                r.endObject()
-                                return textOrRaw
-                            case Some(_) =>
-                                return readValueAsString(r).trimAscii()
-                            case None =>
-                                return ""
-                        }
-                    }
-
                     func parseEntryObject(r: JsonReader): Unit {
-                        var tag = ""
-                        var lang = ""
-                        var text = ""
-                        var intro = ""
+                        var namespace = ""
+                        var name = ""
+                        var translationsJson = "{}"
                         var links = ""
 
                         r.startObject()
                         while (r.peek() != EndObject) {
-                            let name = r.readName()
-                            match (name) {
-                                case "tag" => tag = readValueAsString(r).trimAscii()
-                                case "lang" => lang = readValueAsString(r).trimAscii()
-                                case "text" => text = readValueAsString(r)
-                                case "intro" => intro = readValueAsString(r)
+                            let fieldName = r.readName()
+                            match (fieldName) {
+                                case "namespace" => namespace = readValueAsString(r).trimAscii()
+                                case "name" => name = readValueAsString(r).trimAscii()
+                                case "translations" =>
+                                    // Read translations as JSON string
+                                    translationsJson = readValueAsString(r)
                                 case "links" => links = readValueAsString(r)
                                 case _ => r.skip()
                             }
                         }
                         r.endObject()
 
-                        addEntryAndUpsert(tag, lang, text, intro, links)
+                        addTag(namespace, name, translationsJson, links)
                     }
 
-                    func parseEntriesArray(r: JsonReader): Unit {
+                    func parseTagsArray(r: JsonReader): Unit {
                         r.startArray()
                         while (r.peek() != EndArray) {
                             match (r.peek()) {
@@ -153,108 +130,41 @@ public class TagI18nImportTaskRunner {
                         r.endArray()
                     }
 
-                    func parseLangValue(tag: String, lang: String, r: JsonReader): Unit {
-                        match (r.peek()) {
-                            case Some(BeginObject) =>
-                                // 支持 {text,intro,links} 或 {name,intro,links}；text/name 字段支持 {text/raw} 嵌套对象
-                                var text = ""
-                                var intro = ""
-                                var links = ""
-                                r.startObject()
-                                while (r.peek() != EndObject) {
-                                    let name = r.readName()
-                                    match (name) {
-                                        case "text" =>
-                                            text = readTextOrRaw(r)
-                                        case "name" =>
-                                            if (text.size == 0) { text = readTextOrRaw(r) } else { r.skip() }
-                                        case "intro" =>
-                                            intro = readTextOrRaw(r)
-                                        case "links" =>
-                                            links = readTextOrRaw(r)
-                                        case _ =>
-                                            r.skip()
-                                    }
-                                }
-                                r.endObject()
-                                addEntryAndUpsert(tag, lang, text, intro, links)
-                            case Some(JsonString) =>
-                                addEntryAndUpsert(tag, lang, r.readValue<String>(), "", "")
-                            case Some(_) =>
-                                addEntryAndUpsert(tag, lang, readValueAsString(r), "", "")
-                            case None =>
-                                ()
-                        }
-                    }
-
-                    func parseTagMapObject(r: JsonReader): Unit {
-                        r.startObject()
-                        while (r.peek() != EndObject) {
-                            let tag = r.readName()
-                            match (r.peek()) {
-                                case Some(BeginObject) =>
-                                    r.startObject()
-                                    while (r.peek() != EndObject) {
-                                        let lang = r.readName()
-                                        parseLangValue(tag, lang, r)
-                                    }
-                                    r.endObject()
-                                case Some(JsonString) =>
-                                    // 兜底：如果只有字符串，则默认当作 zh
-                                    addEntryAndUpsert(tag, "zh", r.readValue<String>(), "", "")
-                                case Some(_) =>
-                                    r.skip()
-                                case None =>
-                                    break
-                            }
-                        }
-                        r.endObject()
-                    }
-
                     func parseRoot(reader: JsonReader): Unit {
                         var parsedAny = false
                         while (let Some(tok) <- reader.peek()) {
                             match (tok) {
                                 case BeginArray =>
-                                    parseEntriesArray(reader)
+                                    // Direct array of tags
+                                    parseTagsArray(reader)
                                     parsedAny = true
                                     break
                                 case BeginObject =>
-                                    // root object: 优先处理 {"entries": [...]} / {"map": {...}}，跳过其他元数据字段
+                                    // Root object: expect {"tags": [...]} format
                                     reader.startObject()
                                     if (reader.peek() == EndObject) {
                                         reader.endObject()
                                         break
                                     }
 
-                                    // 寻找 "map" 或 "entries" 键，跳过其他元数据字段（如 generated_at, source, head）
-                                    var foundMap = false
-                                    var foundEntries = false
+                                    var foundTags = false
                                     while (reader.peek() != EndObject && !parsedAny) {
                                         let name = reader.readName()
-                                        if (name == "map" && !foundMap) {
-                                            foundMap = true
-                                            match (reader.peek()) {
-                                                case Some(BeginObject) =>
-                                                    parseTagMapObject(reader)
-                                                    parsedAny = true
-                                                case Some(_) =>
-                                                    reader.skip()
-                                                case None => ()
-                                            }
-                                        } else if (name == "entries" && !foundEntries) {
-                                            foundEntries = true
-                                            match (reader.peek()) {
-                                                case Some(BeginArray) =>
-                                                    parseEntriesArray(reader)
-                                                    parsedAny = true
-                                                case Some(_) =>
-                                                    reader.skip()
-                                                case None => ()
-                                            }
-                                        } else {
-                                            // 跳过不需要的字段（如 generated_at, source, head 等）
-                                            reader.skip()
+                                        match (name) {
+                                            case "tags" =>
+                                                // New simplified format: {"tags": [...]}
+                                                foundTags = true
+                                                match (reader.peek()) {
+                                                    case Some(BeginArray) =>
+                                                        parseTagsArray(reader)
+                                                        parsedAny = true
+                                                    case Some(_) =>
+                                                        reader.skip()
+                                                    case None => ()
+                                                }
+                                            case _ =>
+                                                // Skip other metadata fields
+                                                reader.skip()
                                         }
                                     }
                                     reader.endObject()

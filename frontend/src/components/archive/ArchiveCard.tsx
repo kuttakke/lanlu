@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
-import { TagI18nService } from '@/lib/tag-i18n-service';
+import { TagService } from '@/lib/tag-service';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
@@ -55,7 +55,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
 
     (async () => {
       try {
-        const map = await TagI18nService.getMap(language, archive.arcid);
+        const map = await TagService.getTranslations(language, archive.arcid);
         if (!cancelled) {
           setTagI18nMap(map || {});
         }

@@ -9,7 +9,7 @@ import lrr4cj.routes.api.minion.*
 import lrr4cj.routes.api.tankoubons.*
 import lrr4cj.routes.api.shinobu.*
 import lrr4cj.routes.api.auth.*
-import lrr4cj.routes.api.tag_i18n.*
+import lrr4cj.routes.api.tags.*
 import lrr4cj.routes.api.user.*
 import lrr4cj.routes.api.smart_filters.*
 import lrr4cj.controllers.*
@@ -42,8 +42,8 @@ public func registerApiRoutes(router: JoyRouters) {
     // 注册认证/用户token相关路由
     registerAuthRoutes(router)
 
-    // 注册Tag i18n路由
-    registerTagI18nRoutes(router)
+    // 注册标签路由
+    registerTagRoutes(router)
 
     // 注册智能分类路由
     registerSmartFilterRoutes(router)

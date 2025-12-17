@@ -24,7 +24,7 @@ const baseSections: SettingsSection[] = [
   { id: 'users', href: '/settings/users', icon: Users, titleKey: 'settings.users', requiresAdmin: true },
   { id: 'plugins', href: '/settings/plugins', icon: Package, titleKey: 'settings.plugins', requiresAdmin: true },
   { id: 'tasks', href: '/settings/tasks', icon: ListTodo, titleKey: 'settings.tasks', requiresAdmin: true },
-  { id: 'tag-i18n', href: '/settings/tag-i18n', icon: Tag, titleKey: 'settings.tagI18n', requiresAdmin: true },
+  { id: 'tags', href: '/settings/tags', icon: Tag, titleKey: 'settings.tags', requiresAdmin: true },
   { id: 'smart-filters', href: '/settings/smart-filters', icon: Filter, titleKey: 'settings.smartFilters', requiresAdmin: true },
 ];
 
