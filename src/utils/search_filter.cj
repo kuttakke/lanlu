@@ -60,43 +60,81 @@ public class SearchFilter {
 
     /**
      * 分词，支持引号短语
+     * 使用基于引号位置的分词策略，正确处理 Unicode 字符（包括 CJK 字符）
      */
     private static func tokenize(input: String): ArrayList<String> {
         let tokens = ArrayList<String>()
-        var current = ""
-        var inQuotes = false
 
-        for (i in 0..input.size) {
-            let ch = input[i..i+1]
-
-            if (ch == "\"") {
-                if (inQuotes) {
-                    // 结束引号
-                    current += ch
-                    tokens.add(current)
-                    current = ""
-                    inQuotes = false
-                } else {
-                    // 开始引号
-                    if (current.size > 0) {
-                        tokens.add(current)
-                        current = ""
-                    }
-                    current = "\""
-                    inQuotes = true
+        // 检查是否包含引号
+        if (!input.contains("\"")) {
+            // 没有引号，直接按空格分词
+            let parts = input.split(" ", removeEmpty: true)
+            for (part in parts) {
+                let trimmed = part.trimAscii()
+                if (trimmed.size > 0) {
+                    tokens.add(trimmed)
                 }
-            } else if (ch == " " && !inQuotes) {
-                if (current.size > 0) {
-                    tokens.add(current)
-                    current = ""
-                }
-            } else {
-                current += ch
             }
+            return tokens
         }
 
-        if (current.size > 0) {
-            tokens.add(current)
+        // 包含引号，需要特殊处理
+        // 策略：找到所有引号对，提取引号内的内容，然后处理剩余部分
+        var remaining = input
+        var quoteStartOpt = remaining.indexOf("\"")
+
+        while (true) {
+            let quoteStart: Int64 = match (quoteStartOpt) {
+                case Some(idx) => idx
+                case None => break
+            }
+
+            // 处理引号前的内容
+            if (quoteStart > 0) {
+                let before = remaining[0..quoteStart]
+                let beforeParts = before.split(" ", removeEmpty: true)
+                for (part in beforeParts) {
+                    let trimmed = part.trimAscii()
+                    if (trimmed.size > 0) {
+                        tokens.add(trimmed)
+                    }
+                }
+            }
+
+            // 找到配对的结束引号
+            let afterQuote = remaining[quoteStart + 1..]
+            let quoteEndOpt = afterQuote.indexOf("\"")
+
+            match (quoteEndOpt) {
+                case Some(quoteEnd) =>
+                    // 找到配对引号，提取引号内容（包含引号）
+                    let quoted = "\"" + afterQuote[0..quoteEnd] + "\""
+                    tokens.add(quoted)
+                    remaining = afterQuote[quoteEnd + 1..]
+                case None =>
+                    // 没有配对引号，将剩余内容作为普通词处理
+                    let restParts = afterQuote.split(" ", removeEmpty: true)
+                    for (part in restParts) {
+                        let trimmed = part.trimAscii()
+                        if (trimmed.size > 0) {
+                            tokens.add(trimmed)
+                        }
+                    }
+                    return tokens
+            }
+
+            quoteStartOpt = remaining.indexOf("\"")
+        }
+
+        // 处理最后剩余的内容
+        if (remaining.size > 0) {
+            let restParts = remaining.split(" ", removeEmpty: true)
+            for (part in restParts) {
+                let trimmed = part.trimAscii()
+                if (trimmed.size > 0) {
+                    tokens.add(trimmed)
+                }
+            }
         }
 
         return tokens
