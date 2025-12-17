@@ -403,20 +403,20 @@ public class UserFavoriteDao {
                         countStmt.close()
                     }
 
-                    // 获取分页数据，使用子查询获取 arcid 列表，然后关联视图
+                    // 获取分页数据，使用标准 JOIN 获取用户特定数据
                     let stmt = conn.prepareStatement("""
                         SELECT awt.arcid, awt.filename, awt.title, awt.summary, awt.thumbhash,
                                awt.created_at, awt.updated_at, awt.relative_path, awt.file_size,
-                               awt.pagecount, awt.last_read_time, awt.progress, awt.tags
+                               awt.pagecount,
+                               COALESCE(uas.updated_at, '1970-01-01 00:00:00') as last_read_time,
+                               COALESCE(uas.progress, 0) as progress, awt.tags
                         FROM archives_with_tags awt
-                        WHERE awt.arcid IN (
-                            SELECT a.arcid
-                            FROM user_favorites uf
-                            INNER JOIN archives a ON uf.archive_id = a.id
-                            WHERE uf.user_id = ?
-                            ORDER BY uf.created_at DESC
-                            LIMIT ? OFFSET ?
-                        )
+                        INNER JOIN archives a ON awt.arcid = a.arcid
+                        INNER JOIN user_favorites uf ON a.id = uf.archive_id
+                        LEFT JOIN user_archive_status uas ON a.id = uas.archive_id AND uas.user_id = uf.user_id
+                        WHERE uf.user_id = ?
+                        ORDER BY uf.created_at DESC
+                        LIMIT ? OFFSET ?
                     """)
                     try {
                         stmt.set(0, userId)

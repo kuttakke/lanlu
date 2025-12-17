@@ -15,6 +15,21 @@ import std.convert.*
 import std.database.sql.*
 
 public class ArchiveController {
+    /**
+     * JSON字符串转义函数
+     */
+    private static func escapeJson(s: String): String {
+        var escaped = s
+        escaped = escaped.replace("\\", "\\\\")
+        escaped = escaped.replace("\"", "\\\"")
+        escaped = escaped.replace("\b", "\\b")
+        escaped = escaped.replace("\f", "\\f")
+        escaped = escaped.replace("\n", "\\n")
+        escaped = escaped.replace("\r", "\\r")
+        escaped = escaped.replace("\t", "\\t")
+        return escaped
+    }
+
     // GET /api/archives
     public static func getArchives(ctx: JoyContext): Unit {
         // 从数据库获取档案列表
@@ -110,23 +125,23 @@ public class ArchiveController {
         var isNew = true  // 默认为新
         var isFavorite = false  // 默认未收藏
         var userProgress: Int32 = 0  // 用户特定阅读进度，默认为0
+        var lastreadtime: Int64 = 0  // 最后阅读时间，默认为0
         match (AuthMiddleware.optionalUser(ctx)) {
             case Some(userId) =>
                 if (archiveIdInt > 0) {
                     isNew = UserArchiveStatusDao.isNew(userId, archiveIdInt)
                     isFavorite = UserFavoriteDao.isFavorite(userId, archiveIdInt)
                     userProgress = UserArchiveStatusDao.getProgress(userId, archiveIdInt)
+                    // 获取最后阅读时间
+                    lastreadtime = UserArchiveStatusDao.getLastReadTime(userId, archiveIdInt)
                 }
             case None =>
                 // 未登录用户，默认为新且未收藏，进度为0
                 isNew = true
                 isFavorite = false
                 userProgress = 0
+                lastreadtime = 0
         }
-
-        // lastreadtime 现在从 user_archive_status 表获取
-        // 如果用户已登录且有阅读记录，返回 updated_at 时间戳；否则返回 0
-        let lastreadtime: Int64 = 0  // 暂时返回 0，后续可以从 user_archive_status.updated_at 获取
 
         // 手动构建JSON响应，符合API文档规范
         var metadataJson = "{"
@@ -987,6 +1002,9 @@ public class ArchiveController {
                 // 构建JSON响应
                 var archivesJson = "["
                 for (i in 0..archives.size) {
+                    if (i >= archives.size) {
+                        break
+                    }
                     if (i > 0) {
                         archivesJson += ","
                     }
@@ -1001,20 +1019,20 @@ public class ArchiveController {
                     }
 
                     archivesJson += "{"
-                    archivesJson += "\"arcid\":\"${archive.id}\","
-                    archivesJson += "\"title\":\"${archive.title}\","
-                    archivesJson += "\"filename\":\"${archive.filename}\","
-                    archivesJson += "\"summary\":\"${archive.summary}\","
-                    archivesJson += "\"thumbhash\":\"${archive.thumbhash}\","
-                    archivesJson += "\"tags\":\"${archive.tags}\","
+                    archivesJson += "\"arcid\":\"${escapeJson(archive.id)}\","
+                    archivesJson += "\"title\":\"${escapeJson(archive.title)}\","
+                    archivesJson += "\"filename\":\"${escapeJson(archive.filename)}\","
+                    archivesJson += "\"summary\":\"${escapeJson(archive.summary)}\","
+                    archivesJson += "\"thumbhash\":\"${escapeJson(archive.thumbhash)}\","
+                    archivesJson += "\"tags\":\"${escapeJson(archive.tags)}\","
                     archivesJson += "\"isnew\":${isNew},"
                     archivesJson += "\"isfavorite\":true,"
                     archivesJson += "\"pagecount\":${archive.pagecount},"
                     archivesJson += "\"progress\":${archive.progress},"
                     archivesJson += "\"file_size\":${archive.file_size},"
-                    archivesJson += "\"created_at\":\"${archive.created_at}\","
-                    archivesJson += "\"updated_at\":\"${archive.updated_at}\","
-                    archivesJson += "\"last_read_time\":\"${archive.last_read_time}\""
+                    archivesJson += "\"created_at\":\"${escapeJson(archive.created_at)}\","
+                    archivesJson += "\"updated_at\":\"${escapeJson(archive.updated_at)}\","
+                    archivesJson += "\"last_read_time\":\"${escapeJson(archive.last_read_time)}\""
                     archivesJson += "}"
                 }
                 archivesJson += "]"
@@ -1053,6 +1071,9 @@ public class ArchiveController {
                 // 构建JSON响应
                 var archivesJson = "["
                 for (i in 0..archives.size) {
+                    if (i >= archives.size) {
+                        break
+                    }
                     if (i > 0) {
                         archivesJson += ","
                     }
@@ -1067,20 +1088,20 @@ public class ArchiveController {
                     }
 
                     archivesJson += "{"
-                    archivesJson += "\"arcid\":\"${archive.id}\","
-                    archivesJson += "\"title\":\"${archive.title}\","
-                    archivesJson += "\"filename\":\"${archive.filename}\","
-                    archivesJson += "\"summary\":\"${archive.summary}\","
-                    archivesJson += "\"thumbhash\":\"${archive.thumbhash}\","
-                    archivesJson += "\"tags\":\"${archive.tags}\","
+                    archivesJson += "\"arcid\":\"${escapeJson(archive.id)}\","
+                    archivesJson += "\"title\":\"${escapeJson(archive.title)}\","
+                    archivesJson += "\"filename\":\"${escapeJson(archive.filename)}\","
+                    archivesJson += "\"summary\":\"${escapeJson(archive.summary)}\","
+                    archivesJson += "\"thumbhash\":\"${escapeJson(archive.thumbhash)}\","
+                    archivesJson += "\"tags\":\"${escapeJson(archive.tags)}\","
                     archivesJson += "\"isnew\":false,"
                     archivesJson += "\"isfavorite\":${isFavorite},"
                     archivesJson += "\"pagecount\":${archive.pagecount},"
                     archivesJson += "\"progress\":${archive.progress},"
                     archivesJson += "\"file_size\":${archive.file_size},"
-                    archivesJson += "\"created_at\":\"${archive.created_at}\","
-                    archivesJson += "\"updated_at\":\"${archive.updated_at}\","
-                    archivesJson += "\"last_read_time\":\"${archive.last_read_time}\""
+                    archivesJson += "\"created_at\":\"${escapeJson(archive.created_at)}\","
+                    archivesJson += "\"updated_at\":\"${escapeJson(archive.updated_at)}\","
+                    archivesJson += "\"last_read_time\":\"${escapeJson(archive.last_read_time)}\""
                     archivesJson += "}"
                 }
                 archivesJson += "]"

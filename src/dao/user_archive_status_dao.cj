@@ -3,6 +3,7 @@ package lrr4cj.dao
 import std.database.sql.*
 import stdx.log.*
 import std.collection.*
+import std.time.*
 import lrr4cj.config.*
 import lrr4cj.utils.*
 
@@ -181,6 +182,29 @@ public class UserArchiveStatusDao {
                     try { conn.close() } catch (_: Exception) {}
                 }
             case None => return None
+        }
+    }
+
+    /**
+     * 获取用户对特定归档的最后阅读时间
+     * @param userId 用户ID
+     * @param archiveId 归档ID
+     * @return 最后阅读时间的Unix时间戳，如果没有记录返回 0
+     */
+    public static func getLastReadTime(userId: Int64, archiveId: Int64): Int64 {
+        match (getStatus(userId, archiveId)) {
+            case Some(row) =>
+                // 将 updatedAt 字符串转换为 Unix 时间戳
+                if (row.updatedAt.size > 0) {
+                    try {
+                        let dt = DateTime.parse(row.updatedAt)
+                        return dt.toUnixTimeStamp().toSeconds()
+                    } catch (_: Exception) {
+                        return 0
+                    }
+                }
+                return 0
+            case None => return 0
         }
     }
 
@@ -369,16 +393,15 @@ public class UserArchiveStatusDao {
                         countStmt.close()
                     }
 
-                    // 获取分页数据，使用子查询获取 arcid 列表，然后关联视图
+                    // 获取分页数据，使用标准 JOIN 获取用户特定数据
                     let stmt = conn.prepareStatement("""
                         SELECT awt.arcid, awt.filename, awt.title, awt.summary, awt.thumbhash,
                                awt.created_at, awt.updated_at, awt.relative_path, awt.file_size,
-                               awt.pagecount, awt.last_read_time,
+                               awt.pagecount, uas.updated_at as last_read_time,
                                COALESCE(uas.progress, 0) as progress, awt.tags
                         FROM archives_with_tags awt
-                        INNER JOIN user_archive_status uas ON awt.arcid = (
-                            SELECT arcid FROM archives WHERE id = uas.archive_id
-                        )
+                        INNER JOIN archives a ON awt.arcid = a.arcid
+                        INNER JOIN user_archive_status uas ON a.id = uas.archive_id
                         WHERE uas.user_id = ? AND uas.is_new = false
                         ORDER BY uas.updated_at DESC
                         LIMIT ? OFFSET ?
