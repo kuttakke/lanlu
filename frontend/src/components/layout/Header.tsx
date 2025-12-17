@@ -11,6 +11,7 @@ import { Menu, X, Home, Heart, Shuffle, Settings, ArrowLeft, LogIn } from 'lucid
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function Header() {
   const { t } = useLanguage();
@@ -18,6 +19,7 @@ export function Header() {
   const [randomLoading, setRandomLoading] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { token } = useAuth();
   const showBackButton = pathname !== '/';
 
   const handleBack = () => {
@@ -153,16 +155,17 @@ export function Header() {
           </div>
         </div>
 
-        {/* 搜索栏 - 移动端显示 */}
-        <div className="md:hidden mt-3">
-          <SearchBar />
-        </div>
       </div>
 
       {/* 移动端导航菜单 */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border bg-background">
           <nav className="container mx-auto px-0.5 py-2">
+            {/* 搜索栏 - 移动端菜单内显示 */}
+            <div className="mb-3">
+              <SearchBar />
+            </div>
+
             {mobileNavigation.map((item) => {
               const Icon = item.icon;
               if (item.action) {
@@ -191,7 +194,7 @@ export function Header() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors ${
+                  className={`flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors w-full justify-start ${
                     pathname === item.href
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -204,18 +207,20 @@ export function Header() {
               );
             })}
             <div className="flex items-center justify-center space-x-2 px-3 py-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  router.push('/login');
-                  setMobileMenuOpen(false);
-                }}
-                className="flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-              >
-                <LogIn className="h-5 w-5" />
-                <span>{t('auth.login')}</span>
-              </Button>
+              {!token && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    router.push('/login');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+                >
+                  <LogIn className="h-5 w-5" />
+                  <span>{t('auth.login')}</span>
+                </Button>
+              )}
               <ThemeButton />
               <LanguageButton />
             </div>
