@@ -751,7 +751,14 @@ function ReaderContent() {
     setReadingMode(prev => {
       const modes: ReadingMode[] = ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'];
       const currentIndex = modes.indexOf(prev);
-      return modes[(currentIndex + 1) % modes.length];
+      const newMode = modes[(currentIndex + 1) % modes.length];
+      
+      // 如果切换到条漫模式，自动关闭双页模式
+      if (newMode === 'webtoon' && doublePageMode) {
+        setDoublePageMode(false);
+      }
+      
+      return newMode;
     });
     resetTransform();
   };
@@ -843,25 +850,63 @@ function ReaderContent() {
     if (autoPlayMode && pages.length > 0) {
       // 设置定时器
       intervalId = setInterval(() => {
-        // 检查是否到达最后一页
-        if (doublePageMode) {
-          // 双页模式：检查是否到达最后两页
-          if (currentPage >= pages.length - (splitCoverMode && currentPage === 0 ? 1 : 2)) {
-            // 到达最后一页，停止自动翻页
-            setAutoPlayMode(false);
-            return;
+        if (readingMode === 'webtoon') {
+          // 条漫模式：自动滚动
+          if (webtoonContainerRef.current) {
+            const container = webtoonContainerRef.current;
+            const currentScrollTop = container.scrollTop;
+            const containerHeight = container.clientHeight;
+            const scrollHeight = container.scrollHeight;
+            
+            // 检查是否到达底部
+            if (currentScrollTop + containerHeight >= scrollHeight - 10) {
+              // 到达底部，停止自动翻页
+              setAutoPlayMode(false);
+              return;
+            }
+            
+            // 计算下一张图片的位置
+            let accumulatedHeight = 0;
+            let nextImagePosition = 0;
+            
+            for (let i = 0; i < imageHeights.length; i++) {
+              const imageHeight = imageHeights[i] || containerHeight;
+              accumulatedHeight += imageHeight;
+              
+              // 找到当前可见图片的下一张图片位置
+              if (accumulatedHeight > currentScrollTop + containerHeight * 0.3) {
+                nextImagePosition = accumulatedHeight - imageHeight;
+                break;
+              }
+            }
+            
+            // 滚动到下一张图片
+            container.scrollTo({
+              top: nextImagePosition + containerHeight * 0.7,
+              behavior: 'smooth'
+            });
           }
         } else {
-          // 单页模式：检查是否到达最后一页
-          if (currentPage >= pages.length - 1) {
-            // 到达最后一页，停止自动翻页
-            setAutoPlayMode(false);
-            return;
+          // 单页/双页模式：检查是否到达最后一页
+          if (doublePageMode) {
+            // 双页模式：检查是否到达最后两页
+            if (currentPage >= pages.length - (splitCoverMode && currentPage === 0 ? 1 : 2)) {
+              // 到达最后一页，停止自动翻页
+              setAutoPlayMode(false);
+              return;
+            }
+          } else {
+            // 单页模式：检查是否到达最后一页
+            if (currentPage >= pages.length - 1) {
+              // 到达最后一页，停止自动翻页
+              setAutoPlayMode(false);
+              return;
+            }
           }
+          
+          // 执行翻页
+          handleNextPage();
         }
-        
-        // 执行翻页
-        handleNextPage();
       }, autoPlayInterval * 1000); // 转换为毫秒
     }
     
@@ -871,7 +916,7 @@ function ReaderContent() {
         clearInterval(intervalId);
       }
     };
-  }, [autoPlayMode, autoPlayInterval, currentPage, pages.length, doublePageMode, splitCoverMode, handleNextPage]);
+  }, [autoPlayMode, autoPlayInterval, currentPage, pages.length, doublePageMode, splitCoverMode, handleNextPage, readingMode, imageHeights]);
 
   // 处理拆分封面模式切换时的页面调整
   useEffect(() => {
@@ -1182,6 +1227,7 @@ function ReaderContent() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setDoublePageMode(!doublePageMode)}
+                  disabled={readingMode === 'webtoon'}
                   className={`
                     flex flex-col items-center justify-center h-16 w-16
                     rounded-lg border transition-all duration-200
@@ -1189,6 +1235,7 @@ function ReaderContent() {
                       ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
                       : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
                     }
+                    ${readingMode === 'webtoon' ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
                   title="双页拼合"
                 >
