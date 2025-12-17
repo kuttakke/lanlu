@@ -6,11 +6,12 @@ import { Pagination } from '@/components/ui/pagination';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Header } from '@/components/layout/Header';
 import { SearchSidebar } from '@/components/layout/SearchSidebar';
 import { ArchiveService } from '@/lib/archive-service';
 import { appEvents, AppEvents } from '@/lib/events';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Filter } from 'lucide-react';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -33,6 +34,7 @@ function HomePageContent() {
   const [newonly, setNewonly] = useState(false);
   const [untaggedonly, setUntaggedonly] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const pageSize = 20;
 
   // 读取URL参数
@@ -157,6 +159,8 @@ function HomePageContent() {
     if (typeof params.newonly === 'boolean') setNewonly(params.newonly);
     if (typeof params.untaggedonly === 'boolean') setUntaggedonly(params.untaggedonly);
     setCurrentPage(0);
+    // 移动端：应用筛选后自动关闭对话框
+    setFilterDialogOpen(false);
   };
 
   const handlePageChange = (page: number) => {
@@ -228,8 +232,20 @@ function HomePageContent() {
                 </h2>
 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="text-sm text-muted-foreground">
-                    {t('home.archivesCount').replace('{count}', String(totalRecords)).replace('{page}', String(currentPage + 1)).replace('{totalPages}', String(totalPages))}
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      {t('home.archivesCount').replace('{count}', String(totalRecords)).replace('{page}', String(currentPage + 1)).replace('{totalPages}', String(totalPages))}
+                    </div>
+                    {/* 移动端筛选按钮 */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="lg:hidden ml-auto"
+                      onClick={() => setFilterDialogOpen(true)}
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      筛选
+                    </Button>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -269,6 +285,18 @@ function HomePageContent() {
                 </div>
               </div>
             </div>
+
+            {/* 筛选对话框 */}
+            <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
+              <DialogContent className="max-w-[90vw] w-full max-h-[90vh] overflow-y-auto p-0">
+                <DialogHeader className="px-4 py-3 border-b">
+                  <DialogTitle>高级筛选</DialogTitle>
+                </DialogHeader>
+                <div className="w-full">
+                  <SearchSidebar onSearch={handleSearch} loading={loading} />
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {loading ? (
               <div className="text-center py-12">
