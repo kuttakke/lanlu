@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tag, Plus, Search, Download, Upload, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Tag, Plus, Search, Download, Upload, Edit2, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TagService } from '@/lib/tag-service';
@@ -125,7 +125,7 @@ export default function TagsSettingsPage() {
     try {
       const ns = await TagService.listNamespaces();
       setNamespaces(ns);
-    } catch (e) {
+    } catch {
       // Silent fail for namespaces
     }
   };
