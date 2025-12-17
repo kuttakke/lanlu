@@ -7,6 +7,8 @@ import { ArchiveService } from '@/lib/archive-service';
 import { ThemeToggle, ThemeButton } from '@/components/theme/theme-toggle';
 import { LanguageButton } from '@/components/language/LanguageToggle';
 import { UserMenu } from '@/components/user/UserMenu';
+import { SettingsNav } from '@/components/settings/SettingsNav';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Menu, X, Home, Heart, Shuffle, Settings, ArrowLeft, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -21,6 +23,7 @@ export function Header() {
   const router = useRouter();
   const { token } = useAuth();
   const showBackButton = pathname !== '/';
+  const isSettingsPage = pathname?.startsWith('/settings');
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -71,9 +74,9 @@ export function Header() {
               variant="ghost"
               size="sm"
               className="md:hidden"
-              onClick={toggleMobileMenu}
+              onClick={() => setMobileMenuOpen(true)}
             >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <Menu className="h-5 w-5" />
             </Button>
 
             {showBackButton && (
@@ -157,76 +160,99 @@ export function Header() {
 
       </div>
 
-      {/* 移动端导航菜单 */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-background">
-          <nav className="container mx-auto px-0.5 py-2">
-            {/* 搜索栏 - 移动端菜单内显示 */}
-            <div className="mb-3">
-              <SearchBar />
-            </div>
+      {/* 移动端导航抽屉 */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-[280px]">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              {isSettingsPage ? (
+                <>
+                  <Settings className="w-5 h-5" />
+                  {t('settings.title')}
+                </>
+              ) : (
+                <>
+                  <Menu className="w-5 h-5" />
+                  {t('common.menu')}
+                </>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 flex flex-col gap-4">
+            {/* 搜索栏 */}
+            <SearchBar />
 
-            {mobileNavigation.map((item) => {
-              const Icon = item.icon;
-              if (item.action) {
+            {/* 在settings页面时显示SettingsNav */}
+            {isSettingsPage && (
+              <div className="pb-3 border-b border-border">
+                <SettingsNav onNavigate={() => setMobileMenuOpen(false)} />
+              </div>
+            )}
+
+            {/* 通用导航 */}
+            <nav className="flex flex-col gap-1">
+              {mobileNavigation.map((item) => {
+                const Icon = item.icon;
+                if (item.action) {
+                  return (
+                    <Button
+                      key={item.name}
+                      variant="ghost"
+                      onClick={() => {
+                        item.action();
+                        setMobileMenuOpen(false);
+                      }}
+                      disabled={randomLoading}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors justify-start ${
+                        randomLoading
+                          ? 'text-muted-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 ${randomLoading ? 'animate-spin' : ''}`} />
+                      <span>{item.name}</span>
+                    </Button>
+                  );
+                }
                 return (
-                  <Button
+                  <Link
                     key={item.name}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      item.action();
-                      setMobileMenuOpen(false);
-                    }}
-                    disabled={randomLoading}
-                    className={`flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors w-full justify-start ${
-                      randomLoading
-                        ? 'text-muted-foreground'
+                    href={item.href}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      pathname === item.href
+                        ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
+                    onClick={() => setMobileMenuOpen(false)}
                   >
-                    <Icon className={`h-5 w-5 ${randomLoading ? 'animate-spin' : ''}`} />
+                    <Icon className="h-4 w-4" />
                     <span>{item.name}</span>
-                  </Button>
+                  </Link>
                 );
-              }
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors w-full justify-start ${
-                    pathname === item.href
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
-            <div className="flex items-center justify-center space-x-2 px-3 py-3">
+              })}
               {!token && (
                 <Button
                   variant="ghost"
-                  size="sm"
                   onClick={() => {
                     router.push('/login');
                     setMobileMenuOpen(false);
                   }}
-                  className="flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
                 >
-                  <LogIn className="h-5 w-5" />
+                  <LogIn className="h-4 w-4" />
                   <span>{t('auth.login')}</span>
                 </Button>
               )}
+            </nav>
+
+            {/* 底部工具栏 */}
+            <div className="flex items-center gap-2 pt-3 border-t border-border">
               <ThemeButton />
               <LanguageButton />
             </div>
-          </nav>
-        </div>
-      )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </header>
   );
 }

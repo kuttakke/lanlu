@@ -45,7 +45,8 @@
     "selectDate": "Select date",
     "required": "Required",
     "actions": "Actions",
-    "accessDenied": "Access denied, administrator privileges required"
+    "accessDenied": "Access denied, administrator privileges required",
+    "menu": "Menu"
   },
   "navigation": {
     "home": "Home",

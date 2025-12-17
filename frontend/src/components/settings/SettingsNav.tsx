@@ -28,7 +28,11 @@ const baseSections: SettingsSection[] = [
   { id: 'smart-filters', href: '/settings/smart-filters', icon: Filter, titleKey: 'settings.smartFilters', requiresAdmin: true },
 ];
 
-export function SettingsNav() {
+interface SettingsNavProps {
+  onNavigate?: () => void;
+}
+
+export function SettingsNav({ onNavigate }: SettingsNavProps) {
   const pathname = usePathname() ?? '';
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
@@ -45,7 +49,7 @@ export function SettingsNav() {
   });
 
   return (
-    <nav className="flex md:flex-col gap-2 md:gap-1">
+    <nav className="flex flex-col gap-1">
       {sections.map((item) => {
         const Icon = item.icon;
         const isActive =
@@ -57,6 +61,7 @@ export function SettingsNav() {
           <Link
             key={item.id}
             href={item.href}
+            onClick={onNavigate}
             className={cn(
               'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
               isActive

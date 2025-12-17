@@ -89,10 +89,10 @@ export function HomeArchiveCard({ archive, onFavoriteChange }: HomeArchiveCardPr
   };
   
   return (
-    <div className="flex-shrink-0 w-40">
+    <div className="w-full">
       {/* 单个档案卡片 */}
-      <div 
-        className="group bg-card rounded-lg border shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+      <div
+        className="group bg-card rounded-lg border shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer w-full"
         title={hoverTitleParts.length > 0 ? `${archive.title}\n${hoverTitleParts.join('\n')}` : archive.title}
         onClick={() => {
           window.location.href = `/reader?id=${archive.arcid}`;
@@ -162,9 +162,9 @@ export function HomeArchiveCard({ archive, onFavoriteChange }: HomeArchiveCardPr
             {archive.pagecount} {t('home.pages')}
           </div>
           <div className="flex gap-1">
-            <Button 
-              asChild 
-              size="sm" 
+            <Button
+              asChild
+              size="sm"
               className="flex-1 text-xs h-7"
               onClick={(e) => {
                 e.stopPropagation();
@@ -174,9 +174,9 @@ export function HomeArchiveCard({ archive, onFavoriteChange }: HomeArchiveCardPr
                 {t('common.details')}
               </Link>
             </Button>
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <Button
+              size="sm"
+              variant="outline"
               className={`px-2 h-7 ${isFavorite ? 'text-red-500 border-red-500' : ''}`}
               title={isFavorite ? t('common.unfavorite') : t('common.favorite')}
               disabled={favoriteLoading}
