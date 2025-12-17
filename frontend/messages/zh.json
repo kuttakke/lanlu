@@ -75,7 +75,7 @@
     "read": "阅读"
   },
   "search": {
-    "title": "搜索结果",
+    "title": "搜索档案",
     "placeholder": "搜索归档...",
     "keyword": "关键词",
     "keywordPlaceholder": "输入搜索关键词...",
@@ -98,7 +98,11 @@
     "endDate": "结束日期",
     "searchConditions": "搜索条件",
     "quickFilter": "快速筛选",
+    "smartCategory": "智能分类",
+    "newOnly": "仅显示新档案",
+    "untaggedOnly": "仅显示无标签档案",
     "unreadArchives": "未读档案",
+    "untaggedArchives": "无标签档案",
     "lastWeek": "最近一周",
     "favorites": "收藏内容",
     "searchKeyword": "搜索关键词: {keyword}",

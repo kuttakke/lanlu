@@ -59,6 +59,12 @@ public class SearchController {
         let sortby = ctx.getQuery("sortby") ?? "title"
         let order = ctx.getQuery("order") ?? "asc"
 
+        // 处理过滤参数
+        let newOnlyStr = ctx.getQuery("newonly") ?? "false"
+        let untaggedOnlyStr = ctx.getQuery("untaggedonly") ?? "false"
+        let newOnly = newOnlyStr == "true" || newOnlyStr == "1"
+        let untaggedOnly = untaggedOnlyStr == "true" || untaggedOnlyStr == "1"
+
         // 解析分页参数
         let start = try {
             Int32.parse(startStr)
@@ -71,29 +77,31 @@ public class SearchController {
             20i32
         }
 
-        let (archives, totalCount) = ArchiveModel.searchArchives(filter, category, Int32(start), Int32(count), sortby, order)
-
-        // 获取用户ID（可选）
+        // 获取用户ID（用于 newOnly 过滤）
         let userIdOpt = AuthMiddleware.optionalUser(ctx)
+        let userId: Int64 = match (userIdOpt) {
+            case Some(id) => id
+            case None => 0
+        }
+
+        let (archives, totalCount) = ArchiveModel.searchArchives(filter, category, Int32(start), Int32(count), sortby, order, newOnly, untaggedOnly, userId)
 
         // 批量获取用户的 isNew 状态和收藏状态
         var isNewMap = HashMap<Int64, Bool>()
         var isFavoriteMap = HashMap<Int64, Bool>()
-        match (userIdOpt) {
-            case Some(userId) =>
-                // 收集所有归档的内部ID
-                var archiveIds = ArrayList<Int64>()
-                for (archive in archives) {
-                    let internalId = getArchiveInternalId(archive.id)
-                    if (internalId > 0) {
-                        archiveIds.add(internalId)
-                    }
+        if (userId > 0) {
+            // 收集所有归档的内部ID
+            var archiveIds = ArrayList<Int64>()
+            for (archive in archives) {
+                let internalId = getArchiveInternalId(archive.id)
+                if (internalId > 0) {
+                    archiveIds.add(internalId)
                 }
-                if (archiveIds.size > 0) {
-                    isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
-                    isFavoriteMap = UserFavoriteDao.getBatchFavoriteStatus(userId, archiveIds.toArray())
-                }
-            case None => ()
+            }
+            if (archiveIds.size > 0) {
+                isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
+                isFavoriteMap = UserFavoriteDao.getBatchFavoriteStatus(userId, archiveIds.toArray())
+            }
         }
 
         // 手动构建JSON数组，按照API文档要求的格式
@@ -126,9 +134,9 @@ public class SearchController {
             archivesJson = archivesJson + "\"filename\":\"${archive.filename}\","
             archivesJson = archivesJson + "\"isnew\":${isNew},"
             archivesJson = archivesJson + "\"isfavorite\":${isFavorite},"
-            archivesJson = archivesJson + "\"lastreadtime\":${archive.lastreadtime()},"
+            archivesJson = archivesJson + "\"lastreadtime\":0,"  // lastreadtime 现在从 user_archive_status 获取，暂时返回 0
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
-            archivesJson = archivesJson + "\"progress\":${archive.progress},"
+            archivesJson = archivesJson + "\"progress\":0,"  // progress 现在从 user_archive_status 获取，暂时返回 0
             archivesJson = archivesJson + "\"size\":${archive.size()},"
             archivesJson = archivesJson + "\"summary\":\"${archive.summary}\","
             archivesJson = archivesJson + "\"tags\":\"${archive.tags}\","
@@ -216,9 +224,9 @@ public class SearchController {
             archivesJson = archivesJson + "\"filename\":\"${archive.filename}\","
             archivesJson = archivesJson + "\"isnew\":${isNew},"
             archivesJson = archivesJson + "\"isfavorite\":${isFavorite},"
-            archivesJson = archivesJson + "\"lastreadtime\":${archive.lastreadtime()},"
+            archivesJson = archivesJson + "\"lastreadtime\":0,"  // lastreadtime 现在从 user_archive_status 获取，暂时返回 0
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
-            archivesJson = archivesJson + "\"progress\":${archive.progress},"
+            archivesJson = archivesJson + "\"progress\":0,"  // progress 现在从 user_archive_status 获取，暂时返回 0
             archivesJson = archivesJson + "\"size\":${archive.size()},"
             archivesJson = archivesJson + "\"summary\":\"${archive.summary}\","
             archivesJson = archivesJson + "\"tags\":\"${archive.tags}\","

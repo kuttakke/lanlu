@@ -14,8 +14,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams?.get('q') ?? '';
+  const sortby = searchParams?.get('sortby') ?? 'title';
+  const order = searchParams?.get('order') ?? 'asc';
+  const newonly = searchParams?.get('newonly') === 'true';
+  const untaggedonly = searchParams?.get('untaggedonly') === 'true';
   const { t } = useLanguage();
-  
+
   const [archives, setArchives] = useState<Archive[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -28,7 +32,11 @@ function SearchContent() {
       const result = await ArchiveService.search({
         filter: query,
         start: pageNum * 20,
-        count: 20
+        count: 20,
+        sortby,
+        order,
+        newonly: newonly || undefined,
+        untaggedonly: untaggedonly || undefined
       });
       
       if (pageNum === 0) {
@@ -51,13 +59,14 @@ function SearchContent() {
   };
 
   // 使用 useCallback 包装 performSearch 以避免依赖问题
-  const handleSearch = useCallback(performSearch, [query, t]);
+  const handleSearch = useCallback(performSearch, [query, sortby, order, newonly, untaggedonly, t]);
 
   useEffect(() => {
-    if (query) {
+    // 当有搜索条件时执行搜索（query 或过滤条件）
+    if (query || newonly || untaggedonly) {
       handleSearch(0);
     }
-  }, [query, handleSearch]);
+  }, [query, sortby, order, newonly, untaggedonly, handleSearch]);
 
   const loadMore = () => {
     if (!loading && hasMore) {

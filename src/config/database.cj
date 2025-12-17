@@ -365,9 +365,7 @@ public class DatabaseConfig {
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         relative_path TEXT DEFAULT '',
                         file_size BIGINT DEFAULT 0,
-                        pagecount INTEGER DEFAULT 0,
-                        last_read_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        progress INTEGER DEFAULT 0
+                        pagecount INTEGER DEFAULT 0
                     )
                 """)
                 logger.info("archives表创建成功")
@@ -383,9 +381,7 @@ public class DatabaseConfig {
                     ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
                     ("relative_path", "TEXT DEFAULT ''"),
                     ("file_size", "BIGINT DEFAULT 0"),
-                    ("pagecount", "INTEGER DEFAULT 0"),
-                    ("last_read_time", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
-                    ("progress", "INTEGER DEFAULT 0")
+                    ("pagecount", "INTEGER DEFAULT 0")
                 ]
 
                 for ((column, definition) in columnsToAdd) {
@@ -403,6 +399,28 @@ public class DatabaseConfig {
                         logger.info("archives表的isnew列已成功移除")
                     } catch (e: Exception) {
                         logger.warn("移除archives表的isnew列失败: ${e.toString()}")
+                    }
+                }
+
+                // 移除旧的 last_read_time 列（如果存在）- 数据已迁移到 user_archive_status
+                if (columnExists(conn, "archives", "last_read_time")) {
+                    logger.info("archives表存在旧的last_read_time列，准备移除（数据已迁移到user_archive_status）")
+                    try {
+                        execUpdate(conn, "ALTER TABLE archives DROP COLUMN last_read_time")
+                        logger.info("archives表的last_read_time列已成功移除")
+                    } catch (e: Exception) {
+                        logger.warn("移除archives表的last_read_time列失败: ${e.toString()}")
+                    }
+                }
+
+                // 移除旧的 progress 列（如果存在）- 数据已迁移到 user_archive_status
+                if (columnExists(conn, "archives", "progress")) {
+                    logger.info("archives表存在旧的progress列，准备移除（数据已迁移到user_archive_status）")
+                    try {
+                        execUpdate(conn, "ALTER TABLE archives DROP COLUMN progress")
+                        logger.info("archives表的progress列已成功移除")
+                    } catch (e: Exception) {
+                        logger.warn("移除archives表的progress列失败: ${e.toString()}")
                     }
                 }
 
@@ -777,8 +795,6 @@ public class DatabaseConfig {
                     a.relative_path,
                     a.file_size,
                     a.pagecount,
-                    a.last_read_time,
-                    a.progress,
                     COALESCE(string_agg(t.name, ',' ORDER BY t.name), '') AS tags
                 FROM archives a
                 LEFT JOIN archive_tags atg ON atg.archive_id = a.id
@@ -786,7 +802,7 @@ public class DatabaseConfig {
                 GROUP BY
                     a.arcid, a.filename, a.title, a.summary, a.thumbhash,
                     a.created_at, a.updated_at, a.relative_path, a.file_size,
-                    a.pagecount, a.last_read_time, a.progress
+                    a.pagecount
             """)
 
             logger.info("归档/标签相关表与视图初始化完成")

@@ -40,9 +40,7 @@ public class ArchiveController {
             archivesJson += "\"relative_path\":\"${archive.relative_path}\","
             archivesJson += "\"file_size\":${archive.file_size},"
             archivesJson += "\"isnew\":${archive.isNew},"  // 返回布尔值
-            archivesJson += "\"pagecount\":${archive.pagecount},"
-            archivesJson += "\"last_read_time\":\"${archive.last_read_time}\","
-            archivesJson += "\"progress\":${archive.progress}"
+            archivesJson += "\"pagecount\":${archive.pagecount}"
             archivesJson += "}"
         }
         
@@ -77,9 +75,7 @@ public class ArchiveController {
         archiveJson += "\"relative_path\":\"${archive.relative_path}\","
         archiveJson += "\"file_size\":${archive.file_size},"
         archiveJson += "\"isnew\":${archive.isNew},"
-        archiveJson += "\"pagecount\":${archive.pagecount},"
-        archiveJson += "\"last_read_time\":\"${archive.last_read_time}\","
-        archiveJson += "\"progress\":${archive.progress}"
+        archiveJson += "\"pagecount\":${archive.pagecount}"
         archiveJson += "}"
         
         let result = "{\"operation\":\"get_archive\",\"data\":" + archiveJson + ",\"success\":1}"
@@ -128,19 +124,9 @@ public class ArchiveController {
                 userProgress = 0
         }
 
-        // 转换 last_read_time 为时间戳
-        let lastreadtime = try {
-            // 如果 last_read_time 不为空，尝试解析为时间戳
-            if (archive.last_read_time.size > 0) {
-                // 简化处理，直接返回当前时间戳
-                // 实际应该解析时间字符串并转换为时间戳
-                Int64.parse(archive.last_read_time)
-            } else {
-                Int64(0)
-            }
-        } catch (e: Exception) {
-            Int64(0)
-        }
+        // lastreadtime 现在从 user_archive_status 表获取
+        // 如果用户已登录且有阅读记录，返回 updated_at 时间戳；否则返回 0
+        let lastreadtime: Int64 = 0  // 暂时返回 0，后续可以从 user_archive_status.updated_at 获取
 
         // 手动构建JSON响应，符合API文档规范
         var metadataJson = "{"

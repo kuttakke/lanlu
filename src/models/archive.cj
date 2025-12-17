@@ -23,12 +23,14 @@ public class Archive {
     public var relative_path: String = ""
     public var file_size: Int64 = 0
     public var pagecount: Int32 = 0
-    public var last_read_time: String = ""
-    public var progress: Int32 = 0
     public var tags: String = ""
     // isNew 字段已移除 - 现在使用 UserArchiveStatusDao 来管理用户级别的已读状态
     public var isNew: Bool = false  // 保留用于向后兼容，但不再从数据库读取
-    
+    // last_read_time 和 progress 不再存储在 archives 表中，而是从 user_archive_status 表获取
+    // 这些字段仅用于 API 响应，由 UserArchiveStatusDao 填充
+    public var last_read_time: String = ""
+    public var progress: Int32 = 0
+
     /**
      * 获取文件扩展名
      */
@@ -41,31 +43,19 @@ public class Archive {
         }
         return ""
     }
-    
+
     /**
      * 获取文件扩展名（别名，与API文档一致）
      */
     public func extension(): String {
         return getExtension()
     }
-    
+
     /**
      * 获取文件大小
      */
     public func size(): Int64 {
         return file_size
-    }
-    
-    /**
-     * 将last_read_time转换为时间戳
-     */
-    public func lastreadtime(): Int64 {
-        if (last_read_time.size > 0) {
-            // 这里需要根据实际情况转换时间格式
-            // 暂时返回0，因为archives_with_tags视图没有这个字段
-            return 0
-        }
-        return 0
     }
 }
 
@@ -83,7 +73,7 @@ public class ArchiveModel {
                 var archives: ArrayList<Archive> = ArrayList<Archive>()
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress FROM archives ORDER BY id")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives ORDER BY id")
                     let rs = stmt.query()
 
                     while (rs.next()) {
@@ -97,10 +87,7 @@ public class ArchiveModel {
                         archive.updated_at = rs.getOrNull<String>(6) ?? ""
                         archive.relative_path = rs.getOrNull<String>(7) ?? ""
                         archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                        // archive.isNew 不再从数据库读取，保持默认值 false
                         archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                        archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                        archive.progress = rs.getOrNull<Int32>(11) ?? 0
                         archives.add(archive)
                     }
 
@@ -132,10 +119,7 @@ public class ArchiveModel {
         archive.updated_at = archiveData.updated_at
         archive.relative_path = archiveData.relative_path
         archive.file_size = archiveData.file_size
-        // archive.isNew 不再从数据库读取，保持默认值 false
         archive.pagecount = archiveData.pagecount
-        archive.last_read_time = archiveData.last_read_time
-        archive.progress = archiveData.progress
         archive.tags = archiveData.tags
         return archive
     }
@@ -168,27 +152,32 @@ public class ArchiveModel {
             archive.updated_at = data.updated_at
             archive.relative_path = data.relative_path
             archive.file_size = data.file_size
-            // archive.isNew 不再从数据库读取，保持默认值 false
             archive.pagecount = data.pagecount
-            archive.last_read_time = data.last_read_time
-            archive.progress = data.progress
             archive.tags = data.tags
             archives.add(archive)
         }
-        
+
         println("返回${archives.size}条记录，总记录数: ${totalCount}")
         return (archives.toArray(), totalCount)
     }
-    
+
     /**
      * 搜索归档（带过滤条件）
      */
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool): (Array<Archive>, Int64) {
-        println("开始搜索归档，参数: filter='${filter}', category='${category}', start=${start}, count=${count}, sortby='${sortby}', order='${order}', newOnly=${newOnly}, untaggedOnly=${untaggedOnly}")
-        
+        // 调用带 userId 的版本，userId=0 表示不进行用户级别的 newOnly 过滤
+        return searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, 0)
+    }
+
+    /**
+     * 搜索归档（带过滤条件和用户ID，支持用户级别的 newOnly 过滤）
+     */
+    public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, userId: Int64): (Array<Archive>, Int64) {
+        println("开始搜索归档，参数: filter='${filter}', category='${category}', start=${start}, count=${count}, sortby='${sortby}', order='${order}', newOnly=${newOnly}, untaggedOnly=${untaggedOnly}, userId=${userId}")
+
         // 使用DAO层获取数据
-        let (archiveDataArray, totalCount) = ArchiveDao.searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly)
-        
+        let (archiveDataArray, totalCount) = ArchiveDao.searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, userId)
+
         var archives: ArrayList<Archive> = ArrayList<Archive>()
         for (data in archiveDataArray) {
             let archive = Archive()
@@ -201,14 +190,11 @@ public class ArchiveModel {
             archive.updated_at = data.updated_at
             archive.relative_path = data.relative_path
             archive.file_size = data.file_size
-            // archive.isNew 不再从数据库读取，保持默认值 false
             archive.pagecount = data.pagecount
-            archive.last_read_time = data.last_read_time
-            archive.progress = data.progress
             archive.tags = data.tags
             archives.add(archive)
         }
-        
+
         println("返回${archives.size}条记录，总记录数: ${totalCount}")
         return (archives.toArray(), totalCount)
     }

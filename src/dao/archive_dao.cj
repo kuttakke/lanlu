@@ -3,6 +3,7 @@ package lrr4cj.dao
 import std.database.sql.*
 import lrr4cj.config.*
 import lrr4cj.utils.*
+import lrr4cj.utils.SearchFilter
 import std.collection.*
 import std.time.*
 import stdx.log.*
@@ -23,9 +24,11 @@ public class ArchiveData {
     public var relative_path: String = ""
     public var file_size: Int64 = 0
     public var pagecount: Int32 = 0
+    public var tags: String = ""
+    // last_read_time 和 progress 不再存储在 archives 表中，而是从 user_archive_status 表获取
+    // 这些字段仅用于 API 响应，由 UserArchiveStatusDao 填充
     public var last_read_time: String = ""
     public var progress: Int32 = 0
-    public var tags: String = ""
     
     /**
      * 获取文件扩展名
@@ -64,7 +67,7 @@ public class ArchiveDao {
                 var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress FROM archives ORDER BY id")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives ORDER BY id")
                     try {
                         let rs = stmt.query()
                         try {
@@ -80,8 +83,6 @@ public class ArchiveDao {
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
                                 archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 archives.add(archive)
                             }
                         } finally {
@@ -112,7 +113,7 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress FROM archives WHERE arcid = ?")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives WHERE arcid = ?")
                     try {
                         stmt.set(0, id)
                         let rs = stmt.query()
@@ -129,8 +130,6 @@ public class ArchiveDao {
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
                                 archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 return archive
                             }
                         } finally {
@@ -189,6 +188,11 @@ public class ArchiveDao {
     }
     
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool): (Array<ArchiveData>, Int64) {
+        // 调用带 userId 的版本，userId=0 表示不进行用户级别的 newOnly 过滤
+        return searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, 0)
+    }
+
+    public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, userId: Int64): (Array<ArchiveData>, Int64) {
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -208,16 +212,95 @@ public class ArchiveDao {
                 var countSql = "SELECT COUNT(*) FROM archives_with_tags"
                 var whereConditions: ArrayList<String> = ArrayList<String>()
                 
-                if (filter.size > 0) {
-                    whereConditions.add("(title LIKE ? OR filename LIKE ? OR tags LIKE ? OR summary LIKE ?)")
+                // 解析搜索过滤器
+                let searchResult = SearchFilter.parse(filter)
+                var filterParams: ArrayList<String> = ArrayList<String>()
+
+                // 处理普通搜索词（支持通配符）
+                if (searchResult.terms.size > 0) {
+                    var termConditions: ArrayList<String> = ArrayList<String>()
+                    for (term in searchResult.terms) {
+                        let pattern = SearchFilter.toLikePattern(term)
+                        termConditions.add("(title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')")
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                    }
+                    if (termConditions.size > 0) {
+                        var combined = ""
+                        for (i in 0..termConditions.size) {
+                            if (i > 0) {
+                                combined += " OR "
+                            }
+                            combined += termConditions[i]
+                        }
+                        whereConditions.add("(" + combined + ")")
+                    }
+                }
+
+                // 处理精确短语（引号内的内容）
+                if (searchResult.exactTerms.size > 0) {
+                    for (phrase in searchResult.exactTerms) {
+                        let pattern = SearchFilter.toLikePattern(phrase)
+                        whereConditions.add("(title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')")
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                    }
+                }
+
+                // 处理排除词
+                if (searchResult.excludeTerms.size > 0) {
+                    for (excludeTerm in searchResult.excludeTerms) {
+                        let pattern = SearchFilter.toLikePattern(excludeTerm)
+                        whereConditions.add("NOT (title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')")
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                        filterParams.add(pattern)
+                    }
+                }
+
+                // 处理精确标签
+                if (searchResult.exactTagTerms.size > 0) {
+                    for (tagTerm in searchResult.exactTagTerms) {
+                        // 精确标签匹配：标签必须完全匹配（不区分大小写）
+                        // 标签格式可能是 "namespace:name" 或 "name"
+                        whereConditions.add("(LOWER(tags) LIKE LOWER(?) ESCAPE '\\' OR LOWER(tags) LIKE LOWER(?) ESCAPE '\\')")
+                        // 匹配 "namespace:name," 或 ", namespace:name" 或开头/结尾
+                        filterParams.add("%, " + tagTerm + ",%")
+                        filterParams.add(tagTerm + ",%")
+                    }
+                }
+
+                // 处理排除的精确标签
+                if (searchResult.exactTagExcludeTerms.size > 0) {
+                    for (tagTerm in searchResult.exactTagExcludeTerms) {
+                        whereConditions.add("NOT (LOWER(tags) LIKE LOWER(?) ESCAPE '\\' OR LOWER(tags) LIKE LOWER(?) ESCAPE '\\')")
+                        filterParams.add("%, " + tagTerm + ",%")
+                        filterParams.add(tagTerm + ",%")
+                    }
                 }
                 
-                // newOnly 过滤已移除 - 现在使用用户级别的已读状态
-                // 如需支持 newOnly，请在调用层使用 UserArchiveStatusDao
-                if (newOnly) {
-                    // 忽略 newOnly 参数，因为已读状态现在是用户级别的
+                // newOnly 过滤 - 使用用户级别的已读状态
+                // 当 newOnly=true 且 userId > 0 时，排除用户已读的归档
+                if (newOnly && userId > 0) {
+                    // 排除用户已读的归档（is_new = false 的记录）
+                    // 使用子查询：排除在 user_archive_status 表中 is_new = false 的归档
+                    whereConditions.add("NOT EXISTS (SELECT 1 FROM user_archive_status uas JOIN archives a ON a.id = uas.archive_id WHERE a.arcid = archives_with_tags.arcid AND uas.user_id = ${userId} AND uas.is_new = false)")
                 }
-                
+
+                // 按 lastread 排序时，移除从未阅读的记录
+                // 根据 API 文档："If you sort by lastread, IDs that have never been read will be removed from the search."
+                // 使用 user_archive_status 表判断用户是否阅读过（is_new = false 表示已读）
+                // 注意：未登录用户会被重定向到登录页，所以这里只处理已登录用户
+                if ((sortby == "lastread" || sortby == "lastreadtime") && userId > 0) {
+                    // 只显示用户已读的档案（在 user_archive_status 表中有记录且 is_new = false）
+                    whereConditions.add("EXISTS (SELECT 1 FROM user_archive_status uas JOIN archives a ON a.id = uas.archive_id WHERE a.arcid = archives_with_tags.arcid AND uas.user_id = ${userId} AND uas.is_new = false)")
+                }
+
                 // 添加无标签过滤条件
                 if (untaggedOnly) {
                     whereConditions.add("(tags IS NULL OR tags = '')")
@@ -238,12 +321,10 @@ public class ArchiveDao {
                 getLogger("archive_dao").debug("执行计数SQL", ("sql", countSql))
                 let countStmt = conn.prepareStatement(countSql)
                 var totalCount = 0
-                
-                if (filter.size > 0) {
-                    countStmt.set<String>(0, "%${filter}%")
-                    countStmt.set<String>(1, "%${filter}%")
-                    countStmt.set<String>(2, "%${filter}%")
-                    countStmt.set<String>(3, "%${filter}%")
+
+                // 绑定搜索过滤器参数
+                for (i in 0..filterParams.size) {
+                    countStmt.set<String>(i, filterParams[i])
                 }
                 
                 let countRs = countStmt.query()
@@ -260,7 +341,7 @@ public class ArchiveDao {
                 }
                 
                 // 然后查询分页数据，使用archives_with_tags视图获取标签信息
-                var sql = "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress, tags FROM archives_with_tags"
+                var sql = "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, tags FROM archives_with_tags"
                 
                 // 使用相同的 WHERE 条件
                 if (whereConditions.size > 0) {
@@ -283,9 +364,10 @@ public class ArchiveDao {
                 } else if (sortby == "title") {
                     let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }
                     sql += " ORDER BY title ${orderDirection}"
-                } else if (sortby == "lastread" || sortby == "lastreadtime") {
+                } else if ((sortby == "lastread" || sortby == "lastreadtime") && userId > 0) {
+                    // 按用户最后阅读时间排序，使用 user_archive_status.updated_at
                     let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }
-                    sql += " ORDER BY last_read_time ${orderDirection}"
+                    sql += " ORDER BY (SELECT uas.updated_at FROM user_archive_status uas JOIN archives a ON a.id = uas.archive_id WHERE a.arcid = archives_with_tags.arcid AND uas.user_id = ${userId}) ${orderDirection}"
                 } else if (sortby == "date_added") {
                     let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }
                     sql += " ORDER BY created_at ${orderDirection}"
@@ -301,19 +383,20 @@ public class ArchiveDao {
                     sql += " ORDER BY title ${orderDirection}"
                 }
                 
-                sql += " LIMIT ${count} OFFSET ${start}"
+                // start=-1 时不添加 LIMIT/OFFSET，返回全部数据
+                if (start >= 0) {
+                    sql += " LIMIT ${count} OFFSET ${start}"
+                }
                 
                 // 打印SQL语句用于调试
                 getLogger("archive_dao").debug("执行数据SQL", ("sql", sql))
                 getLogger("archive_dao").debug("SQL参数", ("filter", filter), ("start", start.toString()), ("count", count.toString()))
                 
                 let stmt = conn.prepareStatement(sql)
-                
-                if (filter.size > 0) {
-                    stmt.set<String>(0, "%${filter}%")
-                    stmt.set<String>(1, "%${filter}%")
-                    stmt.set<String>(2, "%${filter}%")
-                    stmt.set<String>(3, "%${filter}%")
+
+                // 绑定搜索过滤器参数
+                for (i in 0..filterParams.size) {
+                    stmt.set<String>(i, filterParams[i])
                 }
                 
                 let rs = stmt.query()
@@ -333,9 +416,7 @@ public class ArchiveDao {
                             archive.relative_path = rs.getOrNull<String>(7) ?? ""
                             archive.file_size = rs.getOrNull<Int64>(8) ?? 0
                             archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                            archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                            archive.progress = rs.getOrNull<Int32>(11) ?? 0
-                            archive.tags = rs.getOrNull<String>(12) ?? ""
+                            archive.tags = rs.getOrNull<String>(10) ?? ""
                             archives.add(archive)
                         } catch (e: Exception) {
                             getLogger("archive_dao").error("读取字段时出错", ("error", e.message))
@@ -371,7 +452,7 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "INSERT INTO archives (arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, last_read_time, progress) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                        "INSERT INTO archives (arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                     try {
                         stmt.set(0, archive.id)
                         stmt.set(1, archive.title)
@@ -383,8 +464,6 @@ public class ArchiveDao {
                         stmt.set(7, archive.relative_path)
                         stmt.set(8, archive.file_size)
                         stmt.set(9, archive.pagecount)
-                        stmt.set(10, archive.last_read_time)
-                        stmt.set(11, archive.progress)
                         stmt.update()
                         return true  // 简化实现，假设更新成功
                     } finally {
@@ -411,7 +490,7 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     // 使用数据库的默认值来处理时间戳，避免格式问题
-                    let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, pagecount, last_read_time, progress) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, pagecount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 
                     let stmt = conn.prepareStatement(sql)
                     try {
@@ -423,8 +502,6 @@ public class ArchiveDao {
                         stmt.set(5, filePath)  // relative_path
                         stmt.set(6, fileSize)
                         stmt.set(7, 0)  // pagecount
-                        stmt.set(8, DateTime.now())  // last_read_time
-                        stmt.set(9, 0)  // progress
                         stmt.update()
                     } finally {
                         stmt.close()
@@ -452,7 +529,7 @@ public class ArchiveDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "UPDATE archives SET title = ?, filename = ?, summary = ?, thumbhash = ?, updated_at = ?, relative_path = ?, file_size = ?, pagecount = ?, last_read_time = ?, progress = ? WHERE arcid = ?")
+                        "UPDATE archives SET title = ?, filename = ?, summary = ?, thumbhash = ?, updated_at = ?, relative_path = ?, file_size = ?, pagecount = ? WHERE arcid = ?")
                     try {
                         stmt.set(0, archive.title)
                         stmt.set(1, archive.filename)
@@ -462,9 +539,7 @@ public class ArchiveDao {
                         stmt.set(5, archive.relative_path)
                         stmt.set(6, archive.file_size)
                         stmt.set(7, archive.pagecount)
-                        stmt.set(8, archive.last_read_time)
-                        stmt.set(9, archive.progress)
-                        stmt.set(10, archive.id)
+                        stmt.set(8, archive.id)
                         stmt.update()
                         return true
                     } finally {
@@ -637,7 +712,7 @@ public class ArchiveDao {
                 try {
                     var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
                     let stmt = conn.prepareStatement(
-                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress FROM archives WHERE thumbhash = '' OR thumbhash IS NULL ORDER BY id")
+                        "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives WHERE thumbhash = '' OR thumbhash IS NULL ORDER BY id")
                     try {
                         let rs = stmt.query()
                         try {
@@ -652,10 +727,7 @@ public class ArchiveDao {
                                 archive.updated_at = rs.getOrNull<String>(6) ?? ""
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                                // archive.isNew 已移除
                                 archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 archives.add(archive)
                             }
                         } finally {
@@ -713,10 +785,10 @@ public class ArchiveDao {
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) => try {
-                let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress FROM archives WHERE relative_path = ?")
+                let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives WHERE relative_path = ?")
                 stmt.set(0, filePath)
                 let rs = stmt.query()
-                
+
                 if (rs.next()) {
                     let archive = ArchiveData()
                     archive.id = rs.getOrNull<String>(0) ?? ""
@@ -728,11 +800,8 @@ public class ArchiveDao {
                     archive.updated_at = rs.getOrNull<String>(6) ?? ""
                     archive.relative_path = rs.getOrNull<String>(7) ?? ""
                     archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                    // archive.isNew 已移除
                     archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                    archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                    archive.progress = rs.getOrNull<Int32>(11) ?? 0
-                    
+
                     conn.close()
                     return Some(archive)
                 } else {
@@ -758,7 +827,7 @@ public class ArchiveDao {
         match (connOpt) {
             case Some(conn) =>
                 try {
-                    let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress FROM archives WHERE relative_path = ? AND filename = ?")
+                    let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives WHERE relative_path = ? AND filename = ?")
                     try {
                         stmt.set(0, relativePath)
                         stmt.set(1, filename)
@@ -775,10 +844,7 @@ public class ArchiveDao {
                                 archive.updated_at = rs.getOrNull<String>(6) ?? ""
                                 archive.relative_path = rs.getOrNull<String>(7) ?? ""
                                 archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                                // archive.isNew 已移除
                                 archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                                archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                                archive.progress = rs.getOrNull<Int32>(11) ?? 0
                                 return Some(archive)
                             }
                             return None
@@ -844,7 +910,7 @@ public class ArchiveDao {
             case Some(conn) => try {
                 // 使用 archives_with_tags 视图获取包含标签的数据
                 let stmt = conn.prepareStatement(
-                    "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size,  pagecount, last_read_time, progress, tags FROM archives_with_tags WHERE arcid = ?")
+                    "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, tags FROM archives_with_tags WHERE arcid = ?")
                 stmt.set(0, id)
                 let rs = stmt.query()
 
@@ -859,11 +925,8 @@ public class ArchiveDao {
                     archive.updated_at = rs.getOrNull<String>(6) ?? ""
                     archive.relative_path = rs.getOrNull<String>(7) ?? ""
                     archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                    // archive.isNew 已移除
                     archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                    archive.last_read_time = rs.getOrNull<String>(10) ?? ""
-                    archive.progress = rs.getOrNull<Int32>(11) ?? 0
-                    archive.tags = rs.getOrNull<String>(12) ?? ""
+                    archive.tags = rs.getOrNull<String>(10) ?? ""
                     
                     // 关闭查询的资源
                     rs.close()

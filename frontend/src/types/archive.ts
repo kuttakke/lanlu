@@ -27,6 +27,8 @@ export interface SearchParams {
   count?: number;
   sortby?: string;
   order?: string;
+  newonly?: boolean;
+  untaggedonly?: boolean;
 }
 
 export interface RandomParams {

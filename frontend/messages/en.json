@@ -74,7 +74,7 @@
     "read": "Read"
   },
   "search": {
-    "title": "Search Results",
+    "title": "Search Archives",
     "placeholder": "Search archives...",
     "keyword": "Keyword",
     "keywordPlaceholder": "Enter search keyword...",
@@ -93,7 +93,11 @@
     "endDate": "End Date",
     "searchConditions": "Search Conditions",
     "quickFilter": "Quick Filter",
+    "smartCategory": "Smart Category",
+    "newOnly": "New Archives Only",
+    "untaggedOnly": "Untagged Archives Only",
     "unreadArchives": "Unread Archives",
+    "untaggedArchives": "Untagged Archives",
     "lastWeek": "Last Week",
     "favorites": "Favorites",
     "searchKeyword": "Search keyword: {keyword}",
