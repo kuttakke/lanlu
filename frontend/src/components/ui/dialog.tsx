@@ -18,7 +18,7 @@ const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
             className="fixed inset-0 bg-black/50"
             onClick={() => onOpenChange?.(false)}
           />
-          <div className="relative z-50 w-full max-w-4xl max-h-[90vh] rounded-lg border bg-background shadow-lg overflow-hidden">
+          <div className="relative z-50 w-full max-w-lg max-h-[90vh] rounded-lg border bg-background shadow-lg overflow-hidden">
             {children}
           </div>
         </div>
@@ -31,7 +31,7 @@ const DialogHeader: React.FC<{ className?: string; children: React.ReactNode }> 
   className, 
   children 
 }) => (
-  <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)}>
+  <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left px-6 pt-6", className)}>
     {children}
   </div>
 )
@@ -58,7 +58,7 @@ const DialogContent: React.FC<{ className?: string; children: React.ReactNode }>
   className, 
   children 
 }) => (
-  <div className={cn("grid gap-4 py-4", className)}>
+  <div className={cn("grid gap-4 py-4 px-6", className)}>
     {children}
   </div>
 )
@@ -67,7 +67,7 @@ const DialogFooter: React.FC<{ className?: string; children: React.ReactNode }> 
   className, 
   children 
 }) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)}>
+  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 px-6 pb-6", className)}>
     {children}
   </div>
 )

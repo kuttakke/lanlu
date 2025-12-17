@@ -415,8 +415,8 @@ export default function SmartFiltersPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <div className="space-y-4 pt-2 pb-4">
+        <DialogContent>
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t('settings.smartFilterName')} (中文)</label>
