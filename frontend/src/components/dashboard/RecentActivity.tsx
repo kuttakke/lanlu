@@ -67,7 +67,7 @@ function RecentActivitySection({ title, icon, archives, loading = false, emptyMe
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{archive.title}</p>
+                  <p className="text-sm font-medium leading-tight break-words">{archive.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {archive.pagecount} 页
                     {archive.progress > 0 && ` · 已读 ${archive.progress} 页`}
@@ -96,21 +96,23 @@ export function RecentActivity({ recentRead, recentFavorites, loading = false }:
   const { t } = useLanguage();
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <RecentActivitySection
-        title={t('dashboard.recentRead')}
-        icon={<BookOpen className="w-5 h-5" />}
-        archives={recentRead}
-        loading={loading}
-        emptyMessage={t('dashboard.noRecentRead')}
-      />
-      <RecentActivitySection
-        title={t('dashboard.recentFavorites')}
-        icon={<Heart className="w-5 h-5" />}
-        archives={recentFavorites}
-        loading={loading}
-        emptyMessage={t('dashboard.noRecentFavorites')}
-      />
+    <div className="w-full max-w-full overflow-hidden">
+      <div className="grid gap-4 md:grid-cols-2">
+        <RecentActivitySection
+          title={t('dashboard.recentRead')}
+          icon={<BookOpen className="w-5 h-5" />}
+          archives={recentRead}
+          loading={loading}
+          emptyMessage={t('dashboard.noRecentRead')}
+        />
+        <RecentActivitySection
+          title={t('dashboard.recentFavorites')}
+          icon={<Heart className="w-5 h-5" />}
+          archives={recentFavorites}
+          loading={loading}
+          emptyMessage={t('dashboard.noRecentFavorites')}
+        />
+      </div>
     </div>
   );
 }
