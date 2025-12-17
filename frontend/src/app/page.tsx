@@ -32,6 +32,7 @@ function HomePageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [newonly, setNewonly] = useState(false);
   const [untaggedonly, setUntaggedonly] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const pageSize = 20;
 
   // 读取URL参数
@@ -88,10 +89,15 @@ function HomePageContent() {
     if (urlSortOrder) setSortOrder(urlSortOrder);
     setNewonly(urlNewonly);
     setUntaggedonly(urlUntaggedonly);
+
+    // 标记为已初始化，避免在初始化期间同步URL
+    setIsInitialized(true);
   }, [urlQuery, urlSortBy, urlSortOrder, urlNewonly, urlUntaggedonly]);
 
-  // 同步状态到URL
+  // 同步状态到URL（仅在初始化完成后执行）
   useEffect(() => {
+    if (!isInitialized) return;
+
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
     if (sortBy !== 'date_added') params.set('sortby', sortBy);
@@ -102,15 +108,16 @@ function HomePageContent() {
     const queryString = params.toString();
     const newUrl = queryString ? `/?${queryString}` : '/';
     router.replace(newUrl);
-  }, [searchQuery, sortBy, sortOrder, newonly, untaggedonly, router]);
+  }, [searchQuery, sortBy, sortOrder, newonly, untaggedonly, router, isInitialized]);
 
   useEffect(() => {
     // 只在客户端执行数据获取，避免静态生成时的API调用
-    if (typeof window !== 'undefined') {
+    // 确保只在初始化完成后才获取数据，避免使用未同步的初始状态
+    if (typeof window !== 'undefined' && isInitialized) {
       fetchArchives(currentPage);
       fetchRandomArchives();
     }
-  }, [currentPage, fetchArchives, fetchRandomArchives, sortBy, sortOrder, newonly, untaggedonly]);
+  }, [currentPage, fetchArchives, fetchRandomArchives, sortBy, sortOrder, newonly, untaggedonly, isInitialized]);
 
   // 监听上传完成事件，刷新首页数据
   useEffect(() => {
