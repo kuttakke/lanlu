@@ -30,8 +30,6 @@ function HomePageContent() {
   const [sortBy, setSortBy] = useState('date_added');
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchTags, setSearchTags] = useState<string[]>([]);
-  const [searchCategory, setSearchCategory] = useState('');
   const [newonly, setNewonly] = useState(false);
   const [untaggedonly, setUntaggedonly] = useState(false);
   const pageSize = 20;
@@ -54,8 +52,6 @@ function HomePageContent() {
       };
 
       if (searchQuery) params.filter = searchQuery;
-      if (searchTags.length > 0) params.tag = searchTags.join(',');
-      if (searchCategory) params.category = searchCategory;
       if (newonly) params.newonly = true;
       if (untaggedonly) params.untaggedonly = true;
 
@@ -70,7 +66,7 @@ function HomePageContent() {
     } finally {
       setLoading(false);
     }
-  }, [pageSize, sortBy, sortOrder, searchQuery, searchTags, searchCategory, newonly, untaggedonly]);
+  }, [pageSize, sortBy, sortOrder, searchQuery, newonly, untaggedonly]);
 
   const fetchRandomArchives = useCallback(async () => {
     try {
@@ -141,8 +137,6 @@ function HomePageContent() {
 
   const handleSearch = (params: {
     query?: string;
-    tags?: string[];
-    category?: string;
     sortBy?: string;
     sortOrder?: string;
     dateFrom?: string;
@@ -151,8 +145,6 @@ function HomePageContent() {
     untaggedonly?: boolean;
   }) => {
     setSearchQuery(params.query || '');
-    setSearchTags(params.tags || []);
-    setSearchCategory(params.category || '');
     if (params.sortBy) setSortBy(params.sortBy);
     if (params.sortOrder) setSortOrder(params.sortOrder);
     if (typeof params.newonly === 'boolean') setNewonly(params.newonly);
@@ -165,7 +157,7 @@ function HomePageContent() {
   };
 
   // 搜索模式检测
-  const isSearchMode = searchQuery || searchTags.length > 0 || searchCategory;
+  const isSearchMode = searchQuery;
 
   return (
     <div className="min-h-screen bg-background">
@@ -225,7 +217,7 @@ function HomePageContent() {
               {/* PC端：标题、档案数量和排序控件在一行；移动端：分行显示 */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-2xl font-semibold">
-                  {searchQuery || searchTags.length > 0 || searchCategory ? t('home.searchResults') : t('home.allArchives')}
+                  {searchQuery ? t('home.searchResults') : t('home.allArchives')}
                 </h2>
 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -293,7 +285,7 @@ function HomePageContent() {
             ) : (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  {searchQuery || searchTags.length > 0 || searchCategory ? t('home.noMatchingArchives') : t('home.noArchives')}
+                  {searchQuery ? t('home.noMatchingArchives') : t('home.noArchives')}
                 </p>
               </div>
             )}

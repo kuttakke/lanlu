@@ -89,13 +89,19 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
 
   const handleReset = () => {
     setQuery('');
-    setSortBy('lastread');
+    setSortBy('date_added');
     setSortOrder('desc');
     setDateFrom('');
     setDateTo('');
     setNewonly(false);
     setUntaggedonly(false);
-    onSearch({});
+    onSearch({
+      query: '',
+      sortBy: 'date_added',
+      sortOrder: 'desc',
+      newonly: false,
+      untaggedonly: false
+    });
   };
 
   const handleSmartFilterClick = useCallback((filter: SmartFilter) => {
