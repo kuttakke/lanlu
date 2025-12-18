@@ -46,7 +46,12 @@
     "required": "必填",
     "actions": "操作",
     "accessDenied": "访问被拒绝，需要管理员权限",
-    "menu": "菜单"
+    "menu": "菜单",
+    "today": "今天",
+    "yesterday": "昨天",
+    "threeDaysAgo": "三天前",
+    "weekAgo": "一周前",
+    "older": "更早"
   },
   "navigation": {
     "home": "首页",
@@ -214,8 +219,19 @@
     "hideToolbar": "隐藏工具栏",
     "showToolbar": "显示工具栏",
     "autoHide": "自动隐藏",
-    "splitCover": "拆分封面",
-    "splitCoverDescription": "拆分封面（需要开启双页模式）"
+    "splitCover": "封面",
+    "splitCoverDescription": "封面",
+    "splitCoverTooltip": "拆分封面（需要开启双页模式）",
+    "doublePage": "双页",
+    "doublePageTooltip": "双页拼合",
+    "autoPlay": "自动",
+    "autoPlayTooltip": "自动翻页",
+    "pageInterval": "翻页间隔",
+    "fullscreen": "全屏",
+    "fullscreenTooltip": "全屏模式",
+    "doubleTap": "双击",
+    "doubleTapTooltip": "双击放大",
+    "favorite": "收藏"
   },
   "auth": {
     "login": "登录",

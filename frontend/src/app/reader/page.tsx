@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Slider } from '@/components/ui/slider';
 import { ThemeButton } from '@/components/theme/theme-toggle';
-import { ReaderLanguageToggle } from '@/components/language/ReaderLanguageToggle';
-import { ReaderLanguageProvider, useReaderLanguage } from '@/contexts/ReaderLanguageContext';
+import { LanguageToggle } from '@/components/language-toggle';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   ArrowLeft,
@@ -45,7 +45,7 @@ MemoizedImage.displayName = 'MemoizedImage';
 function ReaderContent() {
   const searchParams = useSearchParams();
   const id = searchParams?.get('id') ?? null;
-  const { t } = useReaderLanguage();
+  const { t } = useLanguage();
   
   const [pages, setPages] = useState<string[]>([]);
   const [cachedPages, setCachedPages] = useState<string[]>([]);
@@ -1148,9 +1148,7 @@ function ReaderContent() {
               <ThemeButton />
 
               {/* 语言切换按钮 */}
-              <div onClick={(e) => e.stopPropagation()}>
-                <ReaderLanguageToggle />
-              </div>
+              <LanguageToggle />
             </div>
 
             {/* 右侧：阅读模式切换 */}
@@ -1215,7 +1213,7 @@ function ReaderContent() {
                   text-muted-foreground hover:text-foreground hover:bg-accent
                 `}
                 style={{ padding: '3px' }}
-                title="设置"
+                title={t('reader.settings')}
               >
                 <Settings className="w-4 h-4" />
               </Button>
@@ -1236,10 +1234,10 @@ function ReaderContent() {
                     }
                     ${readingMode === 'webtoon' ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
-                  title="双页拼合"
+                  title={t('reader.doublePageTooltip')}
                 >
                   <Layout className="w-5 h-5 mb-1" />
-                  <span className="text-xs">双页</span>
+                  <span className="text-xs">{t('reader.doublePage')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1255,7 +1253,7 @@ function ReaderContent() {
                     }
                     ${!doublePageMode ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
-                  title={t('reader.splitCoverDescription')}
+                  title={t('reader.splitCoverTooltip')}
                 >
                   <Scissors className="w-5 h-5 mb-1" />
                   <span className="text-xs">{t('reader.splitCover')}</span>
@@ -1272,10 +1270,10 @@ function ReaderContent() {
                       : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
                     }
                   `}
-                  title="自动翻页"
+                  title={t('reader.autoPlayTooltip')}
                 >
                   <Play className="w-5 h-5 mb-1" />
-                  <span className="text-xs">自动</span>
+                  <span className="text-xs">{t('reader.autoPlay')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1289,10 +1287,10 @@ function ReaderContent() {
                       : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
                     }
                   `}
-                  title="全屏模式"
+                  title={t('reader.fullscreenTooltip')}
                 >
                   {isFullscreen ? <Minimize className="w-5 h-5 mb-1" /> : <Maximize className="w-5 h-5 mb-1" />}
-                  <span className="text-xs">全屏</span>
+                  <span className="text-xs">{t('reader.fullscreen')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1306,10 +1304,10 @@ function ReaderContent() {
                       : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
                     }
                   `}
-                  title="双击放大"
+                  title={t('reader.doubleTapTooltip')}
                 >
                   <ZoomIn className="w-5 h-5 mb-1" />
-                  <span className="text-xs">双击</span>
+                  <span className="text-xs">{t('reader.doubleTap')}</span>
                 </Button>
               </div>
               
@@ -1317,7 +1315,7 @@ function ReaderContent() {
               {autoPlayMode && (
                 <div className="mt-3 pt-3 border-t border-border">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">翻页间隔</span>
+                    <span className="text-sm font-medium">{t('reader.pageInterval')}</span>
                     <span className="text-sm text-muted-foreground">{autoPlayInterval}秒</span>
                   </div>
                   <Slider
@@ -1348,7 +1346,7 @@ function ReaderContent() {
                 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20
               `}
               style={{ padding: '3px' }}
-              title="收藏"
+              title={t('reader.favorite')}
             >
               <Heart className="w-4 h-4" />
             </Button>
@@ -1643,9 +1641,7 @@ export default function ReaderPage() {
         </div>
       </div>
     }>
-      <ReaderLanguageProvider>
-        <ReaderContent />
-      </ReaderLanguageProvider>
+      <ReaderContent />
     </Suspense>
   );
 }

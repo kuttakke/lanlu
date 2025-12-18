@@ -12,9 +12,10 @@ export interface TimeGroup {
  * 根据时间戳将档案分组
  * @param archives 档案列表
  * @param timeField 时间字段名（默认为 'last_read_time'）
+ * @param t 翻译函数
  * @returns 分组后的对象
  */
-export function groupArchivesByTime(archives: any[], timeField: string = 'last_read_time'): TimeGroup[] {
+export function groupArchivesByTime(archives: any[], timeField: string = 'last_read_time', t?: (key: string) => string): TimeGroup[] {
   // 使用用户的本地时间
   const now = new Date();
   // 获取今天的开始时间（本地时区00:00:00）
@@ -79,12 +80,14 @@ export function groupArchivesByTime(archives: any[], timeField: string = 'last_r
 
   // 转换为数组格式，只包含非空分组
   const result: TimeGroup[] = [];
+  
+  // 使用翻译函数或默认中文标签
   const labelMap: { [K in keyof typeof groups]: string } = {
-    'today': '今天',
-    'yesterday': '昨天',
-    'threeDaysAgo': '三天前',
-    'weekAgo': '一周前',
-    'older': '更早'
+    'today': t ? t('common.today') : '今天',
+    'yesterday': t ? t('common.yesterday') : '昨天',
+    'threeDaysAgo': t ? t('common.threeDaysAgo') : '三天前',
+    'weekAgo': t ? t('common.weekAgo') : '一周前',
+    'older': t ? t('common.older') : '更早'
   };
 
   (Object.keys(groups) as Array<keyof typeof groups>).forEach(key => {
@@ -102,9 +105,10 @@ export function groupArchivesByTime(archives: any[], timeField: string = 'last_r
 /**
  * 格式化时间显示
  * @param timestamp 时间戳（秒）
+ * @param t 翻译函数
  * @returns 格式化的时间字符串
  */
-export function formatTime(timestamp: number): string {
+export function formatTime(timestamp: number, t?: (key: string) => string): string {
   if (!timestamp) return '';
 
   const date = new Date(timestamp * 1000);
@@ -118,17 +122,17 @@ export function formatTime(timestamp: number): string {
 
   const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
   if (date >= yesterdayStart) {
-    return '昨天';
+    return t ? t('common.yesterday') : '昨天';
   }
 
   const threeDaysStart = new Date(todayStart.getTime() - 3 * 24 * 60 * 60 * 1000);
   if (date >= threeDaysStart) {
-    return '三天内';
+    return t ? t('common.threeDaysAgo') : '三天内';
   }
 
   const weekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
   if (date >= weekStart) {
-    return '一周内';
+    return t ? t('common.weekAgo') : '一周内';
   }
 
   // 更早的日期，显示月-日

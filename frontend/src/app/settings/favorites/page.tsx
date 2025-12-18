@@ -31,8 +31,8 @@ export default function FavoritesPage() {
 
       if (response.success === 1) {
         setArchives(response.data);
-        // 按时间分组
-        const grouped = groupArchivesByTime(response.data);
+        // 按时间分组，传入翻译函数
+        const grouped = groupArchivesByTime(response.data, 'last_read_time', t);
         setGroupedArchives(grouped);
       } else {
         setError(t('favorites.loadError'));

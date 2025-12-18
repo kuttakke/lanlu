@@ -2,10 +2,10 @@
 
 import { Button } from '@/components/ui/button';
 import { Languages } from 'lucide-react';
-import { useReaderLanguage } from '@/contexts/ReaderLanguageContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
-export function ReaderLanguageToggle() {
-  const { language, setLanguage } = useReaderLanguage();
+export function LanguageToggle() {
+  const { language, setLanguage } = useLanguage();
 
   const toggleLanguage = () => {
     setLanguage(language === 'zh' ? 'en' : 'zh');
@@ -21,10 +21,10 @@ export function ReaderLanguageToggle() {
         toggleLanguage();
       }}
       className="h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
-      title={language === 'zh' ? '切换到英文' : 'Switch to Chinese'}
+      title={language === 'zh' ? 'Switch to English' : '切换到中文'}
     >
       <Languages className="h-4 w-4" />
-      <span className="sr-only">{language === 'zh' ? '切换到英文' : 'Switch to Chinese'}</span>
+      <span className="sr-only">{language === 'zh' ? 'Switch to English' : '切换到中文'}</span>
     </Button>
   );
 }

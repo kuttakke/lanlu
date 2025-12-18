@@ -45,6 +45,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('language', language);
       // 更新 HTML lang 属性
       document.documentElement.lang = language;
+
+      // 派发自定义事件，通知其他组件语言已改变
+      const event = new CustomEvent('languagechange', { detail: language });
+      window.dispatchEvent(event);
     }
   }, [language]);
 

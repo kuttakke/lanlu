@@ -46,7 +46,12 @@
     "required": "Required",
     "actions": "Actions",
     "accessDenied": "Access denied, administrator privileges required",
-    "menu": "Menu"
+    "menu": "Menu",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "threeDaysAgo": "Three days ago",
+    "weekAgo": "A week ago",
+    "older": "Older"
   },
   "navigation": {
     "home": "Home",
@@ -209,8 +214,19 @@
     "hideToolbar": "Hide Toolbar",
     "showToolbar": "Show Toolbar",
     "autoHide": "Auto Hide",
-    "splitCover": "Split Cover",
-    "splitCoverDescription": "Split cover (requires double page mode)"
+    "splitCover": "Cover",
+    "splitCoverDescription": "Split Cover",
+    "splitCoverTooltip": "Split cover (requires double page mode)",
+    "doublePage": "Double",
+    "doublePageTooltip": "Double Page Mode",
+    "autoPlay": "Auto",
+    "autoPlayTooltip": "Auto Play",
+    "pageInterval": "Page Interval",
+    "fullscreen": "Full",
+    "fullscreenTooltip": "Fullscreen Mode",
+    "doubleTap": "Tap",
+    "doubleTapTooltip": "Double Tap Zoom",
+    "favorite": "Favorite"
   },
   "auth": {
     "login": "Login",
