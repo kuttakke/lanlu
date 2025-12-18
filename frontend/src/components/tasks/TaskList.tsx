@@ -104,17 +104,17 @@ export function TaskList({ className }: TaskListProps) {
   };
 
   const handleCancelTask = async (taskId: number) => {
-    if (!confirm('确定要取消这个任务吗？')) return;
+    if (!confirm(t('settings.taskManagement.confirmCancel'))) return;
 
     try {
       const success = await TaskPoolService.cancelTask(taskId);
       if (success) {
         await handleRefresh();
       } else {
-        setError('Failed to cancel task');
+        setError(t('settings.taskManagement.failedToCancel'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel task');
+      setError(err instanceof Error ? err.message : t('settings.taskManagement.failedToCancel'));
     }
   };
 
@@ -124,10 +124,10 @@ export function TaskList({ className }: TaskListProps) {
       if (result.success) {
         await handleRefresh();
       } else {
-        setError('Failed to retry task');
+        setError(t('settings.taskManagement.failedToRetry'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to retry task');
+      setError(err instanceof Error ? err.message : t('settings.taskManagement.failedToRetry'));
     }
   };
 
@@ -160,7 +160,7 @@ export function TaskList({ className }: TaskListProps) {
               className="flex items-center space-x-1 text-red-600 hover:text-red-700"
             >
               <Square className="w-3 h-3" />
-              <span>取消</span>
+              <span>{t('settings.taskManagement.cancel')}</span>
             </Button>
           </div>
         );
@@ -174,7 +174,7 @@ export function TaskList({ className }: TaskListProps) {
               className="flex items-center space-x-1 text-red-600 hover:text-red-700"
             >
               <Square className="w-3 h-3" />
-              <span>取消</span>
+              <span>{t('settings.taskManagement.cancel')}</span>
             </Button>
           </div>
         );
@@ -189,7 +189,7 @@ export function TaskList({ className }: TaskListProps) {
               className="flex items-center space-x-1 text-blue-600 hover:text-blue-700"
             >
               <Play className="w-3 h-3" />
-              <span>重试</span>
+              <span>{t('settings.taskManagement.retry')}</span>
             </Button>
           </div>
         );
@@ -222,24 +222,24 @@ export function TaskList({ className }: TaskListProps) {
       <Tabs value={activeFilter} onValueChange={setActiveFilter}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="all" className="flex items-center space-x-2">
-            <span>全部</span>
+            <span>{t('settings.taskManagement.all')}</span>
             <Badge variant="secondary" className="text-xs px-1.5 py-0.5 min-w-[1.25rem] h-5 flex items-center justify-center">{total}</Badge>
           </TabsTrigger>
           <TabsTrigger value="pending" className="flex items-center space-x-2">
             <Clock className="w-4 h-4" />
-            <span>待执行</span>
+            <span>{t('settings.taskManagement.pending')}</span>
           </TabsTrigger>
           <TabsTrigger value="running" className="flex items-center space-x-2">
             <RefreshCw className="w-4 h-4" />
-            <span>执行中</span>
+            <span>{t('settings.taskManagement.running')}</span>
           </TabsTrigger>
           <TabsTrigger value="completed" className="flex items-center space-x-2">
             <CheckCircle className="w-4 h-4" />
-            <span>已完成</span>
+            <span>{t('settings.taskManagement.completed')}</span>
           </TabsTrigger>
           <TabsTrigger value="failed" className="flex items-center space-x-2">
             <XCircle className="w-4 h-4" />
-            <span>失败</span>
+            <span>{t('settings.taskManagement.failed')}</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -259,7 +259,7 @@ export function TaskList({ className }: TaskListProps) {
                     >
                       <div className="flex items-center space-x-1">
                         {getStatusIcon(task.status)}
-                        <span>{TaskPoolService.getStatusLabel(task.status)}</span>
+                        <span>{TaskPoolService.getStatusLabel(task.status, t)}</span>
                       </div>
                     </Badge>
                   </div>
@@ -299,7 +299,7 @@ export function TaskList({ className }: TaskListProps) {
                 {/* Progress */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span>进度</span>
+                    <span>{t('settings.taskManagement.progress')}</span>
                     <span>{task.progress}%</span>
                   </div>
                   <Progress value={task.progress} className="w-full" />
@@ -308,7 +308,7 @@ export function TaskList({ className }: TaskListProps) {
                 {/* Message */}
                 {task.message && (
                   <div className="text-sm text-muted-foreground">
-                    <strong>最新日志:</strong>{' '}
+                    <strong>{t('settings.taskManagement.latestLog')}:</strong>{' '}
                     {(() => {
                       const lines = task.message.split('\n').map(s => s.trim()).filter(Boolean);
                       const last = lines.length > 0 ? lines[lines.length - 1] : task.message;
@@ -323,20 +323,20 @@ export function TaskList({ className }: TaskListProps) {
                 {/* Time Information */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                   <div>
-                    <strong>创建时间:</strong>
+                    <strong>{t('settings.taskManagement.createdAt')}:</strong>
                     <br />
                     {new Date(task.createdAt).toLocaleString()}
                   </div>
                   {task.startedAt && (
                     <div>
-                      <strong>开始时间:</strong>
+                      <strong>{t('settings.taskManagement.startedAt')}:</strong>
                       <br />
                       {new Date(task.startedAt).toLocaleString()}
                     </div>
                   )}
                   {task.completedAt && (
                     <div>
-                      <strong>完成时间:</strong>
+                      <strong>{t('settings.taskManagement.completedAt')}:</strong>
                       <br />
                       {new Date(task.completedAt).toLocaleString()}
                     </div>
@@ -344,7 +344,7 @@ export function TaskList({ className }: TaskListProps) {
                   {/* 超时时间 - 新增 */}
                   {task.timeoutAt && (
                     <div className="md:col-span-3">
-                      <strong>超时时间:</strong>
+                      <strong>{t('settings.taskManagement.timeoutAt')}:</strong>
                       <br />
                       {new Date(task.timeoutAt).toLocaleString()}
                     </div>
@@ -354,14 +354,14 @@ export function TaskList({ className }: TaskListProps) {
                 {/* Plugin Info */}
                 {task.pluginNamespace && (
                   <div className="text-sm">
-                    <strong>插件:</strong> {task.pluginNamespace}
+                    <strong>{t('settings.taskManagement.plugin')}:</strong> {task.pluginNamespace}
                   </div>
                 )}
 
                 {/* Result (for completed/failed tasks) */}
                 {(task.status === 'completed' || task.status === 'failed') && task.result && (
                   <div className="text-sm">
-                    <strong>结果:</strong>
+                    <strong>{t('settings.taskManagement.result')}:</strong>
                     <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs max-h-20 overflow-y-auto whitespace-pre-wrap">
                       {(() => {
                         try {
@@ -377,54 +377,54 @@ export function TaskList({ className }: TaskListProps) {
                 {/* Upload / URL Download Details */}
                 {(['upload', 'upload_process', 'download_url'].includes(task.taskType) && task.parameters) && (
                   <div className="text-sm border-t pt-3">
-                    <strong>任务详情:</strong>
+                    <strong>{t('settings.taskManagement.taskDetails')}:</strong>
                     {(() => {
                       const params = TaskPoolService.parseTaskParameters(task.parameters);
                       return (
                         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                           {params.url && (
                             <div className="md:col-span-2 break-all">
-                              <strong>URL:</strong> {params.url}
+                              <strong>{t('settings.taskManagement.url')}:</strong> {params.url}
                             </div>
                           )}
                           {params.filename && (
                             <div className="md:col-span-2">
-                              <strong>文件名:</strong> {params.filename}
+                              <strong>{t('settings.taskManagement.filename')}:</strong> {params.filename}
                             </div>
                           )}
                           {params.filesize && (
                             <div>
-                              <strong>文件大小:</strong> {TaskPoolService.formatFileSize(params.filesize)}
+                              <strong>{t('settings.taskManagement.fileSize')}:</strong> {TaskPoolService.formatFileSize(params.filesize)}
                             </div>
                           )}
                           {params.total_chunks && (
                             <div>
-                              <strong>分片数量:</strong> {params.total_chunks}
+                              <strong>{t('settings.taskManagement.chunkCount')}:</strong> {params.total_chunks}
                             </div>
                           )}
                           {params.chunk_size && (
                             <div>
-                              <strong>分片大小:</strong> {TaskPoolService.formatFileSize(params.chunk_size)}
+                              <strong>{t('settings.taskManagement.chunkSize')}:</strong> {TaskPoolService.formatFileSize(params.chunk_size)}
                             </div>
                           )}
                           {params.title && params.title !== params.filename && (
                             <div className="md:col-span-2">
-                              <strong>标题:</strong> {params.title}
+                              <strong>{t('settings.taskManagement.title')}:</strong> {params.title}
                             </div>
                           )}
                           {params.tags && (
                             <div className="md:col-span-2">
-                              <strong>标签:</strong> {params.tags}
+                              <strong>{t('settings.taskManagement.tags')}:</strong> {params.tags}
                             </div>
                           )}
                           {params.summary && (
                             <div className="md:col-span-2">
-                              <strong>摘要:</strong> {params.summary}
+                              <strong>{t('settings.taskManagement.summary')}:</strong> {params.summary}
                             </div>
                           )}
                           {(params.category_id || params.categoryId) && (
                             <div className="md:col-span-2">
-                              <strong>分类:</strong> {params.category_id || params.categoryId}
+                              <strong>{t('settings.taskManagement.category')}:</strong> {params.category_id || params.categoryId}
                             </div>
                           )}
                         </div>
@@ -442,10 +442,10 @@ export function TaskList({ className }: TaskListProps) {
             <div className="text-center">
               <ListTodo className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-                暂无任务
+                {t('settings.taskManagement.noTasks')}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {activeFilter === 'all' ? '还没有创建任何任务' : '该状态下没有任务'}
+                {activeFilter === 'all' ? t('settings.taskManagement.noTasksAll') : t('settings.taskManagement.noTasksFiltered')}
               </p>
             </div>
           </CardContent>
@@ -456,7 +456,7 @@ export function TaskList({ className }: TaskListProps) {
       {totalPages > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            共 {total} 个任务
+            {t('settings.taskManagement.totalTasks', { count: total })}
           </p>
           <Pagination
             currentPage={currentPage}

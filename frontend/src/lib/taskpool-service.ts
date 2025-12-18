@@ -275,23 +275,41 @@ export class TaskPoolService {
   /**
    * Get task status label for display
    */
-  static getStatusLabel(status: string): string {
+  static getStatusLabel(status: string, t?: (key: string) => string): string {
     if (!status) {
-      return '未知';
+      return t ? t('settings.taskManagement.unknown') : '未知';
     }
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return '待执行';
-      case 'running':
-        return '执行中';
-      case 'completed':
-        return '已完成';
-      case 'failed':
-        return '失败';
-      case 'stopped':
-        return '已停止';
-      default:
-        return status;
+    
+    if (t) {
+      switch (status.toLowerCase()) {
+        case 'pending':
+          return t('settings.taskManagement.pending');
+        case 'running':
+          return t('settings.taskManagement.running');
+        case 'completed':
+          return t('settings.taskManagement.completed');
+        case 'failed':
+          return t('settings.taskManagement.failed');
+        case 'stopped':
+          return t('settings.taskManagement.stopped');
+        default:
+          return status;
+      }
+    } else {
+      switch (status.toLowerCase()) {
+        case 'pending':
+          return '待执行';
+        case 'running':
+          return '执行中';
+        case 'completed':
+          return '已完成';
+        case 'failed':
+          return '失败';
+        case 'stopped':
+          return '已停止';
+        default:
+          return status;
+      }
     }
   }
 
