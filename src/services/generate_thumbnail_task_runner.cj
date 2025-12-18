@@ -48,7 +48,7 @@ public class GenerateThumbnailTaskRunner {
             return
         }
 
-        MinionModel.updateTaskProgress(taskId, 10, "Generating thumbnail for ${archiveId}")
+        TaskModel.updateTaskProgress(taskId, 10, "Generating thumbnail for ${archiveId}")
 
         let result = generateThumbnail(taskId, archivePath, archiveId)
         if (!result.success) {
@@ -58,8 +58,8 @@ public class GenerateThumbnailTaskRunner {
         }
 
         let successJson = "{\"success\":1,\"archive_id\":\"${archiveId}\"}"
-        MinionModel.updateTaskProgress(taskId, 100, "Thumbnail generated successfully")
-        MinionModel.completeTask(taskId, successJson)
+        TaskModel.updateTaskProgress(taskId, 100, "Thumbnail generated successfully")
+        TaskModel.completeTask(taskId, successJson)
         TaskIO.writeOutput(taskId, successJson)
         TaskIO.appendLog(taskId, "generate_thumbnail completed for archive: ${archiveId}")
     }
@@ -255,7 +255,7 @@ public class GenerateThumbnailTaskRunner {
     private static func fail(taskId: Int64, message: String): Unit {
         let msg = if (message.size == 0) { "Unknown error" } else { message }
         TaskIO.appendLog(taskId, "FAILED: ${msg}")
-        MinionModel.failTask(taskId, msg)
+        TaskModel.failTask(taskId, msg)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
     }
 

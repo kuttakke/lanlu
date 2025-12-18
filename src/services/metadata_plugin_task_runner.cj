@@ -16,7 +16,7 @@ import lrr4cj.utils.*
 public class MetadataPluginTaskRunner {
     public static func run(taskId: Int64, parameters: String): Unit {
         TaskIO.appendLog(taskId, "metadata_plugin task started")
-        MinionModel.updateTaskProgress(taskId, 1, "元数据插件任务开始")
+        TaskModel.updateTaskProgress(taskId, 1, "元数据插件任务开始")
 
         let (archiveId, namespace, param) = parseParameters(parameters)
         if (archiveId.size == 0 || namespace.size == 0) {
@@ -47,10 +47,10 @@ public class MetadataPluginTaskRunner {
             PluginDao.setEnabled(plugin.namespace, true)
         }
 
-        MinionTaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
+        TaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
         TaskIO.appendLog(taskId, "plugin=${plugin.namespace}")
 
-        MinionModel.updateTaskProgress(taskId, 10, "准备插件脚本")
+        TaskModel.updateTaskProgress(taskId, 10, "准备插件脚本")
         if (!ensurePluginScriptReady(plugin, "Metadata")) {
             fail(taskId, "Failed to prepare metadata plugin file")
             return
@@ -70,7 +70,7 @@ public class MetadataPluginTaskRunner {
             }
         }
 
-        MinionModel.updateTaskProgress(taskId, 30, "执行元数据插件")
+        TaskModel.updateTaskProgress(taskId, 30, "执行元数据插件")
 
         let (oneshotOpt, extraParamsOpt) = splitParam(param)
 
@@ -87,7 +87,7 @@ public class MetadataPluginTaskRunner {
         }
         TaskIO.appendLog(taskId, "plugin output: ${output}")
 
-        MinionModel.updateTaskProgress(taskId, 70, "解析并写回元数据")
+        TaskModel.updateTaskProgress(taskId, 70, "解析并写回元数据")
         let parsed = parseMetadataOutput(output)
         if (!parsed.success) {
             fail(taskId, parsed.error)
@@ -131,7 +131,7 @@ public class MetadataPluginTaskRunner {
             }
         }
 
-        MinionModel.updateTaskProgress(taskId, 100, "元数据插件执行完成")
+        TaskModel.updateTaskProgress(taskId, 100, "元数据插件执行完成")
         let resultJson =
             "{" +
             "\"success\":1," +
@@ -142,7 +142,7 @@ public class MetadataPluginTaskRunner {
             "\"tags\":\"${escapeJson(newTags)}\"," +
             "\"plugin_output\":\"${escapeJson(output)}\"" +
             "}"
-        MinionModel.completeTask(taskId, "metadata_plugin completed")
+        TaskModel.completeTask(taskId, "metadata_plugin completed")
         TaskIO.writeOutput(taskId, resultJson)
     }
 
@@ -311,7 +311,7 @@ public class MetadataPluginTaskRunner {
     private static func fail(taskId: Int64, message: String): Unit {
         let msg = if (message.size == 0) { "Unknown error" } else { message }
         TaskIO.appendLog(taskId, "FAILED: ${msg}")
-        MinionModel.failTask(taskId, msg)
+        TaskModel.failTask(taskId, msg)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
     }
 

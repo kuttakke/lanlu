@@ -29,16 +29,16 @@ public class TagI18nImportTaskRunner {
 
     private static func fail(taskId: Int64, message: String): Unit {
         TaskIO.appendLog(taskId, "failed: ${message}")
-        MinionModel.failTask(taskId, message)
+        TaskModel.failTask(taskId, message)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJsonString(message)}\"}")
     }
 
     public static func run(taskId: Int64, parameters: String): Unit {
         let logger = getLogger("tag_i18n_import_task")
         TaskIO.appendLog(taskId, "tag_i18n_import task started")
-        MinionModel.updateTaskProgress(taskId, 1, "导入任务开始")
+        TaskModel.updateTaskProgress(taskId, 1, "导入任务开始")
 
-        MinionModel.updateTaskProgress(taskId, 5, "准备写入数据库")
+        TaskModel.updateTaskProgress(taskId, 5, "准备写入数据库")
 
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
@@ -60,7 +60,7 @@ public class TagI18nImportTaskRunner {
                                 else if (received < 80000) { 60 }
                                 else if (received < 200000) { 75 }
                                 else { 90 }
-                            MinionModel.updateTaskProgress(taskId, p, "已写入 ${received.toString()} 条")
+                            TaskModel.updateTaskProgress(taskId, p, "已写入 ${received.toString()} 条")
                             TaskIO.appendLog(taskId, "progress received=${received.toString()} imported=${imported.toString()}")
                         }
                     }
@@ -203,7 +203,7 @@ public class TagI18nImportTaskRunner {
 
                     let result = "{\"success\":1,\"imported\":${imported.toString()},\"received\":${received.toString()}}"
                     TaskIO.writeOutput(taskId, result)
-                    MinionModel.completeTask(taskId, result)
+                    TaskModel.completeTask(taskId, result)
                     TaskIO.appendLog(taskId, "completed imported=${imported.toString()} received=${received.toString()}")
                     logger.info("tag_i18n_import completed", ("task_id", taskId.toString()), ("imported", imported.toString()))
                 } catch (e: Exception) {

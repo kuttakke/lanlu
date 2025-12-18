@@ -116,7 +116,7 @@ public class MetadataPluginController {
             }
 
             // 进入TaskPool：创建任务并立即返回job id
-            let task = MinionModel.createTask("元数据插件执行", "metadata_plugin")
+            let task = TaskModel.createTask("元数据插件执行", "metadata_plugin")
 
             let paramsJson = if (requestBody.trimAscii().size > 0) {
                 requestBody
@@ -124,7 +124,7 @@ public class MetadataPluginController {
                 "{\"archive_id\":\"${escapeJsonString(archiveId)}\",\"namespace\":\"${escapeJsonString(namespace)}\",\"param\":\"${escapeJsonString(param)}\"}"
             }
 
-            MinionTaskDao.updateTaskParameters(task.id, paramsJson)
+            TaskDao.updateTaskParameters(task.id, paramsJson)
             TaskIO.appendLog(task.id, "enqueued metadata_plugin archive_id=${archiveId} namespace=${namespace}")
 
             TaskPoolService.getInstance().notifyTaskAvailable()

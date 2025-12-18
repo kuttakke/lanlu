@@ -131,7 +131,7 @@ public class ShinobuController {
         }
 
         // 查询启动任务
-        let tasks = MinionTaskDao.getTasksByTriggerSource("startup", limit)
+        let tasks = TaskDao.getTasksByTriggerSource("startup", limit)
 
         // 构建JSON响应
         var json = "{\"tasks\":["

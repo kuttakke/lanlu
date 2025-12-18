@@ -66,13 +66,13 @@ public class DownloadController {
 
             // 进入TaskPool：创建任务并立即返回job id，前端通过 /api/minion/tasks/{id} 查询进度与结果
             // 任务标题不携带参数（URL等），避免在任务列表里泄露/污染标题
-            let task = MinionModel.createTask("文件上传（在线下载）", "download_url")
+            let task = TaskModel.createTask("文件上传（在线下载）", "download_url")
             let paramsJson = if (requestBody.trimAscii().size > 0) {
                 requestBody
             } else {
                 "{\"url\":\"${escapeJsonString(url)}\"}"
             }
-            MinionTaskDao.updateTaskParameters(task.id, paramsJson)
+            TaskDao.updateTaskParameters(task.id, paramsJson)
             TaskIO.appendLog(task.id, "enqueued download_url url=${url}")
 
             // 唤醒 TaskPool 领取 pending（无轮询）

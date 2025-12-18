@@ -311,7 +311,7 @@ public class ShinobuService {
         let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
         let params =
             "{\"scan_path\":\"${escapeJson(targetPath)}\",\"trigger_source\":\"${escapeJson(source)}\",\"child_priority\":${priority}}"
-        let task = MinionModel.createTaskWithOptions("目录扫描", "scan_directory", params, priority, "", source)
+        let task = TaskModel.createTaskWithOptions("目录扫描", "scan_directory", params, priority, "", source)
         TaskPoolService.getInstance().notifyTaskAvailable()
         return task.id
     }
@@ -322,7 +322,7 @@ public class ShinobuService {
     public func triggerDatabaseCheck(priority!: Int32 = 50, triggerSource!: String = "manual"): Int64 {
         let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
         let params = "{}"
-        let task = MinionModel.createTaskWithOptions("数据库检查", "check_database", params, priority, "", source)
+        let task = TaskModel.createTaskWithOptions("数据库检查", "check_database", params, priority, "", source)
         TaskPoolService.getInstance().notifyTaskAvailable()
         logger.info("Enqueued check_database task", ("task_id", task.id.toString()))
         return task.id
@@ -334,7 +334,7 @@ public class ShinobuService {
     public func triggerPluginScan(priority!: Int32 = 50, triggerSource!: String = "manual"): Int64 {
         let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
         let params = "{}"
-        let task = MinionModel.createTaskWithOptions("插件扫描", "scan_plugins", params, priority, "", source)
+        let task = TaskModel.createTaskWithOptions("插件扫描", "scan_plugins", params, priority, "", source)
         TaskPoolService.getInstance().notifyTaskAvailable()
         logger.info("Enqueued scan_plugins task", ("task_id", task.id.toString()))
         return task.id
@@ -346,7 +346,7 @@ public class ShinobuService {
     public func triggerThumbnailGeneration(archiveId: String, archivePath: String, priority!: Int32 = 40, triggerSource!: String = "manual"): Int64 {
         let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
         let params = "{\"archive_id\":\"${escapeJson(archiveId)}\",\"archive_path\":\"${escapeJson(archivePath)}\"}"
-        let task = MinionModel.createTaskWithOptions("生成缩略图", "generate_thumbnail", params, priority, "", source)
+        let task = TaskModel.createTaskWithOptions("生成缩略图", "generate_thumbnail", params, priority, "", source)
         TaskPoolService.getInstance().notifyTaskAvailable()
         logger.info("Enqueued generate_thumbnail task", ("task_id", task.id.toString()), ("archive_id", archiveId))
         return task.id
@@ -362,7 +362,7 @@ public class ShinobuService {
         // 2. ShinobuService 单独重启时，之前的任务被正确清理
         // 3. 新创建的启动任务不会被错误标记为失败
         logger.info("Cleaning up orphaned tasks before creating startup tasks")
-        let recoveredCount = MinionTaskDao.recoverOrphanedTasks()
+        let recoveredCount = TaskDao.recoverOrphanedTasks()
         if (recoveredCount > 0) {
             logger.info("Recovered orphaned tasks", ("count", recoveredCount.toString()))
         }

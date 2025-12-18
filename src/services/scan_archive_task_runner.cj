@@ -45,7 +45,7 @@ public class ScanArchiveTaskRunner {
             return
         }
 
-        MinionModel.updateTaskProgress(taskId, 10, "Processing ${config.archivePath}")
+        TaskModel.updateTaskProgress(taskId, 10, "Processing ${config.archivePath}")
 
         println("ScanArchiveTaskRunner.run: Processing archive with config")
         let result = processArchiveInternal(config.archivePath, config)
@@ -58,8 +58,8 @@ public class ScanArchiveTaskRunner {
         }
 
         let successJson = "{\"success\":1,\"archive_id\":\"${result.archiveId}\",\"path\":\"${escapeJson(config.archivePath)}\"}"
-        MinionModel.updateTaskProgress(taskId, 100, "Archive processed")
-        MinionModel.completeTask(taskId, successJson)
+        TaskModel.updateTaskProgress(taskId, 100, "Archive processed")
+        TaskModel.completeTask(taskId, successJson)
         TaskIO.writeOutput(taskId, successJson)
         TaskIO.appendLog(taskId, "scan_archive completed for ${config.archivePath}")
     }
@@ -227,7 +227,7 @@ public class ScanArchiveTaskRunner {
     private static func submitThumbnailTask(archivePath: String, archiveId: String): Bool {
         try {
             let parameters = "{\"archive_path\":\"${escapeJson(archivePath)}\",\"archive_id\":\"${escapeJson(archiveId)}\"}"
-            let task = MinionModel.createTaskWithOptions(
+            let task = TaskModel.createTaskWithOptions(
                 "generate_thumbnail_${archiveId}",
                 "generate_thumbnail",
                 parameters,
@@ -253,7 +253,7 @@ public class ScanArchiveTaskRunner {
     private static func fail(taskId: Int64, message: String): Unit {
         let msg = if (message.size == 0) { "Unknown error" } else { message }
         TaskIO.appendLog(taskId, "FAILED: ${msg}")
-        MinionModel.failTask(taskId, msg)
+        TaskModel.failTask(taskId, msg)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
     }
 

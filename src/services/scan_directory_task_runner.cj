@@ -47,7 +47,7 @@ public class ScanDirectoryTaskRunner {
         let triggerSource = if (triggerSourceParam.size > 0) { triggerSourceParam } else { "manual" }
         let childPriority = if (childPriorityParam > 0) { childPriorityParam } else { 30i32 }
 
-        MinionModel.updateTaskProgress(taskId, 5, "Scanning directory ${scanPath}")
+        TaskModel.updateTaskProgress(taskId, 5, "Scanning directory ${scanPath}")
 
         // 使用 DirectoryScanner 进行文件扫描（与 scan_plugins 使用相同的文件系统操作方法）
         let archiveFiles = DirectoryScanner.findArchiveFiles(scanPath)
@@ -56,8 +56,8 @@ public class ScanDirectoryTaskRunner {
 
         if (total == 0) {
             let summary = "{\"success\":1,\"created\":0,\"total\":0}"
-            MinionModel.updateTaskProgress(taskId, 100, "No archives found")
-            MinionModel.completeTask(taskId, summary)
+            TaskModel.updateTaskProgress(taskId, 100, "No archives found")
+            TaskModel.completeTask(taskId, summary)
             TaskIO.writeOutput(taskId, summary)
             TaskIO.appendLog(taskId, "scan_directory task completed with no files")
             return
@@ -73,8 +73,8 @@ public class ScanDirectoryTaskRunner {
         }
 
         let summary = "{\"success\":1,\"created\":${created},\"total\":${total}}"
-        MinionModel.updateTaskProgress(taskId, 100, "Created ${created} scan_archive tasks")
-        MinionModel.completeTask(taskId, summary)
+        TaskModel.updateTaskProgress(taskId, 100, "Created ${created} scan_archive tasks")
+        TaskModel.completeTask(taskId, summary)
         TaskIO.writeOutput(taskId, summary)
         TaskIO.appendLog(taskId, "scan_directory task completed: created=${created}, total=${total}")
     }
@@ -86,7 +86,7 @@ public class ScanDirectoryTaskRunner {
         let thumbnailPathStr = thumbnailPath.toString()
 
         let params = "{\"archive_path\":\"${escapeJson(filePath)}\",\"archive_base_path\":\"${escapeJson(archiveBasePath)}\",\"cache_path\":\"${escapeJson(cachePathStr)}\",\"thumbnail_path\":\"${escapeJson(thumbnailPathStr)}\",\"bsdtar_path\":\"${escapeJson(bsdtarPath)}\"}"
-        let childTask = MinionModel.createTaskWithOptions("扫描档案", "scan_archive", params, priority, groupId, triggerSource)
+        let childTask = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, priority, groupId, triggerSource)
         if (childTask.id > 0) {
             TaskPoolService.getInstance().notifyTaskAvailable()
             return true

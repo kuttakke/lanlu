@@ -34,8 +34,8 @@ public class TaskPoolController {
         let offset = (page - 1) * pageSize
 
         // 获取任务列表和总数
-        let tasks = MinionTaskDao.getTasksWithPagination(offset, pageSize)
-        let total = MinionTaskDao.getTaskCount()
+        let tasks = TaskDao.getTasksWithPagination(offset, pageSize)
+        let total = TaskDao.getTaskCount()
         let totalPages = (total + pageSize - 1) / pageSize
 
         // 构建响应
@@ -70,7 +70,7 @@ public class TaskPoolController {
             return
         }
 
-        let task = MinionTaskDao.getTaskDataById(taskId)
+        let task = TaskDao.getTaskDataById(taskId)
         if (task.id == 0) {
             ctx.status(404)
             ctx.json("{\"error\":\"Task not found\"}")
@@ -94,7 +94,7 @@ public class TaskPoolController {
             return
         }
 
-        let task = MinionTaskDao.getTaskDataById(taskId)
+        let task = TaskDao.getTaskDataById(taskId)
         if (task.id == 0) {
             ctx.status(404)
             ctx.json("{\"error\":\"Task not found\"}")
@@ -109,7 +109,7 @@ public class TaskPoolController {
         }
 
         // 更新任务状态为 stopped
-        let success = MinionTaskDao.updateTaskStatus(taskId, "stopped", "Task cancelled by user", 0)
+        let success = TaskDao.updateTaskStatus(taskId, "stopped", "Task cancelled by user", 0)
         if (success) {
             ctx.json("{\"success\":1,\"message\":\"Task cancelled successfully\"}")
         } else {
@@ -129,7 +129,7 @@ public class TaskPoolController {
             return
         }
 
-        let cancelledCount = MinionTaskDao.updateTaskStatusByGroupId(groupId, "stopped", "Tasks cancelled by user")
+        let cancelledCount = TaskDao.updateTaskStatusByGroupId(groupId, "stopped", "Tasks cancelled by user")
         ctx.json("{\"success\":1,\"cancelled_count\":${cancelledCount}}")
     }
 
@@ -146,7 +146,7 @@ public class TaskPoolController {
             return
         }
 
-        let task = MinionTaskDao.getTaskDataById(taskId)
+        let task = TaskDao.getTaskDataById(taskId)
         if (task.id == 0) {
             ctx.status(404)
             ctx.json("{\"error\":\"Task not found\"}")
@@ -161,7 +161,7 @@ public class TaskPoolController {
         }
 
         // 创建新任务（复制原任务的参数）
-        let newTask = MinionModel.createTaskWithOptions(
+        let newTask = TaskModel.createTaskWithOptions(
             task.name,
             task.taskType,
             task.parameters,
@@ -199,7 +199,7 @@ public class TaskPoolController {
             return
         }
 
-        let tasks = MinionTaskDao.getTasksByGroupId(groupId)
+        let tasks = TaskDao.getTasksByGroupId(groupId)
         let json = tasksArrayToJson(tasks)
         ctx.json(json)
     }
@@ -207,7 +207,7 @@ public class TaskPoolController {
     /**
      * 将任务数据转换为JSON
      */
-    private static func taskDataToJson(task: MinionTaskData): String {
+    private static func taskDataToJson(task: TaskData): String {
         return """
             {
             "id":${task.id},
@@ -232,7 +232,7 @@ public class TaskPoolController {
     /**
      * 将任务数组转换为JSON
      */
-    private static func tasksArrayToJson(tasks: Array<MinionTaskData>): String {
+    private static func tasksArrayToJson(tasks: Array<TaskData>): String {
         var json = "["
         for (i in 0..tasks.size) {
             if (i > 0) {

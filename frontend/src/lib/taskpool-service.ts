@@ -1,4 +1,4 @@
-import { MinionTask, MinionTaskPageResult } from '@/types/minion';
+import { Task, TaskPageResult } from '@/types/task';
 import { api } from '@/lib/api';
 
 /**
@@ -11,7 +11,7 @@ export class TaskPoolService {
   /**
    * Get tasks with pagination
    */
-  static async getTasks(page: number = 1, pageSize: number = 10): Promise<MinionTaskPageResult> {
+  static async getTasks(page: number = 1, pageSize: number = 10): Promise<TaskPageResult> {
     try {
       const response = await api.get(`${this.BASE_URL}/tasks?page=${page}&pageSize=${pageSize}`);
 
@@ -61,7 +61,7 @@ export class TaskPoolService {
   /**
    * 标准化任务对象，将后端的下划线命名转换为前端的驼峰命名
    */
-  private static normalizeTask(task: any): MinionTask {
+  private static normalizeTask(task: any): Task {
     return {
       id: task.id,
       name: task.name,
@@ -74,14 +74,18 @@ export class TaskPoolService {
       result: task.result || '',
       createdAt: task.created_at || task.createdAt || '',
       startedAt: task.started_at || task.startedAt || '',
-      completedAt: task.completed_at || task.completedAt || ''
+      completedAt: task.completed_at || task.completedAt || '',
+      priority: task.priority || 50,
+      groupId: task.group_id || task.groupId || '',
+      timeoutAt: task.timeout_at || task.timeoutAt || '',
+      triggerSource: task.trigger_source || task.triggerSource || ''
     };
   }
 
   /**
    * Get task by ID
    */
-  static async getTaskById(id: number): Promise<MinionTask> {
+  static async getTaskById(id: number): Promise<Task> {
     try {
       const response = await api.get(`${this.BASE_URL}/${id}`);
 
@@ -138,7 +142,7 @@ export class TaskPoolService {
   /**
    * Get tasks by group ID
    */
-  static async getTasksByGroup(groupId: string): Promise<MinionTask[]> {
+  static async getTasksByGroup(groupId: string): Promise<Task[]> {
     try {
       const response = await api.get(`${this.BASE_URL}/group/${groupId}`);
 
@@ -362,5 +366,30 @@ export class TaskPoolService {
     if (priority <= 30) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
     if (priority <= 40) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
     return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+  }
+
+  /**
+   * Get trigger source label for display
+   */
+  static getTriggerSourceLabel(source: string): string {
+    if (!source) return '未知';
+    switch (source.toLowerCase()) {
+      case 'manual':
+        return '手动';
+      case 'upload':
+        return '上传';
+      case 'upload_process':
+        return '上传处理';
+      case 'scan_archive':
+        return '扫描档案';
+      case 'scan_directory':
+        return '扫描目录';
+      case 'check_database':
+        return '数据库检查';
+      case 'generate_thumbnail':
+        return '生成缩略图';
+      default:
+        return source;
+    }
   }
 }

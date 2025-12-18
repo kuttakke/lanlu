@@ -24,12 +24,12 @@ public class UploadProcessTaskRunner {
         }
 
         try {
-            MinionModel.updateTaskProgress(taskId, 50, "创建档案扫描任务")
+            TaskModel.updateTaskProgress(taskId, 50, "创建档案扫描任务")
 
             // 创建 scan_archive 子任务（优先级 20，高于定时扫描）
             let scanParams = "{\"archive_path\":\"${escapeJson(archivePath)}\"}"
             let groupId = "upload:${taskId}"
-            let scanTask = MinionModel.createTaskWithOptions(
+            let scanTask = TaskModel.createTaskWithOptions(
                 "扫描上传档案",
                 "scan_archive",
                 scanParams,
@@ -44,8 +44,8 @@ public class UploadProcessTaskRunner {
 
                 let okJson =
                     "{\"success\":1,\"scan_task_id\":${scanTask.id},\"relative_path\":\"${escapeJson(relativePath)}\",\"filename\":\"${escapeJson(fileName)}\",\"message\":\"Archive scan task created\"}"
-                MinionModel.updateTaskProgress(taskId, 100, "档案扫描任务已创建")
-                MinionModel.completeTask(taskId, "upload_process completed, scan_archive task created")
+                TaskModel.updateTaskProgress(taskId, 100, "档案扫描任务已创建")
+                TaskModel.completeTask(taskId, "upload_process completed, scan_archive task created")
                 TaskIO.writeOutput(taskId, okJson)
                 TaskIO.appendLog(taskId, "upload_process task completed: scan_task_id=${scanTask.id}")
             } else {
@@ -91,7 +91,7 @@ public class UploadProcessTaskRunner {
     private static func fail(taskId: Int64, message: String): Unit {
         let msg = if (message.size == 0) { "Unknown error" } else { message }
         TaskIO.appendLog(taskId, "FAILED: ${msg}")
-        MinionModel.failTask(taskId, msg)
+        TaskModel.failTask(taskId, msg)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
     }
 }

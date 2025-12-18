@@ -1,6 +1,6 @@
-// Minion task types for the LRR4CJ application
+// Task types for the LRR4CJ application
 
-export interface MinionTask {
+export interface Task {
   id: number;
   name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped';
@@ -13,10 +13,15 @@ export interface MinionTask {
   createdAt: string;
   startedAt: string;
   completedAt: string;
+  // 新增字段
+  priority: number;
+  groupId: string;
+  timeoutAt: string;
+  triggerSource: string;
 }
 
-export interface MinionTaskPageResult {
-  tasks: MinionTask[];
+export interface TaskPageResult {
+  tasks: Task[];
   total: number;
   page: number;
   pageSize: number;
@@ -25,12 +30,12 @@ export interface MinionTaskPageResult {
 
 export interface TaskListResponse {
   success: boolean;
-  data: MinionTaskPageResult;
+  data: TaskPageResult;
   error?: string;
 }
 
 export interface TaskResponse {
   success: boolean;
-  data: MinionTask;
+  data: Task;
   error?: string;
 }

@@ -418,14 +418,14 @@ public class TagController {
     public static func adminImport(ctx: JoyContext): Unit {
         let logger = getLogger("tag_controller")
         try {
-            let taskData = MinionTaskData()
+            let taskData = TaskData()
             taskData.name = "标签导入"
             taskData.taskType = "tag_import"
             taskData.status = "waiting_upload"
             taskData.progress = 0
             taskData.message = "等待上传导入文件"
             taskData.parameters = ""
-            let created = MinionTaskDao.createTaskData(taskData)
+            let created = TaskDao.createTaskData(taskData)
             if (!created || taskData.id == 0) {
                 ctx.status(500)
                 ResponseView.errorJson(ctx, "Create task failed", 500)
@@ -450,8 +450,8 @@ public class TagController {
                 return
             }
 
-            MinionTaskDao.updateTaskParameters(taskId, jsonFile.toString())
-            MinionTaskDao.updateTaskStatus(taskId, "pending", "文件已上传，等待导入", 0)
+            TaskDao.updateTaskParameters(taskId, jsonFile.toString())
+            TaskDao.updateTaskStatus(taskId, "pending", "文件已上传，等待导入", 0)
             TaskIO.appendLog(taskId, "enqueued tag_import")
             TaskPoolService.getInstance().notifyTaskAvailable()
 
@@ -470,14 +470,14 @@ public class TagController {
     public static func adminImportInit(ctx: JoyContext): Unit {
         let logger = getLogger("tag_controller")
         try {
-            let taskData = MinionTaskData()
+            let taskData = TaskData()
             taskData.name = "标签导入"
             taskData.taskType = "tag_import"
             taskData.status = "waiting_upload"
             taskData.progress = 0
             taskData.message = "等待上传导入文件"
             taskData.parameters = ""
-            let created = MinionTaskDao.createTaskData(taskData)
+            let created = TaskDao.createTaskData(taskData)
             if (!created || taskData.id == 0) {
                 ctx.status(500)
                 ResponseView.errorJson(ctx, "Create task failed", 500)
@@ -491,7 +491,7 @@ public class TagController {
             }
             let jsonFile = Path("${taskDir}/tag_import.json")
 
-            MinionTaskDao.updateTaskParameters(taskId, jsonFile.toString())
+            TaskDao.updateTaskParameters(taskId, jsonFile.toString())
             TaskIO.appendLog(taskId, "created, waiting_upload")
 
             let data = "{\"success\":1,\"job\":${taskId.toString()},\"operation\":\"tag_import\",\"chunk_size\":${IMPORT_CHUNK_SIZE.toString()}}"
@@ -548,7 +548,7 @@ public class TagController {
                 return
             }
 
-            let taskData = MinionTaskDao.getTaskDataById(jobId)
+            let taskData = TaskDao.getTaskDataById(jobId)
             if (taskData.id == 0 || taskData.taskType != "tag_import") {
                 ctx.status(404)
                 ResponseView.errorJson(ctx, "job not found", 404)
@@ -685,7 +685,7 @@ public class TagController {
                 return
             }
 
-            let taskData = MinionTaskDao.getTaskDataById(jobId)
+            let taskData = TaskDao.getTaskDataById(jobId)
             if (taskData.id == 0 || taskData.taskType != "tag_import") {
                 ctx.status(404)
                 ResponseView.errorJson(ctx, "job not found", 404)
@@ -731,7 +731,7 @@ public class TagController {
             }
 
             TaskIO.appendLog(jobId, "completed upload file=${jsonFile.toString()} size=${size.toString()}")
-            MinionTaskDao.updateTaskStatus(jobId, "pending", "文件已上传，等待导入", 0)
+            TaskDao.updateTaskStatus(jobId, "pending", "文件已上传，等待导入", 0)
             TaskPoolService.getInstance().notifyTaskAvailable()
 
             let data = "{\"success\":1,\"job\":${jobId.toString()},\"operation\":\"tag_import\"}"

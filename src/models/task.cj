@@ -8,9 +8,9 @@ import std.collection.*
 import std.time.*
 
 /**
- * Minion任务数据模型
+ * Task任务数据模型
  */
-public class MinionTask {
+public class Task {
     public var id: Int64
     public var name: String
     public var status: String
@@ -77,10 +77,10 @@ public class MinionTask {
         json += "\"result\":\"${escapeJsonString(result)}\","
         json += "\"createdAt\":\"${escapeJsonString(createdAt)}\","
         json += "\"startedAt\":\"${escapeJsonString(startedAt)}\","
-        json += "\"completedAt\":\"${escapeJsonString(completedAt)}\"," 
+        json += "\"completedAt\":\"${escapeJsonString(completedAt)}\","
         json += "\"priority\":${priority},"
-        json += "\"groupId\":\"${escapeJsonString(groupId)}\"," 
-        json += "\"timeoutAt\":\"${escapeJsonString(timeoutAt)}\"," 
+        json += "\"groupId\":\"${escapeJsonString(groupId)}\","
+        json += "\"timeoutAt\":\"${escapeJsonString(timeoutAt)}\","
         json += "\"triggerSource\":\"${escapeJsonString(triggerSource)}\""
         json += "}"
         return json
@@ -101,24 +101,24 @@ public class MinionTask {
 }
 
 /**
- * Minion任务分页结果
+ * Task任务分页结果
  */
-public class MinionTaskPageResult {
-    public var tasks: Array<MinionTask>
+public class TaskPageResult {
+    public var tasks: Array<Task>
     public var total: Int32
     public var page: Int32
     public var pageSize: Int32
     public var totalPages: Int32
 
     public init() {
-        this.tasks = Array<MinionTask>()
+        this.tasks = Array<Task>()
         this.total = 0
         this.page = 1
         this.pageSize = 10
         this.totalPages = 0
     }
 
-    public init(tasks: Array<MinionTask>, total: Int32, page: Int32, pageSize: Int32) {
+    public init(tasks: Array<Task>, total: Int32, page: Int32, pageSize: Int32) {
         this.tasks = tasks
         this.total = total
         this.page = page
@@ -147,19 +147,19 @@ public class MinionTaskPageResult {
 }
 
 /**
- * Minion数据访问层
+ * Task数据访问层
  */
-public class MinionModel {
+public class TaskModel {
     /**
      * 初始化数据库表
      */
     public static func initialize(): Bool {
-        let logger = getLogger("minion_model")
-        logger.info("初始化Minion任务数据库表")
+        let logger = getLogger("task_model")
+        logger.info("初始化Task任务数据库表")
 
-        let tableCreated = MinionTaskDao.createTable()
+        let tableCreated = TaskDao.createTable()
         if (!tableCreated) {
-            logger.error("创建minion_tasks表失败")
+            logger.error("创建tasks表失败")
             return false
         }
 
@@ -171,17 +171,17 @@ public class MinionModel {
      * 检查并修复表结构
      */
     private static func fixTableSchema(): Bool {
-        let logger = getLogger("minion_model")
+        let logger = getLogger("task_model")
         let connOpt = DatabaseConfig.createConnection()
 
         match (connOpt) {
             case Some(conn) =>
                 try {
-                    ensureColumnExists(conn, "message", "ALTER TABLE minion_tasks ADD COLUMN message TEXT")
-                    ensureColumnExists(conn, "priority", "ALTER TABLE minion_tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 50")
-                    ensureColumnExists(conn, "group_id", "ALTER TABLE minion_tasks ADD COLUMN group_id VARCHAR(255)")
-                    ensureColumnExists(conn, "timeout_at", "ALTER TABLE minion_tasks ADD COLUMN timeout_at TIMESTAMP")
-                    ensureColumnExists(conn, "trigger_source", "ALTER TABLE minion_tasks ADD COLUMN trigger_source VARCHAR(50)")
+                    ensureColumnExists(conn, "message", "ALTER TABLE tasks ADD COLUMN message TEXT")
+                    ensureColumnExists(conn, "priority", "ALTER TABLE tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 50")
+                    ensureColumnExists(conn, "group_id", "ALTER TABLE tasks ADD COLUMN group_id VARCHAR(255)")
+                    ensureColumnExists(conn, "timeout_at", "ALTER TABLE tasks ADD COLUMN timeout_at TIMESTAMP")
+                    ensureColumnExists(conn, "trigger_source", "ALTER TABLE tasks ADD COLUMN trigger_source VARCHAR(50)")
 
                     return true
                 } catch (e: Exception) {
@@ -201,8 +201,8 @@ public class MinionModel {
     }
 
     private static func ensureColumnExists(conn: Connection, columnName: String, alterSql: String): Unit {
-        let logger = getLogger("minion_model")
-        let checkStmt = conn.prepareStatement("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'minion_tasks' AND column_name = ?)")
+        let logger = getLogger("task_model")
+        let checkStmt = conn.prepareStatement("SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = ?)")
         checkStmt.set(0, columnName)
         let rs = checkStmt.query()
         var columnExists = false
@@ -229,11 +229,11 @@ public class MinionModel {
     /**
      * 根据ID获取任务
      */
-    public static func getTaskById(id: Int64): MinionTask {
-        let logger = getLogger("minion_model")
+    public static func getTaskById(id: Int64): Task {
+        let logger = getLogger("task_model")
         logger.info("根据ID获取任务", [("id", id.toString())])
-        let data = MinionTaskDao.getTaskDataById(id)
-        let task = convertToMinionTask(data)
+        let data = TaskDao.getTaskDataById(id)
+        let task = convertToTask(data)
 
         // 从任务IO读取日志与最终输出（如果存在则覆盖DB中的message/result）
         if (task.id != 0) {
@@ -253,37 +253,37 @@ public class MinionModel {
     /**
      * 分页获取任务列表
      */
-    public static func getTasksWithPagination(page: Int32, pageSize: Int32): MinionTaskPageResult {
-        let logger = getLogger("minion_model")
+    public static func getTasksWithPagination(page: Int32, pageSize: Int32): TaskPageResult {
+        let logger = getLogger("task_model")
         logger.info("分页获取任务列表", [("page", page.toString()), ("pageSize", pageSize.toString())])
 
         // 获取总数
-        let total = MinionTaskDao.getTaskCount()
+        let total = TaskDao.getTaskCount()
 
         // 计算偏移量
         let offset = (page - 1) * pageSize
 
         // 获取分页数据
-        let tasksData = MinionTaskDao.getTasksWithPagination(offset, pageSize)
+        let tasksData = TaskDao.getTasksWithPagination(offset, pageSize)
 
-        // 转换为MinionTask数组
-        var taskList = ArrayList<MinionTask>()
+        // 转换为Task数组
+        var taskList = ArrayList<Task>()
         for (taskData in tasksData) {
-            taskList.add(convertToMinionTask(taskData))
+            taskList.add(convertToTask(taskData))
         }
         // 转换 ArrayList 为 Array
         let taskListSize = taskList.size
-        var tasks = Array<MinionTask>()
+        var tasks = Array<Task>()
         if (taskListSize > 0) {
-            tasks = Array<MinionTask>(taskListSize, { _ => MinionTask(0, "", "", 0, "") })
+            tasks = Array<Task>(taskListSize, { _ => Task(0, "", "", 0, "") })
             for (i in 0..taskListSize) {
                 tasks[i] = taskList[i]
             }
         } else {
-            tasks = Array<MinionTask>()
+            tasks = Array<Task>()
         }
 
-        let result = MinionTaskPageResult(tasks, total, page, pageSize)
+        let result = TaskPageResult(tasks, total, page, pageSize)
         logger.info("分页查询完成", [("total", total.toString()), ("returned", tasks.size.toString())])
 
         return result
@@ -292,19 +292,19 @@ public class MinionModel {
     /**
      * 创建新任务
      */
-    public static func createTask(name: String, taskType: String): MinionTask {
-        let logger = getLogger("minion_model")
+    public static func createTask(name: String, taskType: String): Task {
+        let logger = getLogger("task_model")
         let currentTime = getCurrentTimeString()
 
-        let task = MinionTask(
+        let task = Task(
             0, name, "pending", 0, "任务已创建",
             taskType: taskType, pluginNamespace: "", parameters: "",
             result: "", createdAt: currentTime, startedAt: "", completedAt: "",
             priority: 50, groupId: "", timeoutAt: "", triggerSource: "manual"
         )
 
-        let data = convertToMinionTaskData(task)
-        let success = MinionTaskDao.createTaskData(data)
+        let data = convertToTaskData(task)
+        let success = TaskDao.createTaskData(data)
         if (success) {
             task.id = data.id  // 设置数据库返回的自增ID
             logger.info("创建任务成功", [("id", data.id.toString()), ("name", name)])
@@ -319,21 +319,21 @@ public class MinionModel {
      * 创建带参数的任务
      */
     public static func createTaskWithOptions(name: String, taskType: String, parameters: String, priority: Int32,
-                                             groupId: String, triggerSource: String, timeoutSeconds!: Int32 = 0): MinionTask {
-        let logger = getLogger("minion_model")
+                                             groupId: String, triggerSource: String, timeoutSeconds!: Int32 = 0): Task {
+        let logger = getLogger("task_model")
         let currentTime = getCurrentTimeString()
 
         let timeoutAt = calculateTimeoutAt(timeoutSeconds)
 
-        let task = MinionTask(
+        let task = Task(
             0, name, "pending", 0, "任务已创建",
             taskType: taskType, pluginNamespace: "", parameters: parameters,
             result: "", createdAt: currentTime, startedAt: "", completedAt: "",
             priority: priority, groupId: groupId, timeoutAt: timeoutAt, triggerSource: triggerSource
         )
 
-        let data = convertToMinionTaskData(task)
-        let success = MinionTaskDao.createTaskData(data)
+        let data = convertToTaskData(task)
+        let success = TaskDao.createTaskData(data)
         if (success) {
             task.id = data.id
             logger.info("创建任务成功", [("id", data.id.toString()), ("name", name), ("task_type", taskType)])
@@ -356,8 +356,8 @@ public class MinionModel {
      * 启动任务
      */
     public static func startTask(id: Int64): Bool {
-        let logger = getLogger("minion_model")
-        let success = MinionTaskDao.updateTaskStatus(id, "running", "任务已启动", 0)
+        let logger = getLogger("task_model")
+        let success = TaskDao.updateTaskStatus(id, "running", "任务已启动", 0)
         if (success) {
             logger.info("启动任务成功", ("id", id.toString()))
         } else {
@@ -370,8 +370,8 @@ public class MinionModel {
      * 停止任务
      */
     public static func stopTask(id: Int64): Bool {
-        let logger = getLogger("minion_model")
-        let success = MinionTaskDao.updateTaskStatus(id, "stopped", "任务已停止", 0)
+        let logger = getLogger("task_model")
+        let success = TaskDao.updateTaskStatus(id, "stopped", "任务已停止", 0)
         if (success) {
             logger.info("停止任务成功", ("id", id.toString()))
         } else {
@@ -384,8 +384,8 @@ public class MinionModel {
      * 删除任务
      */
     public static func deleteTask(id: Int64): Bool {
-        let logger = getLogger("minion_model")
-        let success = MinionTaskDao.deleteTask(id)
+        let logger = getLogger("task_model")
+        let success = TaskDao.deleteTask(id)
         if (success) {
             logger.info("删除任务成功", ("id", id.toString()))
         } else {
@@ -398,8 +398,8 @@ public class MinionModel {
      * 更新任务进度
      */
     public static func updateTaskProgress(id: Int64, progress: Int32, message: String): Bool {
-        let logger = getLogger("minion_model")
-        let success = MinionTaskDao.updateTaskStatus(id, "running", message, progress)
+        let logger = getLogger("task_model")
+        let success = TaskDao.updateTaskStatus(id, "running", message, progress)
         if (success) {
             logger.info("更新任务进度", [("id", id.toString()), ("progress", progress.toString())])
         } else {
@@ -412,8 +412,8 @@ public class MinionModel {
      * 完成任务
      */
     public static func completeTask(id: Int64, result: String): Bool {
-        let logger = getLogger("minion_model")
-        let data = MinionTaskDao.getTaskDataById(id)
+        let logger = getLogger("task_model")
+        let data = TaskDao.getTaskDataById(id)
         if (data.id == 0) {
             logger.error("任务不存在，无法完成", ("id", id.toString()))
             return false
@@ -425,7 +425,7 @@ public class MinionModel {
         data.result = result
         data.completedAt = getCurrentTimeString()
 
-        let success = MinionTaskDao.updateTaskData(data)
+        let success = TaskDao.updateTaskData(data)
         if (success) {
             logger.info("完成任务成功", ("id", id))
         } else {
@@ -438,8 +438,8 @@ public class MinionModel {
      * 任务失败
      */
     public static func failTask(id: Int64, errorMessage: String): Bool {
-        let logger = getLogger("minion_model")
-        let data = MinionTaskDao.getTaskDataById(id)
+        let logger = getLogger("task_model")
+        let data = TaskDao.getTaskDataById(id)
         if (data.id == 0) {
             logger.error("任务不存在，无法标记失败", ("id", id.toString()))
             return false
@@ -449,7 +449,7 @@ public class MinionModel {
         data.message = errorMessage
         data.completedAt = getCurrentTimeString()
 
-        let success = MinionTaskDao.updateTaskData(data)
+        let success = TaskDao.updateTaskData(data)
         if (success) {
             logger.info("任务失败标记成功", ("id", id.toString()), ("error", errorMessage))
         } else {
@@ -459,10 +459,10 @@ public class MinionModel {
     }
 
     /**
-     * MinionTaskData转换为MinionTask
+     * TaskData转换为Task
      */
-      private static func convertToMinionTask(data: MinionTaskData): MinionTask {
-        return MinionTask(
+      private static func convertToTask(data: TaskData): Task {
+        return Task(
             data.id, data.name, data.status, data.progress, data.message,
             taskType: data.taskType, pluginNamespace: data.pluginNamespace,
             parameters: data.parameters, result: data.result,
@@ -472,10 +472,10 @@ public class MinionModel {
     }
 
     /**
-     * MinionTask转换为MinionTaskData
+     * Task转换为TaskData
      */
-    private static func convertToMinionTaskData(task: MinionTask): MinionTaskData {
-        let data = MinionTaskData()
+    private static func convertToTaskData(task: Task): TaskData {
+        let data = TaskData()
         data.id = task.id
         data.name = task.name
         data.taskType = task.taskType

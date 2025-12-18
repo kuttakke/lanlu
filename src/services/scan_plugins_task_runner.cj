@@ -31,21 +31,21 @@ public class ScanPluginsTaskRunner {
         let logger = getLogger("scan_plugins_task")
         TaskIO.appendLog(taskId, "scan_plugins task started")
 
-        MinionModel.updateTaskProgress(taskId, 10, "Starting plugin scan")
+        TaskModel.updateTaskProgress(taskId, 10, "Starting plugin scan")
 
         let result = scanPlugins()
 
         if (result.errorCount > 0) {
             logger.warn("scan_plugins completed with errors", ("error_count", result.errorCount.toString()))
             let errorJson = "{\"success\":1,\"processed_count\":${result.processedCount},\"total_found\":${result.totalFound},\"error_count\":${result.errorCount}}"
-            MinionModel.updateTaskProgress(taskId, 100, "Plugin scan completed with ${result.errorCount} errors")
-            MinionModel.completeTask(taskId, errorJson)
+            TaskModel.updateTaskProgress(taskId, 100, "Plugin scan completed with ${result.errorCount} errors")
+            TaskModel.completeTask(taskId, errorJson)
             TaskIO.writeOutput(taskId, errorJson)
             TaskIO.appendLog(taskId, "scan_plugins completed with errors: processed=${result.processedCount}, errors=${result.errorCount}")
         } else {
             let successJson = "{\"success\":1,\"processed_count\":${result.processedCount},\"total_found\":${result.totalFound},\"error_count\":0}"
-            MinionModel.updateTaskProgress(taskId, 100, "Plugin scan completed")
-            MinionModel.completeTask(taskId, successJson)
+            TaskModel.updateTaskProgress(taskId, 100, "Plugin scan completed")
+            TaskModel.completeTask(taskId, successJson)
             TaskIO.writeOutput(taskId, successJson)
             TaskIO.appendLog(taskId, "scan_plugins completed: processed=${result.processedCount}, total=${result.totalFound}")
         }

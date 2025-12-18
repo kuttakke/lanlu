@@ -3,7 +3,7 @@ import { Archive, SearchResponse, SearchParams, RandomParams, ArchiveMetadata } 
 import { ServerInfo } from '@/types/server';
 import { ChunkedUploadService, UploadMetadata, UploadProgressCallback, UploadResult } from './chunked-upload-service';
 import { TaskPoolService } from './taskpool-service';
-import type { MinionTask } from '@/types/minion';
+import type { Task } from '@/types/task';
 
 // 下载相关接口定义
 export interface DownloadMetadata {
@@ -30,7 +30,7 @@ export interface DownloadResult {
 }
 
 export interface MetadataPluginRunCallbacks {
-  onUpdate?: (task: MinionTask) => void;
+  onUpdate?: (task: Task) => void;
 }
 
 export class ArchiveService {
@@ -344,7 +344,7 @@ export class ArchiveService {
     namespace: string,
     param?: string,
     callbacks?: MetadataPluginRunCallbacks
-  ): Promise<MinionTask> {
+  ): Promise<Task> {
     const response = await apiClient.post('/api/metadata_plugin', {
       archive_id: archiveId,
       namespace,
@@ -377,9 +377,9 @@ export class ArchiveService {
 
   private static async waitForTaskCompletion(
     jobId: number,
-    onUpdate?: (task: MinionTask) => void,
+    onUpdate?: (task: Task) => void,
     options?: { intervalMs?: number; timeoutMs?: number }
-  ): Promise<MinionTask> {
+  ): Promise<Task> {
     const intervalMs = options?.intervalMs ?? 800;
     const timeoutMs = options?.timeoutMs ?? 10 * 60 * 1000;
     const start = Date.now();
@@ -398,7 +398,7 @@ export class ArchiveService {
     }
   }
 
-  private static parseTaskOutput(task: MinionTask): {
+  private static parseTaskOutput(task: Task): {
     success: boolean;
     id?: string;
     error?: string;

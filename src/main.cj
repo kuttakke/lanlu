@@ -67,13 +67,13 @@ main(): Int64 {
         return 1
     }
 
-    // 初始化Minion任务表
-    logger.info("Application starting... step 9b: initializing minion task tables")
-    let minionTablesInitialized = MinionModel.initialize()
-    if (minionTablesInitialized) {
-        logger.info("Minion task tables initialized successfully")
+    // 初始化Task任务表
+    logger.info("Application starting... step 9b: initializing task tables")
+    let taskTablesInitialized = TaskModel.initialize()
+    if (taskTablesInitialized) {
+        logger.info("Task tables initialized successfully")
     } else {
-        logger.error("Failed to initialize minion task tables")
+        logger.error("Failed to initialize task tables")
         return 1
     }
 
@@ -89,7 +89,7 @@ main(): Int64 {
         return 1
     }
 
-    // 启动 TaskPool（从minion_tasks领取pending任务执行）
+    // 启动 TaskPool（从tasks表领取pending任务执行）
     logger.info("Application starting... step 11a: starting taskpool service")
     let taskpool = TaskPoolService.getInstance()
     let taskpoolStarted = taskpool.start()

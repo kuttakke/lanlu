@@ -31,7 +31,7 @@ public class ChunkedUploadController {
             let requestBody = ctx.readString()
 
             // 创建minion任务来跟踪上传过程
-            let task = MinionModel.createTask("文件上传", "upload")
+            let task = TaskModel.createTask("文件上传", "upload")
 
             // 创建临时目录，使用taskId作为目录名
             createTempDirectories()
@@ -47,13 +47,13 @@ public class ChunkedUploadController {
             // 存储原始JSON到任务参数中
             if (requestBody.size > 0) {
                 // 直接将原始JSON存储到任务参数中
-                MinionTaskDao.updateTaskParameters(task.id, requestBody)
+                TaskDao.updateTaskParameters(task.id, requestBody)
                 getLogger("chunked_upload").info("存储原始JSON到任务参数", ("taskId", task.id.toString()), ("jsonSize", requestBody.size.toString()))
             } else {
                 getLogger("chunked_upload").warn("请求体为空，无法存储JSON参数")
             }
 
-            MinionModel.updateTaskProgress(task.id, 10, "上传初始化完成，等待分片上传")
+            TaskModel.updateTaskProgress(task.id, 10, "上传初始化完成，等待分片上传")
 
             let response = "{\"success\":1,\"taskId\":\"${task.id}\"}"
             ctx.json(response)
@@ -142,7 +142,7 @@ public class ChunkedUploadController {
             getLogger("chunked_upload").info("Processing upload completion", ("taskId", taskIdStr))
 
             // 从数据库获取任务信息
-            let task = MinionModel.getTaskById(taskId)
+            let task = TaskModel.getTaskById(taskId)
             if (task.status == "completed" || task.status == "failed") {
                 let errorResponse = "{\"success\":0,\"error\":\"Task already completed or failed\"}"
                 ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
@@ -208,11 +208,11 @@ public class ChunkedUploadController {
                 getLogger("chunked_upload").info("Chunk merging completed successfully")
 
                 // 更新任务进度
-                MinionModel.updateTaskProgress(taskId, 70, "分片合并完成，开始处理文件")
+                TaskModel.updateTaskProgress(taskId, 70, "分片合并完成，开始处理文件")
             } catch (e: Exception) {
                 // 标记任务失败
                 getLogger("chunked_upload").error("Failed to merge chunks", ("error", e.message))
-                MinionModel.failTask(taskId, "分片合并失败: ${e.message}")
+                TaskModel.failTask(taskId, "分片合并失败: ${e.message}")
 
                 let errorResponse = "{\"success\":0,\"error\":\"Failed to merge chunks: ${e.message}\"}"
                 ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
@@ -282,9 +282,9 @@ public class ChunkedUploadController {
                     "\"relative_path\":\"${escapeJsonString(finalArchivePath.toString())}\"," +
                     "\"filename\":\"${escapeJsonString(originalFileName)}\"" +
                     "}"
-                MinionTaskDao.updateTaskParameters(taskId, paramsJson)
-                MinionTaskDao.updateTaskType(taskId, "upload_process")
-                MinionTaskDao.updateTaskStatus(taskId, "pending", "等待处理", 70)
+                TaskDao.updateTaskParameters(taskId, paramsJson)
+                TaskDao.updateTaskType(taskId, "upload_process")
+                TaskDao.updateTaskStatus(taskId, "pending", "等待处理", 70)
                 TaskIO.appendLog(taskId, "enqueued upload_process archive_path=${absoluteArchivePath}")
                 TaskPoolService.getInstance().notifyTaskAvailable()
 
@@ -301,14 +301,14 @@ public class ChunkedUploadController {
             let bsdtarPath = ShinobuService.getBsdtarPath()
 
             let params = "{\"archive_path\":\"${escapeJsonString(absoluteArchivePath)}\",\"archive_base_path\":\"${escapeJsonString(archiveBasePath)}\",\"cache_path\":\"${escapeJsonString(cachePath)}\",\"thumbnail_path\":\"${escapeJsonString(thumbnailPath)}\",\"bsdtar_path\":\"${escapeJsonString(bsdtarPath)}\"}"
-            let scanTask = MinionModel.createTaskWithOptions("扫描档案", "scan_archive", params, 50, "chunked_upload:${taskId}", "upload")
+            let scanTask = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, 50, "chunked_upload:${taskId}", "upload")
             if (scanTask.id > 0) {
                 TaskPoolService.getInstance().notifyTaskAvailable()
                 getLogger("chunked_upload").info("File processing task created", ("taskId", scanTask.id.toString()))
 
                 // 更新任务状态为完成
                 let taskResult = "文件上传处理完成\n任务ID: ${scanTask.id}\n文件名: ${originalFileName}\n相对路径: ${finalArchivePath.toString()}"
-                MinionModel.completeTask(taskId, taskResult)
+                TaskModel.completeTask(taskId, taskResult)
 
                 // 清理上传目录
                 cleanupUploadDir(chunkDir)
@@ -318,7 +318,7 @@ public class ChunkedUploadController {
             } else {
                 // 处理失败，标记任务失败
                 getLogger("chunked_upload").error("Failed to create file processing task")
-                MinionModel.failTask(taskId, "文件处理任务创建失败")
+                TaskModel.failTask(taskId, "文件处理任务创建失败")
 
                 // 如果处理失败，删除已移动的文件
                 try {

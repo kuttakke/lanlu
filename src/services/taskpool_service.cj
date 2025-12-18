@@ -106,7 +106,7 @@ public class TaskPoolService {
             dispatchMutex.unlock()
 
             // 领取一个 pending（无任务则释放 slot 并退出）
-            match (MinionTaskDao.claimNextPendingTask()) {
+            match (TaskDao.claimNextPendingTask()) {
                 case Some(taskData) =>
                     let id = workerId
                     spawn {
@@ -123,7 +123,7 @@ public class TaskPoolService {
         }
     }
 
-    private func runWorker(task: MinionTaskData, workerId: Int32): Unit {
+    private func runWorker(task: TaskData, workerId: Int32): Unit {
         let logger = getLogger("taskpool")
         logger.info("TaskPool worker executing", ("worker", workerId.toString()), ("task_id", task.id.toString()), ("task_type", task.taskType))
         executeTask(task, workerId)
@@ -138,7 +138,7 @@ public class TaskPoolService {
         dispatch()
     }
 
-    private func executeTask(task: MinionTaskData, workerIndex: Int32): Unit {
+    private func executeTask(task: TaskData, workerIndex: Int32): Unit {
         let logger = getLogger("taskpool")
         TaskIO.appendLog(task.id, "[worker ${workerIndex}] start task ${task.id} type=${task.taskType}")
 
@@ -163,7 +163,7 @@ public class TaskPoolService {
                 ScanPluginsTaskRunner.run(task.id, task.parameters)
             case _ =>
                 TaskIO.appendLog(task.id, "Unknown task type: ${task.taskType}")
-                MinionModel.failTask(task.id, "Unknown task type: ${task.taskType}")
+                TaskModel.failTask(task.id, "Unknown task type: ${task.taskType}")
                 TaskIO.writeOutput(task.id, "{\"success\":0,\"error\":\"Unknown task type: ${task.taskType}\"}")
         }
 

@@ -369,7 +369,7 @@ public class MinionController {
         }
 
         // 创建一个下载任务作为替代
-        let task = MinionModel.createTask("插件执行: ${plugin}", "download")
+        let task = TaskModel.createTask("插件执行: ${plugin}", "download")
         ctx.json(task.toJson())
     }
 

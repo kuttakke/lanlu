@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MinionTask, MinionTaskPageResult } from '@/types/minion';
+import { Task, TaskPageResult } from '@/types/task';
 import { TaskPoolService } from '@/lib/taskpool-service';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ interface TaskListProps {
 
 export function TaskList({ className }: TaskListProps) {
   const { t } = useLanguage();
-  const [tasks, setTasks] = useState<MinionTask[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function TaskList({ className }: TaskListProps) {
     try {
       setError(null);
       console.log('Calling TaskPoolService.getTasks...');
-      const result: MinionTaskPageResult = await TaskPoolService.getTasks(page, pageSize);
+      const result: TaskPageResult = await TaskPoolService.getTasks(page, pageSize);
       console.log('API response:', result);
 
       // 确保 result.tasks 是数组
@@ -148,7 +148,7 @@ export function TaskList({ className }: TaskListProps) {
     }
   };
 
-  const getStatusActionButtons = (task: MinionTask) => {
+  const getStatusActionButtons = (task: Task) => {
     switch (task.status.toLowerCase()) {
       case 'pending':
         return (
@@ -267,15 +267,33 @@ export function TaskList({ className }: TaskListProps) {
                     <Badge variant="outline" className="font-mono text-xs">
                       Job #{task.id}
                     </Badge>
+                    {/* 优先级徽章 - 新增 */}
+                    <Badge className={TaskPoolService.getPriorityColor(task.priority)}>
+                      P{task.priority}
+                    </Badge>
                     <Badge
                       className={TaskPoolService.getTaskTypeColor(task.taskType)}
                       variant="secondary"
                     >
                       {TaskPoolService.getTaskTypeLabel(task.taskType)}
                     </Badge>
+                    {/* 触发源徽章 - 新增 */}
+                    {task.triggerSource && (
+                      <Badge variant="outline">
+                        {TaskPoolService.getTriggerSourceLabel(task.triggerSource)}
+                      </Badge>
+                    )}
                     {getStatusActionButtons(task)}
                   </div>
                 </div>
+                {/* 分组ID - 新增 */}
+                {task.groupId && (
+                  <div className="mt-2">
+                    <Badge variant="secondary" className="text-xs">
+                      Group: {task.groupId}
+                    </Badge>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Progress */}
@@ -321,6 +339,14 @@ export function TaskList({ className }: TaskListProps) {
                       <strong>完成时间:</strong>
                       <br />
                       {new Date(task.completedAt).toLocaleString()}
+                    </div>
+                  )}
+                  {/* 超时时间 - 新增 */}
+                  {task.timeoutAt && (
+                    <div className="md:col-span-3">
+                      <strong>超时时间:</strong>
+                      <br />
+                      {new Date(task.timeoutAt).toLocaleString()}
                     </div>
                   )}
                 </div>

@@ -26,7 +26,7 @@ public class CheckDatabaseTaskRunner {
         let logger = getLogger("check_database_task")
         TaskIO.appendLog(taskId, "check_database task started")
 
-        MinionModel.updateTaskProgress(taskId, 10, "Starting database consistency check")
+        TaskModel.updateTaskProgress(taskId, 10, "Starting database consistency check")
 
         let result = checkDatabaseFiles()
         if (!result.success) {
@@ -36,8 +36,8 @@ public class CheckDatabaseTaskRunner {
         }
 
         let successJson = "{\"success\":1,\"deleted_count\":${result.deletedCount},\"checked_count\":${result.checkedCount}}"
-        MinionModel.updateTaskProgress(taskId, 100, "Database check completed")
-        MinionModel.completeTask(taskId, successJson)
+        TaskModel.updateTaskProgress(taskId, 100, "Database check completed")
+        TaskModel.completeTask(taskId, successJson)
         TaskIO.writeOutput(taskId, successJson)
         TaskIO.appendLog(taskId, "check_database completed: checked=${result.checkedCount}, deleted=${result.deletedCount}")
     }
@@ -101,7 +101,7 @@ public class CheckDatabaseTaskRunner {
     private static func fail(taskId: Int64, message: String): Unit {
         let msg = if (message.size == 0) { "Unknown error" } else { message }
         TaskIO.appendLog(taskId, "FAILED: ${msg}")
-        MinionModel.failTask(taskId, msg)
+        TaskModel.failTask(taskId, msg)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
     }
 

@@ -47,7 +47,7 @@ public class DownloadUrlTaskRunner {
     public static func run(taskId: Int64, parameters: String): Unit {
         let _ = getLogger("download_url_task")
         TaskIO.appendLog(taskId, "download_url task started")
-        MinionModel.updateTaskProgress(taskId, 1, "下载任务开始")
+        TaskModel.updateTaskProgress(taskId, 1, "下载任务开始")
 
         let url = parseUrl(parameters)
         if (url.size == 0) {
@@ -57,7 +57,7 @@ public class DownloadUrlTaskRunner {
 
         try {
             TaskIO.appendLog(taskId, "url=${url}")
-            MinionModel.updateTaskProgress(taskId, 5, "匹配下载插件")
+            TaskModel.updateTaskProgress(taskId, 5, "匹配下载插件")
 
             let pluginOpt = findMatchingDownloadPlugin(url)
             if (pluginOpt.isNone()) {
@@ -65,10 +65,10 @@ public class DownloadUrlTaskRunner {
                 return
             }
             let plugin = pluginOpt.getOrThrow()
-            MinionTaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
+            TaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
             TaskIO.appendLog(taskId, "matched plugin=${plugin.namespace}")
 
-            MinionModel.updateTaskProgress(taskId, 10, "准备插件脚本")
+            TaskModel.updateTaskProgress(taskId, 10, "准备插件脚本")
             let pluginReady = ensurePluginScriptReady(plugin, "Download")
             if (!pluginReady) {
                 fail(taskId, "Failed to prepare download plugin file")
@@ -93,7 +93,7 @@ public class DownloadUrlTaskRunner {
                 }
             }
 
-            MinionModel.updateTaskProgress(taskId, 20, "执行下载插件")
+            TaskModel.updateTaskProgress(taskId, 20, "执行下载插件")
             let execResult = pluginService.executeDownloadPlugin(plugin, url)
             if (!execResult.success) {
                 fail(taskId, "Plugin execution failed: ${execResult.error}")
@@ -122,7 +122,7 @@ public class DownloadUrlTaskRunner {
                 }
             }
 
-            MinionModel.updateTaskProgress(taskId, 35, "下载文件")
+            TaskModel.updateTaskProgress(taskId, 35, "下载文件")
 
             var fileName = ""
             var pluginTarget = Path("")
@@ -160,7 +160,7 @@ public class DownloadUrlTaskRunner {
                 pluginRelativePath = "plugins/${plugin.namespace}/${fileName}"
             }
 
-            MinionModel.updateTaskProgress(taskId, 60, "移动到archive")
+            TaskModel.updateTaskProgress(taskId, 60, "移动到archive")
 
             let archiveDir = Path("./data/archive")
             FileUtils.ensureDirectoryExists(archiveDir)
@@ -176,7 +176,7 @@ public class DownloadUrlTaskRunner {
                 return
             }
 
-            MinionModel.updateTaskProgress(taskId, 80, "创建扫描任务")
+            TaskModel.updateTaskProgress(taskId, 80, "创建扫描任务")
 
             // 获取配置
             let archiveBasePath = archivePath.toString()
@@ -185,18 +185,18 @@ public class DownloadUrlTaskRunner {
 
             // 创建 scan_archive 任务
             let params = "{\"archive_path\":\"${escapeJson(finalArchivePathStr)}\",\"archive_base_path\":\"${escapeJson(archiveBasePath)}\",\"cache_path\":\"${escapeJson(cachePathStr)}\",\"thumbnail_path\":\"${escapeJson(thumbnailPathStr)}\",\"bsdtar_path\":\"${escapeJson(bsdtarPath)}\"}"
-            let task = MinionModel.createTaskWithOptions("扫描档案", "scan_archive", params, 50, "download_url:${taskId}", "upload")
+            let task = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, 50, "download_url:${taskId}", "upload")
             if (task.id <= 0) {
                 let errorJson = "{\"success\":0,\"relative_path\":\"${relativePath}\",\"error\":\"Failed to create scan_archive task\"}"
-                MinionModel.failTask(taskId, "Failed to create scan_archive task")
+                TaskModel.failTask(taskId, "Failed to create scan_archive task")
                 TaskIO.writeOutput(taskId, errorJson)
                 return
             }
 
             let resultJson = "{\"success\":1,\"relative_path\":\"${relativePath}\",\"plugin_relative_path\":\"${pluginRelativePath}\",\"task_id\":\"${task.id}\",\"filename\":\"${escapeJson(fileName)}\"}"
 
-            MinionModel.updateTaskProgress(taskId, 100, "下载完成")
-            MinionModel.completeTask(taskId, "download_url completed")
+            TaskModel.updateTaskProgress(taskId, 100, "下载完成")
+            TaskModel.completeTask(taskId, "download_url completed")
             TaskIO.writeOutput(taskId, resultJson)
             TaskIO.appendLog(taskId, "download_url task completed: scan_task_id=${task.id}")
         } catch (e: Exception) {
@@ -207,7 +207,7 @@ public class DownloadUrlTaskRunner {
     private static func fail(taskId: Int64, message: String): Unit {
         let msg = if (message.size == 0) { "Unknown error" } else { message }
         TaskIO.appendLog(taskId, "FAILED: ${msg}")
-        MinionModel.failTask(taskId, msg)
+        TaskModel.failTask(taskId, msg)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
     }
 
