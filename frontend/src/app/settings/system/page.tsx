@@ -1,18 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { Settings, Save, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { SystemSettingsApi, SystemSetting } from '@/lib/system-settings-api';
+import { SystemSetting } from '@/lib/system-settings-api';
 
 interface SettingsByCategory {
   [category: string]: SystemSetting[];
@@ -30,7 +29,8 @@ const getLocalizedDescription = (description: Record<string, string> | string, c
     // 如果description是字符串，尝试解析JSON
     const descObj = JSON.parse(description);
     return descObj[currentLang] || descObj['zh'] || descObj['en'] || description;
-  } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (_error) {
     // 如果解析失败，返回原始字符串或空字符串
     return typeof description === 'string' ? description : '';
   }
@@ -38,7 +38,7 @@ const getLocalizedDescription = (description: Record<string, string> | string, c
 
 export default function SystemSettingsPage() {
   const { t, language } = useLanguage();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -52,13 +52,7 @@ export default function SystemSettingsPage() {
     { id: 'performance', name: t('settings.system.performance'), icon: '⚡' },
   ];
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && isAuthenticated) {
-      loadSettings();
-    }
-  }, [isAuthenticated]);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/system/settings');
@@ -75,7 +69,7 @@ export default function SystemSettingsPage() {
         });
       }
     } catch (error) {
-      console.error(t('settings.system.loadError'), ':', error);
+      console.error(t('settings.system.loadError'), ':', error as Error);
       toast({
         title: t('common.error'),
         description: t('settings.system.loadError'),
@@ -84,7 +78,13 @@ export default function SystemSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t, toast]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isAuthenticated) {
+      loadSettings();
+    }
+  }, [isAuthenticated, loadSettings]);
 
   const groupSettingsByCategory = (settings: SystemSetting[]): SettingsByCategory => {
     return settings.reduce((acc, setting) => {

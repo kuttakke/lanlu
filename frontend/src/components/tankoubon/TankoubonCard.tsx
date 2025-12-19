@@ -114,6 +114,7 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tankoubon.tankoubon_id, tankoubon.archives]);
 
   return (

@@ -13,7 +13,6 @@ import { Pagination } from '@/components/ui/pagination';
 import {
   Play,
   Square,
-  Trash2,
   Clock,
   CheckCircle,
   XCircle,
