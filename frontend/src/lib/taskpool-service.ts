@@ -3,7 +3,6 @@ import { api } from '@/lib/api';
 
 /**
  * TaskPool Service - 使用新的 TaskPool API
- * 替代旧的 MinionService
  */
 export class TaskPoolService {
   private static BASE_URL = '/api/taskpool';

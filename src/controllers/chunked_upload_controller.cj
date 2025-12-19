@@ -30,7 +30,7 @@ public class ChunkedUploadController {
             // 直接读取请求体中的JSON字符串并存储到任务参数中
             let requestBody = ctx.readString()
 
-            // 创建minion任务来跟踪上传过程
+            // 创建TaskPool任务来跟踪上传过程
             let task = TaskModel.createTask("文件上传", "upload")
 
             // 创建临时目录，使用taskId作为目录名
@@ -288,7 +288,7 @@ public class ChunkedUploadController {
                 TaskIO.appendLog(taskId, "enqueued upload_process archive_path=${absoluteArchivePath}")
                 TaskPoolService.getInstance().notifyTaskAvailable()
 
-                // 立刻返回job，前端通过 /api/minion/tasks/{id} 查询进度与最终输出
+                // 立刻返回job，前端通过 /api/taskpool/{id} 查询进度与最终输出
                 let response = "{\"success\":1,\"job\":${taskId},\"operation\":\"upload\",\"filename\":\"${escapeJsonString(originalFileName)}\"}"
                 ctx.json(response)
                 return

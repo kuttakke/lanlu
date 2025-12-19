@@ -10,11 +10,10 @@ import lrr4cj.services.*
 import lrr4cj.utils.*
 
 /**
- * Minion控制器
- * 注意：任务相关的端点已迁移到 TaskPoolController
- * 此控制器现在仅负责插件管理功能
+ * 插件控制器
+ * 负责插件的管理功能，包括插件的注册、配置和状态管理
  */
-public class MinionController {
+public class PluginsController {
     /**
      * 构建JSON响应字符串
      */
@@ -37,7 +36,7 @@ public class MinionController {
      * GET /api/plugins
      */
     public static func getAllPlugins(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
+        let logger = getLogger("plugins_controller")
 
         try {
             let plugins = PluginDao.getAllPlugins()
@@ -61,7 +60,7 @@ public class MinionController {
      * GET /api/plugins/:type
      */
     public static func getPluginsByType(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
+        let logger = getLogger("plugins_controller")
         let pluginType = ctx.getParam("type") ?? ""
 
         if (pluginType.size == 0) {
@@ -91,7 +90,7 @@ public class MinionController {
      * GET /api/plugins/:namespace/details
      */
     public static func getPluginDetails(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
+        let logger = getLogger("plugins_controller")
         let namespace = ctx.getParam("namespace") ?? ""
 
         if (namespace.size == 0) {
@@ -115,7 +114,7 @@ public class MinionController {
      * GET /api/plugins/:namespace/config
      */
     public static func getPluginConfig(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
+        let logger = getLogger("plugins_controller")
         let namespace = ctx.getParam("namespace") ?? ""
 
         if (namespace.size == 0) {
@@ -141,7 +140,7 @@ public class MinionController {
      * PUT /api/plugins/:namespace/config
      */
     public static func updatePluginConfig(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
+        let logger = getLogger("plugins_controller")
         let namespace = ctx.getParam("namespace") ?? ""
 
         if (namespace.size == 0) {
@@ -194,7 +193,7 @@ public class MinionController {
      * PUT /api/plugins/:namespace/enabled
      */
     public static func setPluginEnabled(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
+        let logger = getLogger("plugins_controller")
         let namespace = ctx.getParam("namespace") ?? ""
 
         if (namespace.size == 0) {
@@ -233,7 +232,7 @@ public class MinionController {
      * POST /api/plugins/discover
      */
     public static func discoverPlugins(ctx: JoyContext) {
-        let logger = getLogger("minion_controller")
+        let logger = getLogger("plugins_controller")
 
         let pluginService = PluginService.getInstance()
         let discoveredPlugins = pluginService.discoverPlugins()
@@ -356,22 +355,7 @@ public class MinionController {
         return escaped
     }
 
-    /**
-     * 执行插件 (旧版兼容)
-     */
-    public static func executePluginOld(ctx: JoyContext) {
-        let plugin = ctx.getQuery("plugin") ?? ""
-        let url = ctx.getQuery("url") ?? ""
 
-        if (plugin.size == 0 || url.size == 0) {
-            ResponseView.errorJson(ctx, "Plugin and URL are required")
-            return
-        }
-
-        // 创建一个下载任务作为替代
-        let task = TaskModel.createTask("插件执行: ${plugin}", "download")
-        ctx.json(task.toJson())
-    }
 
     // ========== 新增Schema相关API ==========
 

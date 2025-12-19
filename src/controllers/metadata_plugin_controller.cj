@@ -10,7 +10,7 @@ import lrr4cj.utils.*
 
 /**
  * 元数据插件执行控制器
- * 负责创建 taskpool 任务并返回 job id，前端通过 /api/minion/tasks/{id} 查询进度与结果
+ * 负责创建 taskpool 任务并返回 job id，前端通过 /api/taskpool/{id} 查询进度与结果
  */
 public class MetadataPluginController {
     private static func jsonValueToString(value: JsonValue): String {

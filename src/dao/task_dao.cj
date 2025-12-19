@@ -7,7 +7,7 @@ import std.collection.*
 import stdx.log.*
 
 /**
- * Minion任务数据结构（DAO内部使用）
+ * 任务数据结构（DAO内部使用）
  */
 public class TaskData {
     public var id: Int64 = 0
@@ -31,8 +31,8 @@ public class TaskData {
 }
 
 /**
- * Minion任务数据访问对象 (DAO)
- * 负责处理所有与Minion任务相关的数据库操作
+ * 任务数据访问对象 (DAO)
+ * 负责处理所有与任务相关的数据库操作
  */
 public class TaskDao {
 
@@ -40,7 +40,7 @@ public class TaskDao {
      * 创建任务表
      */
     public static func createTable(): Bool {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -138,10 +138,10 @@ public class TaskDao {
                         try {
                             if (rs.next()) {
                                 data.id = rs.getOrNull<Int64>(0) ?? 0
-                                getLogger("minion_task_dao").info("创建任务", ("id", data.id.toString()))
+                                getLogger("task_dao").info("创建任务", ("id", data.id.toString()))
                                 return true
                             } else {
-                                getLogger("minion_task_dao").error("获取自增ID失败")
+                                getLogger("task_dao").error("获取自增ID失败")
                                 return false
                             }
                         } finally {
@@ -151,46 +151,26 @@ public class TaskDao {
                         try {
                             stmt.close()
                         } catch (closeError: Exception) {
-                            getLogger("minion_task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
+                            getLogger("task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("创建任务失败", ("id", data.id), ("error", e.message))
+                    getLogger("task_dao").error("创建任务失败", ("id", data.id), ("error", e.message))
                     return false
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return false
         }
     }
 
-    /**
-     * 创建基础任务（用于兼容旧流程）
-     */
-    public static func createBasicTask(name: String, taskType: String): Option<Int64> {
-        let data = TaskData()
-        data.name = name
-        data.taskType = taskType
-        data.status = "pending"
-        data.progress = 0
-        data.message = "任务已创建"
-        data.parameters = ""
-        data.priority = 50
-        data.groupId = ""
-        data.timeoutAt = ""
-        data.triggerSource = "manual"
-        let success = createTaskData(data)
-        if (success && data.id > 0) {
-            return Option.Some(data.id)
-        }
-        return Option.None
-    }
+
 
     /**
      * 根据ID获取任务
@@ -237,28 +217,28 @@ public class TaskDao {
                             try {
                                 rs.close()
                             } catch (closeError: Exception) {
-                                getLogger("minion_task_dao").warn("关闭ResultSet失败: ${closeError.message}")
+                                getLogger("task_dao").warn("关闭ResultSet失败: ${closeError.message}")
                             }
                         }
                     } finally {
                         try {
                             stmt.close()
                         } catch (closeError: Exception) {
-                            getLogger("minion_task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
+                            getLogger("task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("查询任务失败", ("id", id), ("error", e.message))
+                    getLogger("task_dao").error("查询任务失败", ("id", id), ("error", e.message))
                     return TaskData()
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return TaskData()
         }
     }
@@ -282,27 +262,27 @@ public class TaskDao {
                         stmt.set(3, id)
 
                         stmt.update()
-                        getLogger("minion_task_dao").info("更新任务状态", ("id", id), ("status", status))
+                        getLogger("task_dao").info("更新任务状态", ("id", id), ("status", status))
                         return true
                     } finally {
                         try {
                             stmt.close()
                         } catch (closeError: Exception) {
-                            getLogger("minion_task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
+                            getLogger("task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("更新任务状态失败", ("id", id), ("error", e.message))
+                    getLogger("task_dao").error("更新任务状态失败", ("id", id), ("error", e.message))
                     return false
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return false
         }
     }
@@ -360,27 +340,27 @@ public class TaskDao {
                         stmt.set(14, data.id)
 
                         stmt.update()
-                        getLogger("minion_task_dao").info("更新任务", ("id", data.id))
+                        getLogger("task_dao").info("更新任务", ("id", data.id))
                         return true
                     } finally {
                         try {
                             stmt.close()
                         } catch (closeError: Exception) {
-                            getLogger("minion_task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
+                            getLogger("task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("更新任务失败", ("id", data.id), ("error", e.message))
+                    getLogger("task_dao").error("更新任务失败", ("id", data.id), ("error", e.message))
                     return false
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return false
         }
     }
@@ -397,27 +377,27 @@ public class TaskDao {
                     try {
                         stmt.set(0, id)
                         stmt.update()
-                        getLogger("minion_task_dao").info("删除任务", ("id", id))
+                        getLogger("task_dao").info("删除任务", ("id", id))
                         return true
                     } finally {
                         try {
                             stmt.close()
                         } catch (closeError: Exception) {
-                            getLogger("minion_task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
+                            getLogger("task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("删除任务失败", ("id", id), ("error", e.message))
+                    getLogger("task_dao").error("删除任务失败", ("id", id), ("error", e.message))
                     return false
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return false
         }
     }
@@ -446,28 +426,28 @@ public class TaskDao {
                             try {
                                 rs.close()
                             } catch (closeError: Exception) {
-                                getLogger("minion_task_dao").warn("关闭ResultSet失败: ${closeError.message}")
+                                getLogger("task_dao").warn("关闭ResultSet失败: ${closeError.message}")
                             }
                         }
                     } finally {
                         try {
                             stmt.close()
                         } catch (closeError: Exception) {
-                            getLogger("minion_task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
+                            getLogger("task_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("检查任务存在性失败", ("id", id), ("error", e.message))
+                    getLogger("task_dao").error("检查任务存在性失败", ("id", id), ("error", e.message))
                     return false
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return false
         }
     }
@@ -494,21 +474,21 @@ public class TaskDao {
                             rs.close()
                             stmt.close()
                         } catch (closeError: Exception) {
-                            getLogger("minion_task_dao").warn("关闭ResultSet或PreparedStatement失败: ${closeError.message}")
+                            getLogger("task_dao").warn("关闭ResultSet或PreparedStatement失败: ${closeError.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("获取任务总数失败", ("error", e.message))
+                    getLogger("task_dao").error("获取任务总数失败", ("error", e.message))
                     return 0
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return 0
         }
     }
@@ -571,32 +551,32 @@ public class TaskDao {
                                 return Array<TaskData>()
                             }
                     } catch (e: Exception) {
-                        getLogger("minion_task_dao").error("分页查询任务失败", ("error", e.message))
+                        getLogger("task_dao").error("分页查询任务失败", ("error", e.message))
                         return Array<TaskData>()
                     } finally {
                             try {
                                 rs.close()
                                 stmt.close()
                             } catch (closeError: Exception) {
-                                getLogger("minion_task_dao").warn("关闭ResultSet或PreparedStatement失败: ${closeError.message}")
+                                getLogger("task_dao").warn("关闭ResultSet或PreparedStatement失败: ${closeError.message}")
                             }
                         }
                     } catch (e: Exception) {
-                        getLogger("minion_task_dao").error("分页查询任务失败", ("error", e.message))
+                        getLogger("task_dao").error("分页查询任务失败", ("error", e.message))
                         return Array<TaskData>()
                     }
                 } catch (e: Exception) {
-                    getLogger("minion_task_dao").error("分页查询任务失败", ("error", e.message))
+                    getLogger("task_dao").error("分页查询任务失败", ("error", e.message))
                     return Array<TaskData>()
                 } finally {
                     try {
                         conn.close()
                     } catch (closeError: Exception) {
-                        getLogger("minion_task_dao").warn("关闭Connection失败: ${closeError.message}")
+                        getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
                 }
             case None =>
-                getLogger("minion_task_dao").error("无法创建数据库连接")
+                getLogger("task_dao").error("无法创建数据库连接")
                 return Array<TaskData>()
         }
     }
@@ -605,7 +585,7 @@ public class TaskDao {
      * 更新任务参数
      */
     public static func updateTaskParameters(id: Int64, parameters: String): Bool {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -646,7 +626,7 @@ public class TaskDao {
      * 更新任务类型
      */
     public static func updateTaskType(id: Int64, taskType: String): Bool {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -683,7 +663,7 @@ public class TaskDao {
      * 更新任务的插件命名空间
      */
     public static func updateTaskPluginNamespace(id: Int64, pluginNamespace: String): Bool {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -720,7 +700,7 @@ public class TaskDao {
      * 将running状态的任务标记为failed，因为进程已重启，这些任务未真正完成
      */
     public static func recoverOrphanedTasks(): Int64 {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -767,7 +747,7 @@ public class TaskDao {
      * 检查最近时间内是否存在指定类型和触发源的任务（防重复）
      */
     public static func hasRecentTask(taskType: String, triggerSource: String, withinSeconds: Int32): Bool {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -825,7 +805,7 @@ public class TaskDao {
      * 按 trigger_source 查询任务
      */
     public static func getTasksByTriggerSource(triggerSource: String, limit: Int32): Array<TaskData> {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -911,7 +891,7 @@ public class TaskDao {
      * 按 group_id 查询任务
      */
     public static func getTasksByGroupId(groupId: String): Array<TaskData> {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -995,7 +975,7 @@ public class TaskDao {
      * 批量更新任务状态（用于批量取消）
      */
     public static func updateTaskStatusByGroupId(groupId: String, status: String, message: String): Int64 {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -1041,7 +1021,7 @@ public class TaskDao {
      * 领取一个待执行任务（原子地将pending置为running）
      */
     public static func claimNextPendingTask(): Option<TaskData> {
-        let logger = getLogger("minion_task_dao")
+        let logger = getLogger("task_dao")
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>

@@ -5,7 +5,7 @@ import lrr4cj.routes.api.archives.*
 import lrr4cj.routes.api.database.*
 import lrr4cj.routes.api.search.*
 import lrr4cj.routes.api.categories.*
-import lrr4cj.routes.api.minion.*
+import lrr4cj.routes.api.plugins.*
 import lrr4cj.routes.api.tankoubons.*
 import lrr4cj.routes.api.shinobu.*
 import lrr4cj.routes.api.*
@@ -32,8 +32,8 @@ public class Routes {
         // 注册 API 分类路由
         registerCategoryRoutes(router)
         
-        // 注册 API Minion路由
-        registerMinionRoutes(router)
+        // 注册 API 插件路由
+        registerPluginsRoutes(router)
         
         // 注册 API 单行本路由
         registerTankoubonRoutes(router)
