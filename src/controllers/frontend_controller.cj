@@ -161,4 +161,109 @@ public class FrontendController {
             return defaultType
         }
     }
+
+    /**
+     * HEAD 请求：统一的路径服务函数
+     * 根据请求路径检查文件是否存在，返回头部信息但不返回内容
+     * @param baseDir 前端静态文件的基础目录，默认为 "frontend/out"
+     */
+    public static func servePathHead(ctx: JoyContext, baseDir!: String = "frontend/out") {
+        try {
+            // 获取并清理路径
+            let path = ctx.getParam("*") ?? ""
+            let cleanPath = if (path.contains("?")) { path.split("?")[0] } else { path }
+            println("HEAD Request path: ${path}, Clean path: ${cleanPath}, Base dir: ${baseDir}")
+
+            // 处理根路径
+            if (cleanPath.isEmpty() || cleanPath == "/") {
+                println("Root path HEAD request, checking index.html")
+                return serveFileHead(ctx, "${baseDir}/index.html")
+            }
+
+            // 构建基础路径
+            let basePath = "${baseDir}/${cleanPath}"
+            println("HEAD Request initial file path: ${basePath}")
+
+            // 尝试直接访问文件
+            if (exists(basePath) && !FileInfo(basePath).isDirectory()) {
+                return serveFileHead(ctx, basePath)
+            }
+
+            // 尝试React路由映射（针对.txt文件）
+            if (cleanPath.endsWith(".txt")) {
+                let dirPath = cleanPath.replace(".txt", "")
+                let txtIndexPath = "${baseDir}/${dirPath}/index.txt"
+                println("HEAD Request trying React route mapping: ${txtIndexPath}")
+
+                if (exists(txtIndexPath)) {
+                    return serveFileHead(ctx, txtIndexPath)
+                }
+            }
+
+            // 尝试添加index.html
+            let indexPath = if (basePath.endsWith("/")) {
+                basePath + "index.html"
+            } else {
+                basePath + "/index.html"
+            }
+            println("HEAD Request directory or file not found, trying with index.html: ${indexPath}")
+
+            if (exists(indexPath)) {
+                return serveFileHead(ctx, indexPath)
+            }
+
+            // 所有尝试都失败，返回404
+            println("HEAD Request file not found: ${indexPath}")
+            FrontendController.serve404Head(ctx)
+
+        } catch (ex: Exception) {
+            ctx.status(500).string("Error serving file: ${ex.message}")
+        }
+    }
+
+    /**
+     * HEAD 请求：服务文件头部信息
+     * 检查文件是否存在，设置头部信息，但不返回内容
+     */
+    private static func serveFileHead(ctx: JoyContext, filePath: String) {
+        println("HEAD Request serving file: ${filePath}")
+
+        if (!exists(filePath)) {
+            println("HEAD Request file not found: ${filePath}")
+            FrontendController.serve404Head(ctx)
+            return
+        }
+
+        let contentType = getContentType(filePath)
+        ctx.header("Content-Type", contentType)
+        ctx.status(200)
+        // HEAD 请求不返回内容，只返回状态码和头部
+    }
+
+    /**
+     * HEAD 请求：服务404头部信息
+     * 返回404状态码和头部信息，但不返回错误页面内容
+     * @param baseDir 前端静态文件的基础目录，默认为 "frontend/out"
+     */
+    public static func serve404Head(ctx: JoyContext, baseDir!: String = "frontend/out") {
+        try {
+            // 尝试使用自定义404页面
+            let custom404Path = "${baseDir}/404/index.html"
+            if (exists(custom404Path)) {
+                ctx.header("Content-Type", "text/html; charset=utf-8")
+                ctx.status(404)
+                // HEAD 请求不返回内容，只返回状态码和头部
+                return
+            }
+
+            // 如果自定义404不存在，返回默认错误头部
+            ctx.header("Content-Type", "text/plain; charset=utf-8")
+            ctx.status(404)
+            // HEAD 请求不返回内容
+        } catch (ex: Exception) {
+            ctx.header("Content-Type", "text/plain; charset=utf-8")
+            ctx.status(500)
+            // HEAD 请求不返回内容
+        }
+    }
 }

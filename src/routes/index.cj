@@ -61,5 +61,10 @@ public class Routes {
         router.get("/*", { ctx =>
             FrontendController.servePath(ctx)
         })
+
+        // 处理所有前端HEAD请求（用于Next.js静态导出预检）
+        router.head("/*", { ctx =>
+            FrontendController.servePathHead(ctx)
+        })
     }
 }
