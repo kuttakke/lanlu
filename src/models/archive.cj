@@ -240,22 +240,6 @@ public class ArchiveModel {
             }
         }
 
-        // 兼容旧逻辑：data/thumb/<archiveId>.jpg
-        let archiveIdPath = "${thumbnailDir}/${id}.jpg"
-        println("Trying archiveId path: ${archiveIdPath}")
-        try {
-            let filePath = Path(archiveIdPath)
-            if (exists(filePath)) {
-                let fileInfo = FileInfo(filePath)
-                if (fileInfo.isRegular()) {
-                    println("Found thumbnail using archiveId: ${archiveIdPath}")
-                    return archiveIdPath
-                }
-            }
-        } catch (e: Exception) {
-            println("Error checking archiveId file: ${e}")
-        }
-
         println("Thumbnail not found for archive: ${id}")
         return ""
     }
@@ -290,22 +274,8 @@ public class ArchiveModel {
             }
         }
 
-        // 兼容旧逻辑：data/thumb/<archiveId>.jpg
-        let legacyPath = "${thumbnailDir}/${id}.jpg"
-        println("Checking legacy thumbnail path: ${legacyPath}")
-        try {
-            let filePath = Path(legacyPath)
-            if (exists(filePath)) {
-                let fileInfo = FileInfo(filePath)
-                println("Legacy thumbnail file exists and is regular: ${fileInfo.isRegular()}")
-                return fileInfo.isRegular()
-            }
-            println("Thumbnail file does not exist")
-            return false
-        } catch (e: Exception) {
-            println("Error checking thumbnail file: ${e}")
-            return false
-        }
+        println("Thumbnail file does not exist")
+        return false
     }
 
     /**

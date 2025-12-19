@@ -174,13 +174,7 @@ public class ShinobuService {
         // 触发启动任务（带防重复检查）
         triggerStartupTasks()
 
-        // 如果启用初始扫描，启动时进行一次扫描（已废弃，改用任务触发）
-        // 保留旧的 spawnScanThread 逻辑以防万一，但优先使用任务触发
-        if (enableInitialScan) {
-            logger.info("Initial scan will be triggered via task system")
-        } else {
-            logger.info("Initial scan is disabled")
-        }
+        // 初始扫描现在通过任务系统触发，而不是直接启动时执行
         
         // 如果启用自动扫描，启动定时任务
         if (enableAutoScan) {

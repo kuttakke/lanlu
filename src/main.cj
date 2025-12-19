@@ -4,7 +4,6 @@ import lrr4cj.routes.*
 import lrr4cj.config.*
 import lrr4cj.services.*
 import lrr4cj.utils.*
-import lrr4cj.dao.*
 import lrr4cj.models.*
 import std.convert.*
 import cjoy.*
@@ -112,59 +111,6 @@ main(): Int64 {
     } else {
         logger.error("Failed to start TaskPool service")
         return 1
-    }
-
-    // 自动插件发现并强制更新 - 启动时执行
-    logger.info("Application starting... step 12: auto plugin discovery with force update")
-    var discoveredPlugins: Array<PluginData> = Array<PluginData>()
-    try {
-        let pluginService = PluginService.getInstance()
-        discoveredPlugins = pluginService.discoverPlugins()
-        logger.info("Application starting... step 13: plugin discovery complete", ("discovered", discoveredPlugins.size.toString()))
-
-        // 强制更新所有插件到数据库（包括schema）
-        var updatedCount = 0
-        for (plugin in discoveredPlugins) {
-            logger.info("Updating plugin: ${plugin.name} (${plugin.namespace})", ("has_schema", plugin.has_schema.toString()))
-
-            // 强制更新现有插件的schema，不管是否存在
-            let existingPlugin = PluginDao.getPluginByNamespace(plugin.namespace)
-            if (existingPlugin.namespace.size > 0) {
-                // 插件已存在，强制更新参数和权限
-                existingPlugin.name = plugin.name
-                existingPlugin.version = plugin.version
-                existingPlugin.description = plugin.description
-                existingPlugin.author = plugin.author
-                existingPlugin.entry = plugin.entry
-                existingPlugin.plugin_type = plugin.plugin_type
-                existingPlugin.tags = plugin.tags
-                existingPlugin.parameters = mergePluginParameters(existingPlugin.parameters, plugin.parameters)
-                existingPlugin.has_schema = plugin.has_schema
-                existingPlugin.permissions = plugin.permissions
-                existingPlugin.url_regex = plugin.url_regex
-                existingPlugin.login_from = plugin.login_from
-                existingPlugin.installed = plugin.installed
-                if (PluginDao.update(existingPlugin)) {
-                    updatedCount += 1
-                    logger.info("Force updated plugin schema: ${plugin.name}")
-                } else {
-                    logger.error("Failed to update plugin schema: ${plugin.name}")
-                }
-            } else {
-                // 插件不存在，创建新插件
-                if (PluginDao.create(plugin)) {
-                    updatedCount += 1
-                    logger.info("Created new plugin: ${plugin.name}")
-                } else {
-                    logger.error("Failed to create plugin: ${plugin.name}")
-                }
-            }
-        }
-        logger.info("Auto plugin discovery completed", ("total", discoveredPlugins.size.toString()), ("updated", updatedCount.toString()))
-        logger.info("Discovered plugins", ("count", discoveredPlugins.size.toString()))
-    } catch (e: Exception) {
-        logger.error("Plugin discovery failed", ("error", e.message))
-        logger.info("Application starting... step 13: plugin discovery completed with errors")
     }
 
     // 创建 joy 实例并配置路由

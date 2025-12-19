@@ -150,12 +150,6 @@ public class PluginService {
         }
 
         // 汇总网络权限，避免重复 --allow-net
-        // EHentai 元数据插件需要访问 upload.e-hentai.org 进行 file search（兼容旧数据库权限字段未更新的情况）
-        if (plugin.namespace == "ehplugin") {
-            if (!netHosts.contains("upload.e-hentai.org")) {
-                netHosts.add("upload.e-hentai.org")
-            }
-        }
         if (allowNetAll) {
             denoArgs.add("--allow-net")
         } else if (netHosts.size > 0) {
@@ -431,115 +425,7 @@ public class PluginService {
         return pluginData
     }
 
-    /**
-     * 运行时从下载插件脚本的 plugin_info 补全缺失元数据（兼容旧数据库记录缺字段的情况）
-     */
-    public func hydrateDownloadPluginRuntimeInfo(plugin: PluginData): Unit {
-        let pluginFile = "./data/plugins/${plugin.namespace}/Download.ts"
-        if (!exists(pluginFile)) {
-            return
-        }
 
-        try {
-            let denoPath = "/config/.deno/bin/deno"
-            var denoArgs = ArrayList<String>()
-            denoArgs.add("run")
-            denoArgs.add("--allow-read=${pluginFile}")
-            denoArgs.add("--allow-read=./data/plugins")
-            denoArgs.add(pluginFile)
-            denoArgs.add("--action=plugin_info")
-
-            let (exitCode, stdout, _) = executeWithOutput(denoPath, denoArgs.toArray())
-            if (exitCode != 0) {
-                return
-            }
-
-            let output = String.fromUtf8(stdout).trimAscii()
-            if (output.size == 0) {
-                return
-            }
-
-            let jsonVal = JsonValue.fromStr(output)
-            match (jsonVal) {
-                case jsonObj: JsonObject =>
-                    let loginFrom = getJsonString(jsonObj, "login_from").trimAscii()
-                    let urlRegex = getJsonString(jsonObj, "url_regex").trimAscii()
-
-                    // 解析 permissions: string[]
-                    var discoveredPerms: String = ""
-                    let fields = jsonObj.getFields()
-                    if (fields.contains("permissions")) {
-                        discoveredPerms = parsePermissions(fields["permissions"])
-                    }
-
-                    // 回填到传入对象（供本次请求使用）
-                    if (plugin.login_from.trimAscii().size == 0 && loginFrom.size > 0) {
-                        plugin.login_from = loginFrom
-                    }
-                    if (plugin.url_regex.trimAscii().size == 0 && urlRegex.size > 0) {
-                        plugin.url_regex = urlRegex
-                    }
-                    if (discoveredPerms.trimAscii().size > 0) {
-                        plugin.permissions = mergePermissionStrings(plugin.permissions, discoveredPerms)
-                    }
-
-                    // 回填到数据库（仅做缺省补全/合并，不覆盖用户配置）
-                    let existing = PluginDao.getPluginByNamespace(plugin.namespace)
-                    if (existing.namespace.size > 0) {
-                        var changed = false
-                        if (existing.login_from.trimAscii().size == 0 && loginFrom.size > 0) {
-                            existing.login_from = loginFrom
-                            changed = true
-                        }
-                        if (existing.url_regex.trimAscii().size == 0 && urlRegex.size > 0) {
-                            existing.url_regex = urlRegex
-                            changed = true
-                        }
-                        if (discoveredPerms.trimAscii().size > 0) {
-                            let merged = mergePermissionStrings(existing.permissions, discoveredPerms)
-                            if (merged != existing.permissions) {
-                                existing.permissions = merged
-                                changed = true
-                            }
-                        }
-                        if (changed) {
-                            PluginDao.update(existing)
-                        }
-                    }
-                case _ => return
-            }
-        } catch (_: Exception) {
-            return
-        }
-    }
-
-    private func mergePermissionStrings(existing: String, discovered: String): String {
-        let existingList = existing.split(",")
-        let discoveredList = discovered.split(",")
-        var set = HashSet<String>()
-        for (p in existingList) {
-            let t = normalizePermission(p).trimAscii()
-            if (t.size > 0) { set.add(t) }
-        }
-        for (p in discoveredList) {
-            let t = normalizePermission(p).trimAscii()
-            if (t.size > 0) { set.add(t) }
-        }
-        if (set.size == 0) {
-            return ""
-        }
-        // HashSet iteration order is undefined; keep original order first, then append new ones
-        var ordered = ArrayList<String>()
-        for (p in existingList) {
-            let t = normalizePermission(p).trimAscii()
-            if (t.size > 0 && set.contains(t) && !ordered.contains(t)) { ordered.add(t) }
-        }
-        for (p in discoveredList) {
-            let t = normalizePermission(p).trimAscii()
-            if (t.size > 0 && set.contains(t) && !ordered.contains(t)) { ordered.add(t) }
-        }
-        return String.join(ordered.toArray(), delimiter: ",")
-    }
 
     /**
      * 从JsonObject获取字符串值
@@ -680,29 +566,6 @@ public class PluginService {
 
     private func matchesTrueString(value: String): Bool {
         return value == "true" || value == "True" || value == "TRUE" || value == "1"
-    }
-
-    /**
-     * 解析权限数组为逗号分隔字符串
-     */
-    private func parsePermissions(permissions: JsonValue): String {
-        match (permissions) {
-            case array: JsonArray =>
-                var permissionList = ArrayList<String>()
-                let size = array.size()
-                for (i in 0..size) {
-                    let item = array.get(i)
-                    if (let someValue <- item) {
-                        let value = someValue
-                        permissionList.add(value.toString())
-                    }
-                }
-                return String.join(permissionList.toArray(), delimiter: ",")
-            case str: JsonString =>
-                return str.getValue()
-            case _ =>
-                return ""
-        }
     }
 
     /**
@@ -986,7 +849,6 @@ public class PluginService {
 
         var cookiesJsonOpt: Option<String> = Option.None
 
-        hydrateDownloadPluginRuntimeInfo(plugin)
         let effectiveLoginFrom = plugin.login_from.trimAscii()
         if (effectiveLoginFrom.size > 0) {
             let loginPlugin = PluginDao.getPluginByNamespace(effectiveLoginFrom)

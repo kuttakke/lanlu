@@ -82,9 +82,7 @@ public class DownloadUrlTaskRunner {
                 return
             }
 
-            // 兼容旧记录：若数据库缺少 login_from，则从插件脚本 plugin_info 中解析并回填
             let pluginService = PluginService.getInstance()
-            pluginService.hydrateDownloadPluginRuntimeInfo(plugin)
             let effectiveLoginFrom = plugin.login_from.trimAscii()
             if (effectiveLoginFrom.size > 0) {
                 plugin.login_from = effectiveLoginFrom
