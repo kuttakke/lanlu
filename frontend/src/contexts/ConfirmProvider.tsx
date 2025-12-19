@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { useConfirm } from '@/hooks/use-confirm';
-import type { ConfirmDialogProps } from '@/components/ui/confirm-dialog';
 
 type ConfirmOptions = {
   title: string;

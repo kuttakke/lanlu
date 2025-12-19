@@ -94,7 +94,7 @@ export default function SystemSettingsPage() {
         clearTimeout(loadSettingsTimeoutRef.current);
       }
     };
-  }, [isAuthenticated]); // 移除了 loadSettings 依赖项，避免因 useCallback 依赖变化导致的重复调用
+  }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const groupSettingsByCategory = (settings: SystemSetting[]): SettingsByCategory => {
     const grouped: SettingsByCategory = {};

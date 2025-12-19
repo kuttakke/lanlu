@@ -31,7 +31,7 @@ interface TaskListProps {
 export function TaskList({ className }: TaskListProps) {
   const { t } = useLanguage();
   const { confirm } = useConfirmContext();
-  const { success: showSuccess, error: showError } = useToast();
+  const { success: showSuccess } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

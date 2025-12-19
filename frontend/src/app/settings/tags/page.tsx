@@ -51,7 +51,7 @@ interface EditTagForm {
 export default function TagsSettingsPage() {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
-  const { success, error: showError } = useToast();
+  const { success } = useToast();
   const { confirm } = useConfirmContext();
 
   const [loading, setLoading] = useState(false);

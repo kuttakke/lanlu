@@ -30,7 +30,7 @@ function ArchiveDetailContent() {
   const { t, language } = useLanguage();
   const { isAuthenticated, user } = useAuth();
   const isAdmin = user?.isAdmin === true;
-  const { success, error: showError, info } = useToast();
+  const { success, error: showError } = useToast();
   const { confirm } = useConfirmContext();
 
   // 添加 mounted 状态以避免水合错误
@@ -792,7 +792,6 @@ function ArchiveDetailContent() {
 	                          {/* 添加到合集按钮 */}
 	                          <AddToTankoubonDialog
 	                            archiveId={metadata.arcid}
-	                            archiveTitle={metadata.title}
 	                            fullWidth
 	                            onAdded={() => {
 	                              console.log('Archive added to tankoubon');

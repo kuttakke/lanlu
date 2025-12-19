@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { TankoubonService } from '@/lib/tankoubon-service';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, BookOpen } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface TankoubonManagementDialogProps {
   onCreated?: (tankoubonId: string) => void;

@@ -13,12 +13,11 @@ import {
 } from '@/components/ui/dialog';
 import { TankoubonService } from '@/lib/tankoubon-service';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BookOpen, Plus, Check, X, Search } from 'lucide-react';
+import { BookOpen, Plus, Check, Search } from 'lucide-react';
 import type { Tankoubon } from '@/types/tankoubon';
 
 interface AddToTankoubonDialogProps {
   archiveId: string;
-  archiveTitle: string;
   onAdded?: () => void;
   trigger?: React.ReactElement;
   fullWidth?: boolean;
@@ -26,7 +25,6 @@ interface AddToTankoubonDialogProps {
 
 export function AddToTankoubonDialog({
   archiveId,
-  archiveTitle,
   onAdded,
   trigger,
   fullWidth = false,

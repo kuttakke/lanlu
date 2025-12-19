@@ -28,7 +28,7 @@ interface ResetPasswordForm {
 export default function UsersSettingsPage() {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
-  const { success, error: showError } = useToast();
+  const { error: showError } = useToast();
   const { confirm } = useConfirmContext();
 
   const [loading, setLoading] = useState(false);

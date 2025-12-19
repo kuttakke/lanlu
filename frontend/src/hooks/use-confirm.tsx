@@ -20,6 +20,11 @@ export const useConfirm = () => {
     resolve: null,
   });
 
+  const confirmStateRef = React.useRef(confirmState);
+  React.useEffect(() => {
+    confirmStateRef.current = confirmState;
+  }, [confirmState]);
+
   const confirm = React.useCallback((options: SimpleConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
       setConfirmState({ options, resolve });
@@ -31,11 +36,11 @@ export const useConfirm = () => {
   }, []);
 
   const handleConfirm = React.useCallback(async () => {
-    if (confirmState.resolve) {
-      confirmState.resolve(true);
+    if (confirmStateRef.current.resolve) {
+      confirmStateRef.current.resolve(true);
     }
     handleClose();
-  }, [confirmState.resolve, handleClose]);
+  }, [handleClose]);
 
   const ConfirmComponent = React.useCallback(() => {
     if (!confirmState.options) return null;
