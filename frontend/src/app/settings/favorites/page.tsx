@@ -55,18 +55,6 @@ export default function FavoritesPage() {
     loadFavorites();
   }, [loadFavorites]);
 
-  // 处理取消收藏
-  const handleRemoveFavorite = async (arcid: string) => {
-    try {
-      const success = await FavoriteService.removeFavorite(arcid);
-      if (success) {
-        // 静默刷新列表
-        await loadFavorites(true);
-      }
-    } catch (error) {
-      console.error('取消收藏失败:', error);
-    }
-  };
 
   // 处理清空所有收藏
   const handleClearAll = async () => {

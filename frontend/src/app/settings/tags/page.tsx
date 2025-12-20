@@ -269,7 +269,7 @@ export default function TagsSettingsPage() {
       await TagService.adminDelete(tagId);
       setSuccessMsg(t('settings.tagDeletedSuccess'));
       await loadTags();
-      success('标签删除成功');
+      success(t('settings.tagDeletedSuccess'));
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || t('settings.tagDeleteFailed'));
     } finally {
@@ -416,16 +416,6 @@ export default function TagsSettingsPage() {
               </span>
             </Button>
           </label>
-          <TagDialog
-            open={false}
-            onOpenChange={() => {}}
-            mode="create"
-            form={createForm}
-            setForm={setCreateForm as any}
-            loading={loading}
-            onCreate={handleCreateTag}
-            t={t}
-          />
         </div>
       </div>
 
