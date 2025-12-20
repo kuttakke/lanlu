@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/search/SearchBar';
 import { ArchiveService } from '@/lib/archive-service';
 import { ThemeToggle, ThemeButton } from '@/components/theme/theme-toggle';
-import { LanguageButton } from '@/components/language/LanguageToggle';
+import { LanguageButton } from '@/components/language/LanguageButton';
 import { UserMenu } from '@/components/user/UserMenu';
 import { SettingsNav } from '@/components/settings/SettingsNav';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';

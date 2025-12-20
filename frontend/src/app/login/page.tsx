@@ -11,7 +11,7 @@ import { LogIn, Library, ShieldCheck, Key } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AuthService } from '@/lib/auth-service';
-import { LanguageToggle } from '@/components/language/LanguageToggle';
+import { LanguageButton } from '@/components/language/LanguageButton';
 import { ThemeButton } from '@/components/theme/theme-toggle';
 
 function LoginForm() {
@@ -114,7 +114,7 @@ function LoginForm() {
       {/* Right Side: Login Form */}
       <div className="flex items-center justify-center p-8 bg-background relative">
         <div className="absolute top-4 right-4 flex items-center gap-2">
-          <LanguageToggle />
+          <LanguageButton />
           <ThemeButton />
         </div>
 

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Slider } from '@/components/ui/slider';
 import { ThemeButton } from '@/components/theme/theme-toggle';
-import { LanguageToggle } from '@/components/language/LanguageToggle';
+import { LanguageButton } from '@/components/language/LanguageButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { logger } from '@/lib/logger';
@@ -1095,7 +1095,7 @@ function ReaderContent() {
               <ThemeButton />
 
               {/* 语言切换按钮 */}
-              <LanguageToggle />
+              <LanguageButton />
             </div>
 
             {/* 右侧：阅读模式切换 */}
