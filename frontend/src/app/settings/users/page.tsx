@@ -79,7 +79,7 @@ export default function UsersSettingsPage() {
 
   const handleCreateUser = async () => {
     if (!createForm.username.trim()) {
-      showError('Username is required');
+      showError(t('auth.usernameRequired'));
       return;
     }
 
@@ -116,7 +116,7 @@ export default function UsersSettingsPage() {
       await apiClient.put(`/api/auth/admin/users/${userId}/role`, {
         isAdmin,
       });
-      setSuccessMsg('User role updated');
+      setSuccessMsg(t('auth.userRoleUpdated'));
       await loadUsers();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Failed to update user role');
@@ -127,10 +127,10 @@ export default function UsersSettingsPage() {
 
   const handleDeleteUser = async (userId: number) => {
     const confirmed = await confirm({
-      title: '确认删除用户',
-      description: 'Are you sure you want to delete this user? This action cannot be undone.',
-      confirmText: '删除',
-      cancelText: '取消',
+      title: t('auth.confirmDeleteUser'),
+      description: t('auth.confirmDeleteUserMessage'),
+      confirmText: t('common.delete'),
+      cancelText: t('common.cancel'),
       variant: 'destructive',
     });
 
@@ -140,7 +140,7 @@ export default function UsersSettingsPage() {
     setError(null);
     try {
       await apiClient.delete(`/api/auth/admin/users/${userId}`);
-      setSuccessMsg('User deleted successfully');
+      setSuccessMsg(t('auth.userDeletedSuccess'));
       await loadUsers();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Failed to delete user');
@@ -153,12 +153,12 @@ export default function UsersSettingsPage() {
     if (!resetPasswordUser) return;
 
     if (resetPasswordForm.newPassword !== resetPasswordForm.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.passwordMismatch'));
       return;
     }
 
     if (resetPasswordForm.newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('auth.passwordTooShort'));
       return;
     }
 
@@ -168,7 +168,7 @@ export default function UsersSettingsPage() {
       await apiClient.post(`/api/auth/admin/users/${resetPasswordUser.id}/reset-password`, {
         newPassword: resetPasswordForm.newPassword,
       });
-      setSuccessMsg('Password reset successfully');
+      setSuccessMsg(t('auth.passwordResetSuccess'));
       setResetPasswordUser(null);
       setResetPasswordForm({ newPassword: '', confirmPassword: '' });
     } catch (e: any) {

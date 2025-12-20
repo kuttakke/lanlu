@@ -288,7 +288,7 @@ function HomePageContent() {
                       onClick={() => setFilterDialogOpen(true)}
                     >
                       <Filter className="w-4 h-4 mr-2" />
-                      筛选
+                      {t('common.filter')}
                     </Button>
                   </div>
 
@@ -334,7 +334,7 @@ function HomePageContent() {
             <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
               <DialogContent className="max-w-[90vw] w-full">
                 <DialogHeader className="px-4 py-3 border-b">
-                  <DialogTitle>高级筛选</DialogTitle>
+                  <DialogTitle>{t('home.advancedFilter')}</DialogTitle>
                 </DialogHeader>
                 <DialogBody className="px-0 py-0">
                   <SearchSidebar onSearch={handleSearch} loading={loading} />

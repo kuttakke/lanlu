@@ -37,7 +37,7 @@ export default function ReadingHistoryPage() {
         setError(t('readingHistory.loadError'));
       }
     } catch (err) {
-      console.error('加载阅读记录失败:', err);
+      console.error(t('readingHistory.loadError'), ':', err);
       setError(t('readingHistory.loadError'));
     } finally {
       if (!silent) {

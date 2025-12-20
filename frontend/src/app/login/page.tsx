@@ -101,13 +101,13 @@ function LoginForm() {
               {t('home.description')}
             </p>
             <footer className="text-lg text-muted-foreground">
-              Manage your comic archives with ease and style.
+              {t('login.description')}
             </footer>
           </blockquote>
         </div>
 
         <div className="relative z-10 text-sm text-muted-foreground">
-          &copy; 2025 Lanraragi4CJ. All rights reserved.
+          {t('login.copyright')}
         </div>
       </div>
 
@@ -121,7 +121,7 @@ function LoginForm() {
         <div className="w-full max-w-[400px] space-y-6 animate-slide-in-from-bottom">
           <div className="lg:hidden flex flex-col items-center space-y-2 mb-8">
             <img src="/logo.svg" alt="Logo" className="w-16 h-16 shadow-lg" />
-            <h1 className="text-2xl font-bold">Lanraragi4CJ</h1>
+            <h1 className="text-2xl font-bold">{t('login.appName')}</h1>
           </div>
 
           <div className="hidden lg:block space-y-2 text-center lg:text-left">
@@ -226,7 +226,7 @@ function LoginForm() {
           </Card>
 
           <div className="text-center text-sm text-muted-foreground lg:hidden">
-            &copy; 2025 Lanraragi4CJ. All rights reserved.
+            {t('login.copyright')}
           </div>
         </div>
       </div>
