@@ -154,9 +154,11 @@ export function HomeArchiveCard({ archive, onFavoriteChange }: HomeArchiveCardPr
           )}
         </div>
         <CardContent className="p-4">
-          <h3 className="font-semibold text-sm line-clamp-2 mb-2">
-            {archive.title}
-          </h3>
+          <div className="h-10 mb-2"> {/* 固定高度容纳两行标题 */}
+            <h3 className="font-semibold text-sm line-clamp-2">
+              {archive.title}
+            </h3>
+          </div>
           <div className="text-xs text-muted-foreground">
             {archive.pagecount} {t('home.pages')}
           </div>

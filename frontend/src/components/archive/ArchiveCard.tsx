@@ -148,9 +148,11 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
       </div>
       
       <CardContent className="p-4">
-        <h3 className="font-semibold text-sm line-clamp-2 mb-2" title={archive.title}>
-          {archive.title}
-        </h3>
+        <div className="h-10 mb-2"> {/* 固定高度容纳两行标题 */}
+          <h3 className="font-semibold text-sm line-clamp-2" title={archive.title}>
+            {archive.title}
+          </h3>
+        </div>
         
         {tagsDisplay === 'inline' && inlineTags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">

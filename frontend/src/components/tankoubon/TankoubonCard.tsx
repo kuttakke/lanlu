@@ -118,12 +118,18 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
 
   return (
     <Card
-      className="group overflow-hidden hover:shadow-lg transition-shadow border-2 border-primary/20"
+      className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
       title={hoverTitleParts.length > 0 ? `${tankoubon.name}\n${hoverTitleParts.join('\n')}` : tankoubon.name}
+      onClick={() => {
+        // 点击卡片进入第一本归档的阅读器
+        if (firstArchive) {
+          window.location.href = `/reader?id=${firstArchive.arcid}`;
+        }
+      }}
     >
       <div className="aspect-[3/4] bg-muted relative">
         <div
-          className="relative w-full h-full cursor-pointer"
+          className="relative w-full h-full"
           onClick={(e) => {
             e.stopPropagation(); // 阻止事件冒泡到卡片的点击事件
             // 点击封面进入第一本归档的阅读器
@@ -199,9 +205,11 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
       </div>
 
       <CardContent className="p-4">
-        <h3 className="font-semibold text-sm line-clamp-2 mb-2" title={tankoubon.name}>
-          {tankoubon.name}
-        </h3>
+        <div className="h-10 mb-2"> {/* 固定高度容纳两行标题 */}
+          <h3 className="font-semibold text-sm line-clamp-2" title={tankoubon.name}>
+            {tankoubon.name}
+          </h3>
+        </div>
 
         {tagsDisplay === 'inline' && inlineTags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
