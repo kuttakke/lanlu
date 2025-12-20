@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
 import { LayoutGrid, Heart, BookOpen, FileText, Database } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,7 +42,7 @@ export default function SettingsPage() {
       setRecentRead(activityData.recentRead);
       setRecentFavorites(activityData.recentFavorites);
     } catch (error) {
-      console.error('加载仪表板数据失败:', error);
+      logger.apiError('load dashboard data', error);
     } finally {
       setLoading(false);
     }

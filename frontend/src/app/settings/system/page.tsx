@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -76,7 +77,7 @@ export default function SystemSettingsPage() {
         showErrorRef.current?.(data.message || tRef.current('settings.system.loadError'));
       }
     } catch (error) {
-      console.error(tRef.current('settings.system.loadError'), ':', error as Error);
+      logger.apiError('load system settings', error as Error);
       showErrorRef.current?.(tRef.current('settings.system.loadError'));
     } finally {
       setLoading(false);
@@ -145,7 +146,7 @@ export default function SystemSettingsPage() {
         showError(data.message || t('settings.system.saveError'));
       }
     } catch (error) {
-      console.error(t('settings.system.saveError'), ':', error);
+      logger.apiError('save system settings', error);
       showError(t('settings.system.saveError'));
     } finally {
       setSaving(false);

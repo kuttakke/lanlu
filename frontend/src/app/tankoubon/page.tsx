@@ -30,6 +30,7 @@ import {
 import { TankoubonService } from '@/lib/tankoubon-service';
 import { ArchiveService } from '@/lib/archive-service';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { logger } from '@/lib/logger';
 import { ArrowLeft, Edit, Trash2, Plus, BookOpen } from 'lucide-react';
 import type { Tankoubon } from '@/types/tankoubon';
 import type { Archive } from '@/types/archive';
@@ -78,7 +79,7 @@ function TankoubonDetailContent() {
       setEditSummary(data.summary || '');
       setEditTags(data.tags || '');
     } catch (error) {
-      console.error('Failed to fetch tankoubon:', error);
+      logger.apiError('fetch tankoubon', error);
     } finally {
       setLoading(false);
     }
@@ -106,7 +107,7 @@ function TankoubonDetailContent() {
       const results = await Promise.all(archivePromises);
       setArchives(results.filter((a): a is Archive => a !== null));
     } catch (error) {
-      console.error('Failed to fetch archives:', error);
+      logger.apiError('fetch archives', error);
     } finally {
       setArchivesLoading(false);
     }
@@ -136,7 +137,7 @@ function TankoubonDetailContent() {
       setEditDialogOpen(false);
       fetchTankoubon();
     } catch (error) {
-      console.error('Failed to update tankoubon:', error);
+      logger.operationFailed('update tankoubon', error);
     } finally {
       setSaving(false);
     }
@@ -151,7 +152,7 @@ function TankoubonDetailContent() {
       await TankoubonService.deleteTankoubon(tankoubon.tankoubon_id);
       router.push('/');
     } catch (error) {
-      console.error('Failed to delete tankoubon:', error);
+      logger.operationFailed('delete tankoubon', error);
       setDeleting(false);
     }
   };
@@ -164,7 +165,7 @@ function TankoubonDetailContent() {
       await TankoubonService.removeArchiveFromTankoubon(tankoubon.tankoubon_id, arcid);
       fetchTankoubon();
     } catch (error) {
-      console.error('Failed to remove archive:', error);
+      logger.operationFailed('remove archive', error);
     }
   };
 
@@ -183,7 +184,7 @@ function TankoubonDetailContent() {
       const filtered = result.data.filter((a: Archive) => !existingArcids.has(a.arcid));
       setAvailableArchives(filtered);
     } catch (error) {
-      console.error('Failed to search archives:', error);
+      logger.apiError('search archives', error);
     } finally {
       setSearchLoading(false);
     }
@@ -205,7 +206,7 @@ function TankoubonDetailContent() {
       setSearchQuery('');
       fetchTankoubon();
     } catch (error) {
-      console.error('Failed to add archives:', error);
+      logger.operationFailed('add archives', error);
     } finally {
       setAddingArchives(false);
     }

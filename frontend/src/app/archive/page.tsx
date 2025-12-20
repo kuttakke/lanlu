@@ -23,6 +23,7 @@ import { FavoriteService } from '@/lib/favorite-service';
 import { AddToTankoubonDialog } from '@/components/tankoubon/AddToTankoubonDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useConfirmContext } from '@/contexts/ConfirmProvider';
+import { logger } from '@/lib/logger';
 
 function ArchiveDetailContent() {
   const searchParams = useSearchParams();
@@ -60,7 +61,7 @@ function ArchiveDetailContent() {
       setIsFavorite(data.isfavorite || false);
       return data;
     } catch (error) {
-      console.error('Failed to fetch metadata:', error);
+      logger.apiError('fetch metadata', error);
       return null;
     }
   }, [id]);
@@ -99,7 +100,7 @@ function ArchiveDetailContent() {
       try {
         await fetchMetadata();
       } catch (err) {
-        console.error('Failed to fetch archive metadata:', err);
+        logger.apiError('fetch archive metadata', err);
         setError(t('archive.fetchError'));
       } finally {
         setLoading(false);
@@ -120,7 +121,7 @@ function ArchiveDetailContent() {
         setIsFavorite(!isFavorite);
       }
     } catch (error) {
-      console.error('收藏操作失败:', error);
+      logger.operationFailed('toggle favorite', error);
     } finally {
       setFavoriteLoading(false);
     }
@@ -138,7 +139,7 @@ function ArchiveDetailContent() {
           setTagI18nMap(map || {});
         }
       } catch (e) {
-        console.error('Failed to fetch tag i18n:', e);
+        logger.apiError('fetch tag i18n', e);
         if (!cancelled) {
           setTagI18nMap({});
         }
@@ -166,7 +167,7 @@ function ArchiveDetailContent() {
         setDisplayPages(initialPages);
         setCurrentPage(0);
       } catch (err) {
-        console.error('Failed to fetch archive pages:', err);
+        logger.apiError('fetch archive pages', err);
         setPreviewError(t('archive.loadPreviewError'));
       } finally {
         setPreviewLoading(false);
@@ -265,7 +266,7 @@ function ArchiveDetailContent() {
           setSelectedMetadataPlugin(metas[0].namespace);
         }
       } catch (e) {
-        console.error('Failed to load metadata plugins:', e);
+        logger.apiError('load metadata plugins', e);
       }
     })();
 
@@ -321,11 +322,11 @@ function ArchiveDetailContent() {
         const map = await TagService.getTranslations(language, metadata.arcid);
         setTagI18nMap(map || {});
       } catch (e) {
-        console.error('Failed to fetch tag i18n:', e);
+        logger.apiError('fetch tag i18n', e);
         setTagI18nMap({});
       }
     } catch (error) {
-      console.error('Failed to update metadata:', error);
+      logger.operationFailed('update metadata', error);
       showError(t('archive.updateFailed'));
     } finally {
       setIsSaving(false);
@@ -376,13 +377,13 @@ function ArchiveDetailContent() {
         const map = await TagService.getTranslations(language, metadata.arcid);
         setTagI18nMap(map || {});
       } catch (e) {
-        console.error('Failed to fetch tag i18n:', e);
+        logger.apiError('fetch tag i18n', e);
         setTagI18nMap({});
       }
       setMetadataPluginMessage(t('archive.metadataPluginCompleted'));
       setMetadataPluginProgress(100);
     } catch (e: any) {
-      console.error('Failed to run metadata plugin:', e);
+      logger.operationFailed('run metadata plugin', e);
       showError(e?.message || t('archive.metadataPluginFailed'));
     } finally {
       setIsMetadataPluginRunning(false);
@@ -397,7 +398,7 @@ function ArchiveDetailContent() {
       await ArchiveService.clearIsNew(metadata.arcid);
       await fetchMetadata(); // 重新获取元数据以更新UI
     } catch (error) {
-      console.error('Failed to mark as read:', error);
+      logger.operationFailed('mark as read', error);
       showError(t('archive.markAsReadFailed'));
     } finally {
       setIsNewStatusLoading(false);
@@ -412,7 +413,7 @@ function ArchiveDetailContent() {
       await ArchiveService.setIsNew(metadata.arcid);
       await fetchMetadata(); // 重新获取元数据以更新UI
     } catch (error) {
-      console.error('Failed to mark as new:', error);
+      logger.operationFailed('mark as new', error);
       showError(t('archive.markAsNewFailed'));
     } finally {
       setIsNewStatusLoading(false);
@@ -445,7 +446,7 @@ function ArchiveDetailContent() {
       // 删除成功后跳转到首页
       window.location.href = '/';
     } catch (error: any) {
-      console.error('Failed to delete archive:', error);
+      logger.operationFailed('delete archive', error);
       const errorMessage = error.response?.data?.error || error.message || '删除失败';
       showError(`删除失败: ${errorMessage}`);
     } finally {
@@ -784,9 +785,7 @@ function ArchiveDetailContent() {
 	                          <AddToTankoubonDialog
 	                            archiveId={metadata.arcid}
 	                            fullWidth
-	                            onAdded={() => {
-	                              console.log('Archive added to tankoubon');
-	                            }}
+	                            onAdded={() => {}}
 	                          />
 	                          {isAuthenticated ? (
 	                            <Button variant="outline" className="w-full" onClick={startEdit}>

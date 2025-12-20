@@ -12,6 +12,7 @@ import { ThemeButton } from '@/components/theme/theme-toggle';
 import { LanguageToggle } from '@/components/language/LanguageToggle';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { logger } from '@/lib/logger';
 import {
   ArrowLeft,
   Book,
@@ -93,7 +94,7 @@ function ReaderContent() {
           const saved = localStorage.getItem(key);
           return saved === 'true';
         } catch (e) {
-          console.warn(`Failed to read ${key} from localStorage:`, e);
+          logger.warn(`Failed to read ${key} from localStorage`, e, { key });
         }
       }
       return defaultValue;
@@ -105,7 +106,7 @@ function ReaderContent() {
         try {
           localStorage.setItem(key, String(newValue));
         } catch (e) {
-          console.warn(`Failed to save ${key} to localStorage:`, e);
+          logger.warn(`Failed to save ${key} to localStorage`, e, { key });
         }
       }
     };
@@ -120,7 +121,7 @@ function ReaderContent() {
           const saved = localStorage.getItem(key);
           return saved ? parseInt(saved, 10) : defaultValue;
         } catch (e) {
-          console.warn(`Failed to read ${key} from localStorage:`, e);
+          logger.warn(`Failed to read ${key} from localStorage`, e, { key });
         }
       }
       return defaultValue;
@@ -132,7 +133,7 @@ function ReaderContent() {
         try {
           localStorage.setItem(key, String(newValue));
         } catch (e) {
-          console.warn(`Failed to save ${key} to localStorage:`, e);
+          logger.warn(`Failed to save ${key} to localStorage`, e, { key });
         }
       }
     };
@@ -148,7 +149,7 @@ function ReaderContent() {
           return savedMode as ReadingMode;
         }
       } catch (e) {
-        console.warn('Failed to read reading mode from localStorage:', e);
+        logger.warn('Failed to read reading mode from localStorage', e, { key: 'reader-reading-mode' });
       }
     }
     return 'single-ltr';
@@ -222,11 +223,11 @@ function ReaderContent() {
           const favorites = await FavoriteService.getFavorites();
           setIsFavorited(favorites.includes(id));
         } catch (favErr) {
-          console.error('Failed to fetch favorite status:', favErr);
+          logger.apiError('fetch favorite status', favErr);
           // 收藏状态失败不影响阅读体验，静默处理
         }
       } catch (err) {
-        console.error('Failed to fetch archive pages:', err);
+        logger.apiError('fetch archive pages', err);
         setError('Failed to fetch archive pages');
       } finally {
         setLoading(false);
@@ -270,7 +271,7 @@ function ReaderContent() {
       // 调用新的进度更新API，自动标记为已读
       await ArchiveService.updateProgress(id, actualPage + 1); // API 使用1-based页码
     } catch (err) {
-      console.error('Failed to update reading progress:', err);
+      logger.operationFailed('update reading progress', err);
       // 静默失败，不影响阅读体验
     }
   }, [id, doublePageMode, splitCoverMode]);
@@ -292,7 +293,7 @@ function ReaderContent() {
         setIsFavorited(true);
       }
     } catch (err) {
-      console.error('Failed to toggle favorite:', err);
+      logger.operationFailed('toggle favorite', err);
       // 可以显示错误提示，但静默失败更符合用户体验
     }
   }, [id, isFavorited]);
@@ -307,7 +308,7 @@ function ReaderContent() {
           localStorage.setItem('reader-fullscreen-mode', 'true');
         }
       } catch (err) {
-        console.error('Failed to enter fullscreen:', err);
+        logger.operationFailed('enter fullscreen', err);
       }
     } else {
       try {
@@ -317,7 +318,7 @@ function ReaderContent() {
           localStorage.setItem('reader-fullscreen-mode', 'false');
         }
       } catch (err) {
-        console.error('Failed to exit fullscreen:', err);
+        logger.operationFailed('exit fullscreen', err);
       }
     }
   }, []);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { PluginCard } from '@/components/settings/PluginCard';
+import { logger } from '@/lib/logger';
 import { PluginConfigDialog } from '@/components/settings/PluginConfigDialog';
 import { SettingsPageWrapper } from '@/components/settings/SettingsPageWrapper';
 import { PluginService, Plugin } from '@/lib/plugin-service';
@@ -30,8 +31,8 @@ export default function SettingsPluginsPage() {
       const pluginsData = await PluginService.getAllPlugins();
       setPlugins(pluginsData);
     } catch (error) {
-      console.error('Failed to fetch plugins:', error);
-      console.error(t('settings.loadPluginsError'));
+      logger.apiError('fetch plugins', error);
+      logger.operationFailed('settings.loadPluginsError', error);
       setPlugins([]);
     } finally {
       setLoading(false);
@@ -49,8 +50,8 @@ export default function SettingsPluginsPage() {
       await PluginService.togglePluginStatus(namespace, enabled);
       await fetchPlugins();
     } catch (error) {
-      console.error('Failed to toggle plugin status:', error);
-      console.error(t('settings.toggleStatusError'));
+      logger.operationFailed('toggle plugin status', error);
+      logger.operationFailed('settings.toggleStatusError', error);
     }
   };
 

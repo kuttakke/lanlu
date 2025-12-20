@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -73,7 +74,7 @@ export default function SmartFiltersPage() {
         setFilters(data.data?.items || []);
       }
     } catch (error) {
-      console.error('Failed to load smart filters:', error);
+      logger.apiError('load smart filters', error);
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ export default function SmartFiltersPage() {
         loadFilters();
       }
     } catch (error) {
-      console.error('Failed to save smart filter:', error);
+      logger.operationFailed('save smart filter', error);
     }
   };
 
@@ -174,7 +175,7 @@ export default function SmartFiltersPage() {
         success('删除成功');
       }
     } catch (error) {
-      console.error('Failed to delete smart filter:', error);
+      logger.operationFailed('delete smart filter', error);
     }
   };
 
@@ -191,7 +192,7 @@ export default function SmartFiltersPage() {
         loadFilters();
       }
     } catch (error) {
-      console.error('Failed to toggle smart filter:', error);
+      logger.operationFailed('toggle smart filter', error);
     }
   };
 
@@ -277,11 +278,11 @@ export default function SmartFiltersPage() {
       });
 
       if (!response.ok) {
-        console.error('Failed to save sort order');
+        logger.operationFailed('save sort order', new Error('Failed to save sort order'));
         loadFilters(); // Reload on error
       }
     } catch (error) {
-      console.error('Failed to save sort order:', error);
+      logger.operationFailed('save sort order', error);
       loadFilters(); // Reload on error
     }
   };

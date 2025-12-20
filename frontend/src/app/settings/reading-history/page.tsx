@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BookOpen, RefreshCw } from 'lucide-react';
@@ -37,7 +38,7 @@ export default function ReadingHistoryPage() {
         setError(t('readingHistory.loadError'));
       }
     } catch (err) {
-      console.error(t('readingHistory.loadError'), ':', err);
+      logger.apiError('readingHistory.loadError', err);
       setError(t('readingHistory.loadError'));
     } finally {
       if (!silent) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Heart, Trash2, RefreshCw } from 'lucide-react';
@@ -42,7 +43,7 @@ export default function FavoritesPage() {
         setError(t('favorites.loadError'));
       }
     } catch (err) {
-      console.error('加载收藏列表失败:', err);
+      logger.apiError('加载收藏列表失败:', err);
       setError(t('favorites.loadError'));
     } finally {
       if (!silent) {
@@ -78,7 +79,7 @@ export default function FavoritesPage() {
       await loadFavorites(true);
       success('已清空所有收藏');
     } catch (error) {
-      console.error('清空收藏失败:', error);
+      logger.apiError('清空收藏失败:', error);
     } finally {
       setLoading(false);
     }

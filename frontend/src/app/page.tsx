@@ -18,6 +18,7 @@ import { RefreshCw, Filter } from 'lucide-react';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 function HomePageContent() {
   const { t } = useLanguage();
@@ -94,7 +95,7 @@ function HomePageContent() {
             data = [...newTanks, ...data];
           }
         } catch (err) {
-          console.error('Failed to fetch matching tankoubons:', err);
+          logger.apiError('fetch matching tankoubons', err);
         }
       }
 
@@ -102,7 +103,7 @@ function HomePageContent() {
       setTotalRecords(totalRecordsAdjusted);
       setTotalPages(Math.ceil(totalRecordsAdjusted / pageSize));
     } catch (error) {
-      console.error('Failed to fetch archives:', error);
+      logger.apiError('fetch archives', error);
       setArchives([]);
     } finally {
       setLoading(false);
@@ -115,7 +116,7 @@ function HomePageContent() {
       const archives = await ArchiveService.getRandom({ count: 8 });
       setRandomArchives(archives);
     } catch (error) {
-      console.error('Failed to fetch random archives:', error);
+      logger.apiError('fetch random archives', error);
       setRandomArchives([]);
     } finally {
       setRandomLoading(false);
@@ -164,13 +165,11 @@ function HomePageContent() {
   // 监听上传完成事件，刷新首页数据
   useEffect(() => {
     const handleUploadCompleted = () => {
-      console.log('Upload completed, refreshing homepage data');
       fetchArchives(currentPage);
       fetchRandomArchives();
     };
 
     const handleArchivesRefresh = () => {
-      console.log('Archives refresh event received');
       fetchArchives(currentPage);
       fetchRandomArchives();
     };
