@@ -14,7 +14,6 @@ import type { Archive } from '@/types/archive';
 
 interface TankoubonCardProps {
   tankoubon: Tankoubon;
-  tagsDisplay?: 'inline' | 'hover' | 'none';
 }
 
 // 去掉 namespace 前缀的简单显示函数
@@ -23,7 +22,7 @@ function stripNamespace(tag: string): string {
   return idx > 0 ? tag.slice(idx + 1) : tag;
 }
 
-export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCardProps) {
+export function TankoubonCard({ tankoubon }: TankoubonCardProps) {
   const { t, language } = useLanguage();
   const [tagI18nMap, setTagI18nMap] = useState<Record<string, string>>({});
   const [firstArchive, setFirstArchive] = useState<Archive | null>(null);
@@ -43,7 +42,6 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
   }, [tagI18nMap]);
 
   const displayAllTags = useMemo(() => allTags.map(displayTag), [allTags, displayTag]);
-  const inlineTags = allTags.slice(0, 3);
   const hoverTags = allTags.slice(0, 8);
   const hoverTitleParts = [
     displayAllTags.length > 0 ? `${t('archive.tags')}: ${displayAllTags.join(', ')}` : '',
@@ -174,7 +172,7 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
           {tankoubon.archive_count || 0} {t('tankoubon.archives')}
         </Badge>
 
-        {tagsDisplay === 'hover' && (allTags.length > 0 || tankoubon.summary) && (
+        {(allTags.length > 0 || tankoubon.summary) && (
           <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
             <div className="w-full p-3 space-y-2">
               {allTags.length > 0 && (
@@ -210,16 +208,6 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
             {tankoubon.name}
           </h3>
         </div>
-
-        {tagsDisplay === 'inline' && inlineTags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {inlineTags.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="text-xs">
-                {displayTag(tag)}
-              </Badge>
-            ))}
-          </div>
-        )}
 
         <div className="text-xs text-muted-foreground">
           {t('tankoubon.totalPages').replace('{count}', String(tankoubon.pagecount || 0))}

@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ReadingHistoryService } from '@/lib/reading-history-service';
 import { groupArchivesByTime, TimeGroup } from '@/lib/time-group';
 import { Archive } from '@/types/archive';
-import { HomeArchiveCard } from '@/components/archive/HomeArchiveCard';
+import { ArchiveCard } from '@/components/archive/ArchiveCard';
 
 export default function ReadingHistoryPage() {
   const { t } = useLanguage();
@@ -105,7 +105,7 @@ export default function ReadingHistoryPage() {
                   <h3 className="text-lg font-semibold">{group.label}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {group.archives.map((archive) => (
-                      <HomeArchiveCard
+                      <ArchiveCard
                         key={archive.arcid}
                         archive={archive}
                       />

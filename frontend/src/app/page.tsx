@@ -253,7 +253,7 @@ function HomePageContent() {
                 <div className="flex gap-4 min-w-max">
                   {randomArchives.map((archive) => (
                     <div key={archive.arcid} className="w-[180px] flex-shrink-0">
-                      <ArchiveCard archive={archive} tagsDisplay="hover" />
+                      <ArchiveCard archive={archive} />
                     </div>
                   ))}
                 </div>

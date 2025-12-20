@@ -13,7 +13,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface ArchiveCardProps {
   archive: Archive;
-  tagsDisplay?: 'inline' | 'hover' | 'none';
 }
 
 // 去掉 namespace 前缀的简单显示函数
@@ -22,7 +21,7 @@ function stripNamespace(tag: string): string {
   return idx > 0 ? tag.slice(idx + 1) : tag;
 }
 
-export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProps) {
+export function ArchiveCard({ archive }: ArchiveCardProps) {
   const { t, language } = useLanguage();
   const [isFavorite, setIsFavorite] = useState(archive.isfavorite || false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -42,7 +41,6 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
   }, [tagI18nMap]);
 
   const displayAllTags = useMemo(() => allTags.map(displayTag), [allTags, displayTag]);
-  const inlineTags = allTags.slice(0, 3);
   const hoverTags = allTags.slice(0, 8);
   const hoverTitleParts = [
     displayAllTags.length > 0 ? `${t('archive.tags')}: ${displayAllTags.join(', ')}` : '',
@@ -117,7 +115,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
           </Badge>
         )}
 
-        {tagsDisplay === 'hover' && (allTags.length > 0 || archive.summary) && (
+        {(allTags.length > 0 || archive.summary) && (
           <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
             <div className="w-full p-3 space-y-2">
               {allTags.length > 0 && (
@@ -153,17 +151,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
             {archive.title}
           </h3>
         </div>
-        
-        {tagsDisplay === 'inline' && inlineTags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {inlineTags.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="text-xs">
-                {displayTag(tag)}
-              </Badge>
-            ))}
-          </div>
-        )}
-        
+
         <div className="text-xs text-muted-foreground">
           {t('archive.pages').replace('{count}', String(archive.pagecount))}
           {archive.progress > 0 && ` • ${t('archive.progressRead').replace('{progress}', String(archive.progress)).replace('{total}', String(archive.pagecount))}`}
