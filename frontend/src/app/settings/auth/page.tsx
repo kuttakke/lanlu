@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AuthService } from '@/lib/auth-service';
 import type { AuthToken, AuthSession } from '@/types/auth';
+import { AuthGuard } from '@/components/settings/AuthGuard';
 
 export default function AuthSettingsPage() {
   const { t } = useLanguage();
@@ -160,8 +161,14 @@ export default function AuthSettingsPage() {
     }
   };
 
-  if (!isAuthenticated) {
-    return (
+  return (
+    <AuthGuard
+      isAuthenticated={isAuthenticated}
+      title={t('settings.auth')}
+      description={t('settings.authDescription')}
+      icon={KeyRound}
+      t={t}
+    >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
@@ -169,29 +176,9 @@ export default function AuthSettingsPage() {
               <KeyRound className="w-5 h-5" />
               {t('settings.auth')}
             </h2>
-            <p className="text-sm text-muted-foreground">{t('auth.loginToManageTokens')}</p>
+            <p className="text-sm text-muted-foreground">{t('settings.authDescription')}</p>
           </div>
         </div>
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            {/* Empty content */}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <KeyRound className="w-5 h-5" />
-            {t('settings.auth')}
-          </h2>
-          <p className="text-sm text-muted-foreground">{t('settings.authDescription')}</p>
-        </div>
-      </div>
 
       <Card>
         <CardContent className="pt-6 space-y-4">
@@ -382,6 +369,7 @@ export default function AuthSettingsPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

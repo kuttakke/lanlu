@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogBody, DialogContent, DialogFooter } from '@/components/ui/dialog';
-import { Filter, Plus, Pencil, Trash2, GripVertical, ChevronUp, ChevronDown, BookOpen, Tag, Calendar, Search, Clock, Star } from 'lucide-react';
+import { Filter, Plus, Pencil, Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiUrl } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useConfirmContext } from '@/contexts/ConfirmProvider';
+import { ICON_OPTIONS, SORT_BY_OPTIONS, getIconByValue } from '@/lib/constants';
 
 interface SmartFilter {
   id: number;
@@ -29,24 +30,6 @@ interface SmartFilter {
   sort_order_num: number;
   enabled: boolean;
 }
-
-const ICON_OPTIONS = [
-  { value: 'BookOpen', label: 'BookOpen', icon: BookOpen },
-  { value: 'Tag', label: 'Tag', icon: Tag },
-  { value: 'Calendar', label: 'Calendar', icon: Calendar },
-  { value: 'Search', label: 'Search', icon: Search },
-  { value: 'Clock', label: 'Clock', icon: Clock },
-  { value: 'Star', label: 'Star', icon: Star },
-  { value: 'Filter', label: 'Filter', icon: Filter },
-];
-
-const SORT_BY_OPTIONS = [
-  { value: '_default', label: 'default' },
-  { value: 'date_added', label: 'dateAdded' },
-  { value: 'lastread', label: 'lastRead' },
-  { value: 'title', label: 'title' },
-  { value: 'pagecount', label: 'pageCount' },
-];
 
 export default function SmartFiltersPage() {
   const { t, language } = useLanguage();
@@ -304,12 +287,8 @@ export default function SmartFiltersPage() {
   };
 
   const getIconComponent = (iconName: string) => {
-    const iconOption = ICON_OPTIONS.find(opt => opt.value === iconName);
-    if (iconOption) {
-      const IconComponent = iconOption.icon;
-      return <IconComponent className="h-4 w-4" />;
-    }
-    return <Filter className="h-4 w-4" />;
+    const IconComponent = getIconByValue(iconName);
+    return <IconComponent className="h-4 w-4" />;
   };
 
   const getSortByLabel = (sortBy: string) => {
