@@ -1,7 +1,7 @@
 'use client';
 
 import { ArchiveGrid } from '@/components/archive/ArchiveGrid';
-import { HomeArchiveCard } from '@/components/archive/HomeArchiveCard';
+import { ArchiveCard } from '@/components/archive/ArchiveCard';
 import { Pagination } from '@/components/ui/pagination';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -252,7 +252,9 @@ function HomePageContent() {
               <div className="overflow-x-auto pb-4">
                 <div className="flex gap-4 min-w-max">
                   {randomArchives.map((archive) => (
-                    <HomeArchiveCard key={archive.arcid} archive={archive} />
+                    <div key={archive.arcid} className="w-[180px] flex-shrink-0">
+                      <ArchiveCard archive={archive} tagsDisplay="hover" />
+                    </div>
                   ))}
                 </div>
               </div>
