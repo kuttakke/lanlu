@@ -22,11 +22,15 @@ export class TagService {
    * 获取标签翻译映射（用于前端展示）
    * @param lang 语言代码 (zh, en)
    * @param arcid 可选：档案ID，只返回该档案相关的翻译
+   * @param tankoubon_id 可选：合集ID，只返回该合集相关的翻译（合集自身标签 + 所有归档标签）
    */
-  static async getTranslations(lang: string, arcid?: string): Promise<Record<string, string>> {
-    const params: { lang: string; arcid?: string } = { lang };
+  static async getTranslations(lang: string, arcid?: string, tankoubon_id?: string): Promise<Record<string, string>> {
+    const params: { lang: string; arcid?: string; tankoubon_id?: string } = { lang };
     if (arcid) {
       params.arcid = arcid;
+    }
+    if (tankoubon_id) {
+      params.tankoubon_id = tankoubon_id;
     }
     const resp = await apiClient.get('/api/tags/translations', { params });
     const data = resp.data?.data;

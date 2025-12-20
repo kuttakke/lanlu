@@ -49,13 +49,15 @@ public class TagController {
     }
 
     /**
-     * GET /api/tags/translations?lang=zh|en[&arcid=...]
+     * GET /api/tags/translations?lang=zh|en[&arcid=...][&tankoubon_id=...]
      * 返回: { lang, map: { "<namespace:name>": "<text>" } }
      * 如果提供 arcid，则只返回该档案相关的 tag 翻译
+     * 如果提供 tankoubon_id，则返回该合集相关的所有 tag 翻译（合集自身标签 + 所有归档标签）
      */
     public static func getTranslations(ctx: JoyContext): Unit {
         let lang = langFromQuery(ctx)
         let arcid = (ctx.getQuery("arcid") ?? "").trimAscii()
+        let tankoubonId = (ctx.getQuery("tankoubon_id") ?? "").trimAscii()
 
         var translationsMap = TagDao.getTranslationsMap(lang)
 
@@ -88,6 +90,51 @@ public class TagController {
                 }
             }
             translationsMap = filteredMap
+        }
+        // 如果指定了 tankoubon_id，则返回该合集相关的所有 tag 翻译
+        else if (tankoubonId.size > 0) {
+            match (TankoubonDao.getTankoubonById(tankoubonId)) {
+                case Some(tankoubon) =>
+                    // 构建 tag 集合：合集自身标签 + 所有归档标签
+                    let tagSet = HashSet<String>()
+
+                    // 添加合集自身的标签
+                    let tankoubonTags = tankoubon.tags.trimAscii()
+                    if (tankoubonTags.size > 0) {
+                        for (part in tankoubonTags.split(",")) {
+                            let t = part.trimAscii()
+                            if (t.size > 0) {
+                                tagSet.add(t)
+                            }
+                        }
+                    }
+
+                    // 添加所有归档的标签
+                    for (archiveArcid in tankoubon.archives) {
+                        let archiveTags = TagDao.getArchiveTags(archiveArcid)
+                        if (archiveTags.size > 0) {
+                            for (part in archiveTags.split(",")) {
+                                let t = part.trimAscii()
+                                if (t.size > 0) {
+                                    tagSet.add(t)
+                                }
+                            }
+                        }
+                    }
+
+                    // 过滤：只保留合集相关的 tag
+                    var filteredMap = HashMap<String, String>()
+                    for ((tag, text) in translationsMap) {
+                        if (tagSet.contains(tag)) {
+                            filteredMap[tag] = text
+                        }
+                    }
+                    translationsMap = filteredMap
+                case None =>
+                    // tankoubon 不存在，返回空映射
+                    ResponseView.successJson(ctx, "{\"lang\":\"${escapeJsonString(lang)}\",\"map\":{}}", "获取标签翻译成功")
+                    return
+            }
         }
 
         var mapJson = "{"

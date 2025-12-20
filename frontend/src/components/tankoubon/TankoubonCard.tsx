@@ -51,15 +51,14 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
     `${t('tankoubon.archiveCount')}: ${tankoubon.archive_count || 0}`
   ].filter(Boolean);
 
-  // 加载 tag i18n（使用第一个归档的ID，如果有的话）
+  // 加载 tag i18n（使用 tankoubon_id 查询合集相关的所有标签翻译）
   useEffect(() => {
     if (!tankoubon.tankoubon_id || allTags.length === 0) return;
     let cancelled = false;
 
     (async () => {
       try {
-        // 对于tankoubon，我们使用tankoubon_id作为key
-        const map = await TagService.getTranslations(language, tankoubon.tankoubon_id);
+        const map = await TagService.getTranslations(language, undefined, tankoubon.tankoubon_id);
         if (!cancelled) {
           setTagI18nMap(map || {});
         }
