@@ -27,6 +27,7 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
   const [isFavorite, setIsFavorite] = useState(archive.isfavorite || false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [tagI18nMap, setTagI18nMap] = useState<Record<string, string>>({});
+  const [imageError, setImageError] = useState(false);
 
   const allTags = useMemo(() => {
     return archive.tags ? archive.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
@@ -97,28 +98,19 @@ export function ArchiveCard({ archive, tagsDisplay = 'inline' }: ArchiveCardProp
       }}
     >
       <div className="aspect-[3/4] bg-muted relative">
-        <div className="relative w-full h-full">
+        {!imageError ? (
           <Image
             src={ArchiveService.getThumbnailUrl(archive.arcid)}
             alt={archive.title}
             fill
             className="object-cover"
-            onError={() => {
-              // Hide the image and show the placeholder
-              const imgElement = document.querySelector(`img[alt="${archive.title}"]`) as HTMLElement;
-              if (imgElement) {
-                imgElement.style.display = 'none';
-                const placeholder = imgElement.closest('.relative')?.nextElementSibling;
-                if (placeholder) {
-                  placeholder.classList.remove('hidden');
-                }
-              }
-            }}
+            onError={() => setImageError(true)}
           />
-        </div>
-        <div className="hidden w-full h-full bg-muted flex items-center justify-center">
-          <span className="text-muted-foreground">{t('archive.noCover')}</span>
-        </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-muted-foreground">{t('archive.noCover')}</span>
+          </div>
+        )}
         {archive.isnew && (
           <Badge className="absolute top-2 right-2 bg-red-500">
             {t('archive.new')}
