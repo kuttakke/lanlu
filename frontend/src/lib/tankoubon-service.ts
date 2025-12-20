@@ -77,12 +77,4 @@ export class TankoubonService {
   static async removeArchiveFromTankoubon(tankoubonId: string, archiveId: string): Promise<void> {
     await apiClient.delete(`${this.baseUrl}/${tankoubonId}/${archiveId}`);
   }
-
-  /**
-   * Get thumbnail URL for tankoubon (uses first archive's thumbnail)
-   * @deprecated This method is no longer used. TankoubonCard now fetches firstArchive directly.
-   */
-  static getThumbnailUrl(tankoubonId: string): string {
-    return '/placeholder-thumbnail.png';
-  }
 }

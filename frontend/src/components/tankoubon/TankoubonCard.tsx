@@ -115,7 +115,7 @@ export function TankoubonCard({ tankoubon, tagsDisplay = 'inline' }: TankoubonCa
     return () => {
       cancelled = true;
     };
-  }, [tankoubon.tankoubon_id, tankoubon.archives?.length, tankoubon.archives?.[0]]);
+  }, [tankoubon.tankoubon_id, tankoubon.archives]);
 
   return (
     <Card
