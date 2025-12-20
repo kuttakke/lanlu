@@ -116,14 +116,8 @@ export function TankoubonCard({ tankoubon }: TankoubonCardProps) {
 
   return (
     <Card
-      className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+      className="group overflow-hidden hover:shadow-lg transition-shadow"
       title={hoverTitleParts.length > 0 ? `${tankoubon.name}\n${hoverTitleParts.join('\n')}` : tankoubon.name}
-      onClick={() => {
-        // 点击卡片进入第一本归档的阅读器
-        if (firstArchive) {
-          window.location.href = `/reader?id=${firstArchive.arcid}`;
-        }
-      }}
     >
       <div className="aspect-[3/4] bg-muted relative">
         <div
