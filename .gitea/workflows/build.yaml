@@ -29,6 +29,17 @@ jobs:
         run: |
           mv cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-runtime.so target/release/bin/
           mv cangjie/runtime/lib/linux_x86_64_llvm/libsecurec.so target/release/bin/
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install pnpm
+        run: npm install -g pnpm
+      - name: Build frontend
+        run: |
+          cd frontend
+          pnpm install
+          pnpm run build
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -36,6 +47,7 @@ jobs:
           path: |
             target/release/bin/main
             target/release/bin/lib*
+            frontend/out/
   package:
     needs: build
     runs-on: ubuntu-latest
