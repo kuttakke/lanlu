@@ -244,7 +244,7 @@ public class ScanArchiveTaskRunner {
         try {
             let parameters = "{\"archive_path\":\"${escapeJson(archivePath)}\",\"archive_id\":\"${escapeJson(archiveId)}\"}"
             let task = TaskModel.createTaskWithOptions(
-                "generate_thumbnail_${archiveId}",
+                "生成封面",
                 "generate_thumbnail",
                 parameters,
                 10i32,
