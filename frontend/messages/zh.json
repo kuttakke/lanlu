@@ -513,6 +513,7 @@
       "storage": "存储设置",
       "task": "任务设置",
       "performance": "性能设置",
+      "server": "服务器设置",
       "loadError": "加载设置失败",
       "saveSuccess": "设置保存成功",
       "saveError": "保存设置失败",

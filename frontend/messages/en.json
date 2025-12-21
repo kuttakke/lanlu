@@ -508,6 +508,7 @@
       "storage": "Storage Settings",
       "task": "Task Settings",
       "performance": "Performance Settings",
+      "server": "Server Settings",
       "loadError": "Failed to load settings",
       "saveSuccess": "Settings saved successfully",
       "saveError": "Failed to save settings",

@@ -14,9 +14,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useServerInfo } from '@/contexts/ServerInfoContext';
 
 export function Header() {
   const { t } = useLanguage();
+  const { serverName } = useServerInfo();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [randomLoading, setRandomLoading] = useState(false);
   const pathname = usePathname();
@@ -89,9 +91,9 @@ export function Header() {
             )}
             
             <Link href="/" className="flex items-center space-x-2">
-              <img src="/logo.svg" alt="Lanraragi4CJ Logo" className="w-8 h-8" />
+              <img src="/logo.svg" alt={`${serverName} Logo`} className="w-8 h-8" />
               <span className="font-semibold text-lg hidden sm:inline-block">
-                Lanraragi4CJ
+                {serverName}
               </span>
             </Link>
           </div>

@@ -53,6 +53,7 @@ export default function SystemSettingsPage() {
     { id: 'storage', name: t('settings.system.storage'), icon: '📁' },
     { id: 'task', name: t('settings.system.task'), icon: '⏰' },
     { id: 'performance', name: t('settings.system.performance'), icon: '⚡' },
+    { id: 'server', name: t('settings.system.server'), icon: '🖥️' },
   ];
 
   // 使用 useRef 稳定函数引用，避免 useEffect 无限循环
@@ -286,7 +287,7 @@ export default function SystemSettingsPage() {
 
       {/* 设置选项卡 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 w-full mb-4">
+        <TabsList className="grid grid-cols-4 w-full mb-4">
           {categories.map((category) => (
             <TabsTrigger key={category.id} value={category.id}>
               <span className="mr-2">{category.icon}</span>

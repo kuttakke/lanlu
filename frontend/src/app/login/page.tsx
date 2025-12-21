@@ -10,12 +10,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LogIn, Library, ShieldCheck, Key } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useServerInfo } from '@/contexts/ServerInfoContext';
 import { AuthService } from '@/lib/auth-service';
 import { LanguageButton } from '@/components/language/LanguageButton';
 import { ThemeButton } from '@/components/theme/theme-toggle';
 
 function LoginForm() {
   const { t } = useLanguage();
+  const { serverName } = useServerInfo();
   const { isAuthenticated, login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -92,7 +94,7 @@ function LoginForm() {
         
         <div className="relative z-10 flex items-center gap-2 text-2xl font-bold tracking-tight">
           <img src="/logo.svg" alt="Logo" className="w-10 h-10" />
-          <span>Lanraragi4CJ</span>
+          <span>{serverName}</span>
         </div>
 
         <div className="relative z-10 space-y-6">
@@ -107,7 +109,7 @@ function LoginForm() {
         </div>
 
         <div className="relative z-10 text-sm text-muted-foreground">
-          {t('login.copyright')}
+          © 2025 {serverName}. All rights reserved.
         </div>
       </div>
 
@@ -120,8 +122,8 @@ function LoginForm() {
 
         <div className="w-full max-w-[400px] space-y-6 animate-slide-in-from-bottom">
           <div className="lg:hidden flex flex-col items-center space-y-2 mb-8">
-            <img src="/logo.svg" alt="Logo" className="w-16 h-16 shadow-lg" />
-            <h1 className="text-2xl font-bold">{t('login.appName')}</h1>
+            <img src="/logo.svg" alt="Logo" className="w-16 h-16 rounded-lg shadow-lg" />
+            <h1 className="text-2xl font-bold">{serverName}</h1>
           </div>
 
           <div className="hidden lg:block space-y-2 text-center lg:text-left">
@@ -226,7 +228,7 @@ function LoginForm() {
           </Card>
 
           <div className="text-center text-sm text-muted-foreground lg:hidden">
-            {t('login.copyright')}
+            © 2025 {serverName}. All rights reserved.
           </div>
         </div>
       </div>

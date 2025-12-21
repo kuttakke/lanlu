@@ -135,6 +135,10 @@ public class SystemSettingsService {
         // 插件设置 - 默认值
         settings.add(createSetting("PLUGIN_PATH", "./plugins", "path", "storage", "插件目录路径"))
 
+        // 服务器信息设置 - 默认值
+        settings.add(createSetting("SERVER_NAME", "LANraragi", "string", "server", "服务器名称"))
+        settings.add(createSetting("SERVER_MOTD", "LANraragi for Cangjie", "string", "server", "服务器欢迎消息"))
+
         // 返回设置数组
         let settingsArray = settings.toArray()
         logger.info("获取到 ${settingsArray.size.toString()} 个默认系统设置")
@@ -197,6 +201,8 @@ public class SystemSettingsService {
         translations["数据库检查定时任务表达式"] = "Database Check Cron Expression"
         translations["启用初始数据库检查"] = "Enable Initial Database Check"
         translations["插件目录路径"] = "Plugin Directory Path"
+        translations["服务器名称"] = "Server Name"
+        translations["服务器欢迎消息"] = "Server Welcome Message"
 
         return translations.get(zhDescription) ?? "System Setting"
     }
@@ -371,6 +377,6 @@ public class SystemSettingsService {
      * 获取所有分类
      */
     public static func getCategories(): Array<String> {
-        return ["storage", "task", "performance"]
+        return ["storage", "task", "performance", "server"]
     }
 }
