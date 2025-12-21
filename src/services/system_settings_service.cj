@@ -136,8 +136,8 @@ public class SystemSettingsService {
         settings.add(createSetting("PLUGIN_PATH", "./plugins", "path", "storage", "插件目录路径"))
 
         // 服务器信息设置 - 默认值
-        settings.add(createSetting("SERVER_NAME", "LANraragi", "string", "server", "服务器名称"))
-        settings.add(createSetting("SERVER_MOTD", "LANraragi for Cangjie", "string", "server", "服务器欢迎消息"))
+        settings.add(createSetting("SERVER_NAME", "兰鹿", "string", "server", "服务器名称"))
+        settings.add(createSetting("SERVER_MOTD", "兰鹿轻盈，自在如风", "string", "server", "服务器欢迎消息"))
 
         // 返回设置数组
         let settingsArray = settings.toArray()

@@ -18,7 +18,7 @@ import { useServerInfo } from '@/contexts/ServerInfoContext';
 
 export function Header() {
   const { t } = useLanguage();
-  const { serverName } = useServerInfo();
+  const { serverName, serverInfo } = useServerInfo();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [randomLoading, setRandomLoading] = useState(false);
   const pathname = usePathname();
@@ -64,10 +64,10 @@ export function Header() {
 
   return (
     <header className="bg-background border-b border-border sticky top-0 z-50">
-      <div className="container mx-auto px-0.5 py-3">
+      <div className="mx-auto px-2 sm:px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo和标题 */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
@@ -89,13 +89,18 @@ export function Header() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
-            
-            <Link href="/" className="flex items-center space-x-2">
+
+            <Link href="/" className="flex items-center gap-2">
               <img src="/logo.svg" alt={`${serverName} Logo`} className="w-8 h-8" />
               <span className="font-semibold text-lg hidden sm:inline-block">
                 {serverName}
               </span>
             </Link>
+            {serverInfo?.motd && (
+              <span className="text-sm text-muted-foreground hidden md:inline-block max-w-[250px] truncate" title={serverInfo.motd}>
+                · {serverInfo.motd}
+              </span>
+            )}
           </div>
 
           {/* 搜索栏 - 桌面端显示 */}
