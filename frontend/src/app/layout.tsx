@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 // import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme/theme-provider';
@@ -15,10 +15,13 @@ import { Toaster } from 'sonner';
 export const metadata: Metadata = {
   title: '兰鹿',
   description: '漫画归档管理系统',
-  colorScheme: 'light',
   icons: {
     icon: '/logo.svg',
   },
+};
+
+export const viewport: Viewport = {
+  colorScheme: 'light',
 };
 
 export default function RootLayout({
