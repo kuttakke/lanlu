@@ -13,9 +13,6 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 COPY ./app .
 
-# Copy frontend static files
-COPY ./frontend/out ./frontend/out
-
 RUN chmod +x /app/main
 
 CMD ["/app/main"]
