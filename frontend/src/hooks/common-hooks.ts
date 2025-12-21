@@ -202,7 +202,7 @@ export function useWindowSize() {
 }
 
 /**
- * 响应式断点 Hook
+ * 响应式断点 Hook（扩展版支持3xl/4xl/5xl）
  */
 export function useBreakpoint() {
   const { width } = useWindowSize();
@@ -212,7 +212,10 @@ export function useBreakpoint() {
     if (width < 768) return 'md';
     if (width < 1024) return 'lg';
     if (width < 1280) return 'xl';
-    return '2xl';
+    if (width < 1400) return '2xl';
+    if (width < 1920) return '3xl';
+    if (width < 2560) return '4xl';
+    return '5xl';
   }, [width]);
 
   return breakpoint;

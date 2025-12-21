@@ -188,7 +188,7 @@ export default function FavoritesPage() {
 
             <TabsContent value="archives">
               {archiveLoading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7 4xl:grid-cols-8 5xl:grid-cols-9 gap-4">
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div key={i} className="space-y-2">
                       <Skeleton className="aspect-[3/4] w-full" />
@@ -211,7 +211,7 @@ export default function FavoritesPage() {
                   {groupedArchives.map((group) => (
                     <div key={group.label} className="space-y-3">
                       <h3 className="text-lg font-semibold">{group.label}</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7 4xl:grid-cols-8 5xl:grid-cols-9 gap-4">
                         {group.archives.map((archive) => (
                           <ArchiveCard key={archive.arcid} archive={archive} />
                         ))}
@@ -224,7 +224,7 @@ export default function FavoritesPage() {
 
             <TabsContent value="tankoubons">
               {tankoubonLoading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7 4xl:grid-cols-8 5xl:grid-cols-9 gap-4">
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div key={i} className="space-y-2">
                       <Skeleton className="aspect-[3/4] w-full" />
@@ -247,7 +247,7 @@ export default function FavoritesPage() {
                   {groupedTankoubons.map((group) => (
                     <div key={group.label} className="space-y-3">
                       <h3 className="text-lg font-semibold">{group.label}</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7 4xl:grid-cols-8 5xl:grid-cols-9 gap-4">
                         {group.archives.map((tank) => (
                           <TankoubonCard key={tank.tankoubon_id} tankoubon={tank} />
                         ))}
