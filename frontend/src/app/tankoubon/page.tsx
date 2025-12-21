@@ -32,6 +32,7 @@ import {
 import { TankoubonService } from '@/lib/tankoubon-service';
 import { ArchiveService } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
+import { TagService } from '@/lib/tag-service';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { logger } from '@/lib/logger';
 import { ArrowLeft, Edit, Trash2, Plus, BookOpen, Heart, Search } from 'lucide-react';
@@ -39,7 +40,7 @@ import type { Tankoubon } from '@/types/tankoubon';
 import type { Archive } from '@/types/archive';
 
 function TankoubonDetailContent() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
   const tankoubonId = searchParams?.get('id') ?? null;
@@ -77,6 +78,9 @@ function TankoubonDetailContent() {
 
   // Archive filter (within this collection)
   const [archiveFilter, setArchiveFilter] = useState('');
+
+  // Tag i18n state
+  const [tagI18nMap, setTagI18nMap] = useState<Record<string, string>>({});
 
   // Fetch tankoubon details
   const fetchTankoubon = useCallback(async () => {
@@ -136,6 +140,38 @@ function TankoubonDetailContent() {
       fetchArchives();
     }
   }, [tankoubon, fetchArchives]);
+
+  // Fetch tag i18n translations
+  useEffect(() => {
+    if (!tankoubonId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const map = await TagService.getTranslations(language, undefined, tankoubonId);
+        if (!cancelled) {
+          setTagI18nMap(map || {});
+        }
+      } catch {
+        // Silently fail, use original tags
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tankoubonId, language]);
+
+  // Helper function to display translated tag
+  const displayTag = useCallback((tag: string): string => {
+    const key = String(tag || '').trim();
+    if (!key) return '';
+    const translated = tagI18nMap[key];
+    if (translated && String(translated).trim()) return String(translated);
+    // Strip namespace prefix for display
+    const idx = key.indexOf(':');
+    return idx > 0 ? key.slice(idx + 1) : key;
+  }, [tagI18nMap]);
 
   const handleFavoriteClick = async () => {
     if (!tankoubon || favoriteLoading) return;
@@ -344,8 +380,8 @@ function TankoubonDetailContent() {
                   {allTags.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {allTags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="max-w-full">
-                          <span className="truncate">{tag}</span>
+                        <Badge key={index} variant="secondary" className="max-w-full" title={tag}>
+                          <span className="truncate">{displayTag(tag)}</span>
                         </Badge>
                       ))}
                     </div>

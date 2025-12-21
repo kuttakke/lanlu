@@ -431,10 +431,6 @@ public class ScanPluginsTaskRunner {
         }
     }
 
-    private static func addFile(arr: Array<String>, file: String): Array<String> {
-        return DirectoryScanner.addFileToArray(arr, file)
-    }
-
     /**
      * 获取当前时间戳（毫秒）
      */

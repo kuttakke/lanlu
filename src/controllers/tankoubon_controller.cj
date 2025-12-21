@@ -46,7 +46,11 @@ public class TankoubonController {
      */
     public static func getTankoubonById(ctx: JoyContext) {
         let id = ctx.getParam("id") ?? ""
-        let tankoubon = TankoubonModel.getTankoubonById(id)
+        let userIdOpt = AuthMiddleware.optionalUser(ctx)
+        let tankoubon = match (userIdOpt) {
+            case Some(userId) => TankoubonModel.getTankoubonByIdWithUser(id, userId)
+            case None => TankoubonModel.getTankoubonById(id)
+        }
         
         if (tankoubon.id.size == 0) {
             let errorResponse = "{\"error\":\"The given tankoubon does not exist.\",\"operation\":\"get_tankoubon\",\"success\":0}"
@@ -55,7 +59,7 @@ public class TankoubonController {
         }
 
         // 查询收藏状态（登录用户）
-        match (AuthMiddleware.optionalUser(ctx)) {
+        match (userIdOpt) {
             case Some(userId) => tankoubon.isfavorite = UserTankoubonFavoriteDao.isFavorite(userId, id)
             case None => tankoubon.isfavorite = false
         }

@@ -129,9 +129,7 @@ public class ScanArchiveTaskRunner {
                 case Some(archive) =>
                     logger.info("Archive already exists in database: ${filePath}")
 
-                    var shouldUpdateRelativePath = false
                     if (archive.relative_path.size == 0) {
-                        shouldUpdateRelativePath = true
                         logger.info("Archive has empty relative_path, updating: ${archive.id}")
                     }
 

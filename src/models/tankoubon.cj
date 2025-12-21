@@ -77,19 +77,42 @@ public class TankoubonModel {
      * 根据ID获取单行本
      */
     public static func getTankoubonById(id: String): Tankoubon {
-        let dataOpt = TankoubonDao.getTankoubonById(id)
-        match (dataOpt) {
+        match (TankoubonDao.getTankoubonById(id)) {
+            case Some(data) => return buildTankoubonFromData(data)
+            case None => return Tankoubon("", "", "", "", [])
+        }
+    }
+
+    public static func getTankoubonByIdWithUser(id: String, userId: Int64): Tankoubon {
+        match (TankoubonDao.getTankoubonById(id)) {
             case Some(data) =>
-                let tankoubon = Tankoubon(data.tankoubon_id, data.name, data.summary, data.tags, data.archives)
-
-                // 获取档案数量和总页数
-                let (archiveCount, totalPages) = TankoubonDao.getTankoubonArchiveStats(id)
-                tankoubon.archive_count = archiveCount
-                tankoubon.pagecount = totalPages
-
+                let tankoubon = buildTankoubonFromData(data)
+                applyAggregatedMetadata(tankoubon, userId)
                 return tankoubon
-            case None =>
-                return Tankoubon("", "", "", "", [])
+            case None => return Tankoubon("", "", "", "", [])
+        }
+    }
+
+    private static func buildTankoubonFromData(data: TankoubonData): Tankoubon {
+        let tankoubon = Tankoubon(data.tankoubon_id, data.name, data.summary, data.tags, data.archives)
+        let (archiveCount, totalPages) = TankoubonDao.getTankoubonArchiveStats(data.tankoubon_id)
+        tankoubon.archive_count = archiveCount
+        tankoubon.pagecount = totalPages
+        return tankoubon
+    }
+
+    private static func applyAggregatedMetadata(tankoubon: Tankoubon, userId: Int64): Unit {
+        match (TankoubonDao.getAggregatedMetadata(tankoubon.id, userId)) {
+            case Some(agg) =>
+                if (agg.tags.size > 0) {
+                    tankoubon.tags = agg.tags
+                }
+                tankoubon.pagecount = agg.pagecount
+                tankoubon.archive_count = agg.archive_count
+                tankoubon.progress = agg.progress
+                tankoubon.last_read_time = agg.last_read_time
+                tankoubon.isnew = agg.isnew
+            case None => ()
         }
     }
 
