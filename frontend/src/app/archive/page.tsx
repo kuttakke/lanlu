@@ -547,22 +547,12 @@ function ArchiveDetailContent() {
                         onClick={() => setImageModalOpen(false)}
                       >
                         <div className="relative max-w-4xl max-h-full">
-                          <div className="relative w-full h-full">
-                            <Image
-                              src={ArchiveService.getThumbnailUrl(metadata.arcid)}
-                              alt={metadata.title}
-                              fill
-                              className="max-w-full max-h-full object-contain rounded-lg"
-                              onError={() => handleImageLoadError(metadata.title)}
-                            />
-                          </div>
-                          {/* 模态框无封面占位符 */}
-                          <div className="hidden flex items-center justify-center bg-muted rounded-lg" style={{width: '400px', height: '533px'}}>
-                            <div className="text-center text-muted-foreground">
-                              <div className="text-6xl mb-4">📚</div>
-                              <div className="text-lg">{t('archive.noCover')}</div>
-                            </div>
-                          </div>
+                          <img
+                            src={ArchiveService.getThumbnailUrl(metadata.arcid)}
+                            alt={metadata.title}
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                            onError={() => handleImageLoadError(metadata.title)}
+                          />
                           <button
                             className="absolute top-2 right-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-full p-2"
                             onClick={() => setImageModalOpen(false)}
