@@ -1,10 +1,10 @@
-# LRR4CJ
+# Lanlu
 
-LANraragi for Cangjie - 基于仓颉语言的漫画归档管理系统
+兰鹿 - 基于仓颉语言的漫画归档管理系统
 
 ## 简介
 
-LRR4CJ 是一个全栈 Web 应用，用于管理和阅读数字漫画归档。项目使用仓颉语言重新实现了 [LANraragi](https://github.com/Difegue/LANraragi) 的核心功能，并配备了现代化的前端界面。
+兰鹿是一个全栈 Web 应用，用于管理和阅读数字漫画归档。项目使用仓颉语言重新实现了 [LANraragi](https://github.com/Difegue/LANraragi) 的核心功能，并配备了现代化的前端界面。
 
 ## 功能特性
 

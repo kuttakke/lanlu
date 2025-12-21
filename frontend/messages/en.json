@@ -62,7 +62,7 @@
     "language": "Language"
   },
   "home": {
-    "title": "Lanraragi4CJ",
+    "title": "Lanlu",
     "description": "Comic Archive Management System",
     "randomRecommendations": "Random Recommendations",
     "noRecommendations": "No recommended archives",
@@ -232,8 +232,8 @@
   },
   "login": {
     "description": "Manage your comic archives with ease and style",
-    "copyright": "© 2025 Lanraragi4CJ. All rights reserved.",
-    "appName": "Lanraragi4CJ"
+    "copyright": "© 2025 Lanlu. All rights reserved.",
+    "appName": "Lanlu"
   },
   "auth": {
     "login": "Login",

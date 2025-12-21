@@ -63,7 +63,7 @@
     "language": "语言"
   },
   "home": {
-    "title": "Lanraragi4CJ",
+    "title": "兰鹿",
     "description": "漫画归档管理系统",
     "randomRecommendations": "随机推荐",
     "noRecommendations": "暂无推荐档案",
@@ -236,8 +236,8 @@
   },
   "login": {
     "description": "轻松优雅地管理您的漫画归档",
-    "copyright": "© 2025 Lanraragi4CJ. 保留所有权利。",
-    "appName": "Lanraragi4CJ"
+    "copyright": "© 2025 Lanlu. 保留所有权利。",
+    "appName": "Lanlu"
   },
   "auth": {
     "login": "登录",

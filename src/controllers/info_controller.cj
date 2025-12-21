@@ -42,7 +42,7 @@ public class InfoController {
             serverInfo += "\"total_archives\":${totalArchives},"
             serverInfo += "\"total_pages_read\":${totalPagesRead},"
             serverInfo += "\"version\":\"0.9.50\","
-            serverInfo += "\"version_desc\":\"LANraragi for Cangjie - Initial Release\","
+            serverInfo += "\"version_desc\":\"Lanlu - Initial Release\","
             serverInfo += "\"version_name\":\"Cangjie\""
             serverInfo += "}"
 

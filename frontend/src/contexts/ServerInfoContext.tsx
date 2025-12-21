@@ -12,7 +12,7 @@ interface ServerInfoContextType {
   refresh: () => Promise<void>;
 }
 
-const DEFAULT_SERVER_NAME = 'LANraragi';
+const DEFAULT_SERVER_NAME = 'Lanlu';
 
 const ServerInfoContext = createContext<ServerInfoContextType | undefined>(undefined);
 
