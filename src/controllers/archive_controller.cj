@@ -485,6 +485,38 @@ public class ArchiveController {
                 // 4. 删除档案记录
                 let deleteSuccess = ArchiveDao.delete(id)
 
+                // 5. 删除相关文件（缩略图和原始档案）
+                // 删除缩略图文件
+                if (archive.thumbhash.size > 0) {
+                    let thumbnailDir = DatabaseConfig.getThumbnailPath()
+                    let exts = ["jpg", "jpeg", "png", "webp"]
+                    for (ext in exts) {
+                        let thumbPath = "${thumbnailDir}/${archive.thumbhash}.${ext}"
+                        try {
+                            remove(Path(thumbPath))
+                            getLogger("archive_controller").info("Deleted thumbnail file", ("path", thumbPath), ("arcid", id))
+                        } catch (_: Exception) {
+                            // 忽略删除失败（文件可能不存在）
+                            getLogger("archive_controller").debug("Thumbnail file not found or delete failed", ("path", thumbPath), ("arcid", id))
+                        }
+                    }
+                }
+
+                // 删除原始档案文件
+                try {
+                    let archivePath = SystemSettingsService.getPath("ARCHIVE_PATH")
+                    let fullArchivePath = if (archive.relative_path.size > 0) {
+                        "${archivePath}/${archive.relative_path}/${archive.filename}"
+                    } else {
+                        "${archivePath}/${archive.filename}"
+                    }
+                    remove(Path(fullArchivePath))
+                    getLogger("archive_controller").info("Deleted archive file", ("path", fullArchivePath), ("arcid", id))
+                } catch (e: Exception) {
+                    getLogger("archive_controller").warn("Failed to delete archive file", ("arcid", id), ("error", e.message))
+                    // 档案文件删除失败不影响主要流程，只记录警告
+                }
+
                 if (deleteSuccess) {
                     let result = "{\"operation\":\"delete_archive\",\"success\":1}"
                     ctx.json(result)
