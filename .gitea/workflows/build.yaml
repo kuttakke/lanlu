@@ -45,7 +45,7 @@ jobs:
           mkdir -p app
           cp target/release/bin/main app/
           cp target/release/bin/lib* app/
-          cp -r frontend/out app/frontend
+          cp -r frontend/out app/frontend/out
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
