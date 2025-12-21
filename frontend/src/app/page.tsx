@@ -113,7 +113,7 @@ function HomePageContent() {
   const fetchRandomArchives = useCallback(async () => {
     try {
       setRandomLoading(true);
-      const archives = await ArchiveService.getRandom({ count: 8 });
+      const archives = await ArchiveService.getRandom({ count: 16 });
       setRandomArchives(archives);
     } catch (error) {
       logger.apiError('fetch random archives', error);
