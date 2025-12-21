@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { LogIn, Library, ShieldCheck, Key } from 'lucide-react';
+import { LogIn, ShieldCheck, Key } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useServerInfo } from '@/contexts/ServerInfoContext';
@@ -93,7 +94,7 @@ function LoginForm() {
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1578632738908-4521c726eebf?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-10 grayscale z-[-1]" />
         
         <div className="relative z-10 flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <img src="/logo.svg" alt="Logo" className="w-10 h-10" />
+          <Image src="/logo.svg" alt="Logo" width={40} height={40} />
           <span>{serverName}</span>
         </div>
 
@@ -122,7 +123,7 @@ function LoginForm() {
 
         <div className="w-full max-w-[400px] space-y-6 animate-slide-in-from-bottom">
           <div className="lg:hidden flex flex-col items-center space-y-2 mb-8">
-            <img src="/logo.svg" alt="Logo" className="w-16 h-16 rounded-lg shadow-lg" />
+            <Image src="/logo.svg" alt="Logo" width={64} height={64} className="rounded-lg shadow-lg" />
             <h1 className="text-2xl font-bold">{serverName}</h1>
           </div>
 

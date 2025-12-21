@@ -24,7 +24,6 @@ export function AuthGuard({
   isAdmin = false,
   requireAdmin = false,
   title,
-  description,
   icon: Icon,
   t,
   children

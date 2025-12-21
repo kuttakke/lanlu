@@ -96,7 +96,7 @@ export function useApiState<T = any>({
         run();
       }
     });
-  }, [showError, showSuccess, onError, onSuccess, debounceMs]);
+  }, [showError, showSuccess, onError, onSuccess, debounceMs, transform]);
 
   const reset = useCallback(() => {
     setState({

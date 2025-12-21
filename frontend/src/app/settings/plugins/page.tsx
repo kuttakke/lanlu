@@ -37,7 +37,7 @@ export default function SettingsPluginsPage() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

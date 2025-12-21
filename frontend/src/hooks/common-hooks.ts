@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useToast } from './use-toast';
 
 /**
  * 常用 React Hooks 的统一导出
@@ -96,7 +95,10 @@ export function useAsync<T, E = string>(
 
   useEffect(() => {
     if (immediate) {
-      execute();
+      const executeAsync = async () => {
+        await execute();
+      };
+      executeAsync();
     }
   }, [execute, immediate]);
 

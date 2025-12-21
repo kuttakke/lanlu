@@ -74,15 +74,14 @@ function ReaderContent() {
 
   // 提取设备检测和宽度计算的通用函数
   const getDeviceInfo = useCallback(() => {
-    const isPC = window.innerWidth >= 1024;
-    const containerWidth = isPC
+    const containerWidth = window.innerWidth >= 1024
       ? Math.min(800, window.innerWidth * 0.8)
       : Math.min(window.innerWidth * 0.95, window.innerWidth);
-    return { isPC, containerWidth };
+    return { containerWidth };
   }, []);
 
   const getImageHeight = useCallback((naturalWidth: number, naturalHeight: number) => {
-    const { isPC, containerWidth } = getDeviceInfo();
+    const { containerWidth } = getDeviceInfo();
     const aspectRatio = naturalHeight / naturalWidth;
     return containerWidth * aspectRatio;
   }, [getDeviceInfo]);
@@ -321,7 +320,7 @@ function ReaderContent() {
         logger.operationFailed('exit fullscreen', err);
       }
     }
-  }, []);
+  }, [setIsFullscreen]);
 
   // 监听全屏状态变化
   useEffect(() => {
@@ -336,7 +335,7 @@ function ReaderContent() {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, []);
+  }, [setIsFullscreen]);
 
   // 监听页码变化并更新进度
   useEffect(() => {
@@ -556,7 +555,7 @@ function ReaderContent() {
       // 延迟预加载，避免影响当前图片加载
       setTimeout(() => preloadAdjacent(pageIndex), 100);
     }
-  }, [readingMode, loadedImages, imagesLoading, pages]); // 移除 cacheImage 依赖
+  }, [readingMode, loadedImages, imagesLoading, pages, getImageHeight]); // 移除 cacheImage 依赖
 
   // 计算可见范围的函数
   const calculateVisibleRange = useCallback((scrollTop: number, containerHeight: number) => {
@@ -792,7 +791,7 @@ function ReaderContent() {
       // 设置初始可见范围
       setVisibleRange({ start: 0, end: Math.min(3, pages.length - 1) }); // 增加初始渲染范围
     }
-  }, [pages.length, imageHeights.length]);
+  }, [pages.length, imageHeights.length, getDeviceInfo]);
 
   // 自动翻页定时器
   useEffect(() => {
@@ -867,7 +866,7 @@ function ReaderContent() {
         clearInterval(intervalId);
       }
     };
-  }, [autoPlayMode, autoPlayInterval, currentPage, pages.length, doublePageMode, splitCoverMode, handleNextPage, readingMode, imageHeights]);
+  }, [autoPlayMode, autoPlayInterval, currentPage, pages.length, doublePageMode, splitCoverMode, handleNextPage, readingMode, imageHeights, setAutoPlayMode]);
 
   // 处理拆分封面模式切换时的页面调整
   useEffect(() => {
@@ -1033,7 +1032,7 @@ function ReaderContent() {
         }
       });
     }
-  }, [readingMode, imageHeights]);
+  }, [readingMode, imageHeights, getImageHeight]);
 
   if (loading) {
     return (

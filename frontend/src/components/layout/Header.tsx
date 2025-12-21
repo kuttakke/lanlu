@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/search/SearchBar';
 import { ArchiveService } from '@/lib/archive-service';
@@ -91,7 +92,7 @@ export function Header() {
             )}
 
             <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.svg" alt={`${serverName} Logo`} className="w-8 h-8" />
+              <Image src="/logo.svg" alt={`${serverName} Logo`} width={32} height={32} />
               <span className="font-semibold text-lg hidden sm:inline-block">
                 {serverName}
               </span>
