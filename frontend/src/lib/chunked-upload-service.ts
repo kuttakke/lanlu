@@ -19,7 +19,7 @@ export interface UploadProgressCallback {
 // 上传结果接口
 export interface UploadResult {
   success: boolean;
-  id?: string;
+  taskId?: string;
   error?: string;
 }
 
@@ -499,7 +499,7 @@ export class ChunkedUploadService {
 
       const result = {
         success: response.data.success === 1,
-        id: response.data.id,
+        taskId: response.data.taskId?.toString(),
         error: response.data.error
       };
 

@@ -86,9 +86,9 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
 
       setUploadFiles(prev => prev.map(f => {
         if (f.id === uploadFile.id) {
-          if (result.success && result.id) {
+          if (result.success && result.taskId) {
             setTimeout(() => {
-              onUploadComplete?.(result.id!)
+              onUploadComplete?.(result.taskId!)
             }, 1500)
             return { ...f, progress: 100, status: "success" }
           } else {
