@@ -302,7 +302,7 @@ public class PluginService {
             let fileName = pathObj.fileName
 
             // 构建Deno命令来获取插件信息
-            let denoPath = "/config/.deno/bin/deno"
+            let denoPath = "deno"
 
             // 为插件信息获取构建最小权限参数
             var denoArgs = ArrayList<String>()
@@ -629,7 +629,7 @@ public class PluginService {
         }
 
         // 构建Deno权限参数
-        let denoPath = "/config/.deno/bin/deno"
+        let denoPath = "deno"
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
 
         // 常用共享数据目录（用于以图搜图/封面读取等）
@@ -807,7 +807,7 @@ public class PluginService {
         }
 
         // 构建Deno权限参数
-        let denoPath = "/config/.deno/bin/deno"
+        let denoPath = "deno"
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
 
         // 添加插件执行参数
@@ -857,7 +857,7 @@ public class PluginService {
         }
 
         // 构建Deno权限参数
-        let denoPath = "/config/.deno/bin/deno"
+        let denoPath = "deno"
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
 
         // 添加插件执行参数
