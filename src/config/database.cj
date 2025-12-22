@@ -12,41 +12,27 @@ import opengauss.driver.*
  * 数据库配置类
  */
 public class DatabaseConfig {
+    public static var dbString: String
     public static var dbType: String
-    public static var host: String
-    public static var port: Int32
-    public static var database: String
-    public static var username: String
-    public static var password: String
-    public static var ssl: String
-    
+
     /**
      * 静态初始化器，从环境变量读取配置
      */
     static init() {
         load()
         // 从环境变量中读取数据库配置
+        dbString = getVariable("DB_STRING") ?? "postgres://lgr:lgr@127.0.0.1:5432/lgr?sslmode=disable"
         dbType = getVariable("DB_TYPE") ?? "postgres"
-        host = getVariable("DB_HOST") ?? "127.0.0.1"
-        let portStr = getVariable("DB_PORT") ?? "5432"
-        port = Int32.parse(portStr)
-
-        database = getVariable("DB_NAME") ?? "lgr"
-        username = getVariable("DB_USER") ?? "lgr"
-        password = getVariable("DB_PASSWORD") ?? "lgr"
-        ssl = getVariable("DB_SSL") ?? "disable"
     }
-    
+
     /**
      * 获取数据库连接字符串
      */
     public static func getConnectionString(): String {
         let logger = getLogger("database")
-        logger.info("Creating database connection string")
-        logger.info("DB config: type=${dbType}, host=${host}, port=${port.toString()}, database=${database}, user=${username}")
-        let connStr = dbType + "://" + username + ":" + password + "@" + host + ":" + port.toString() + "/" + database + "?sslmode=" + ssl
-        // logger.info("Connection string created: ${connStr}")
-        return connStr
+        logger.info("Using database connection string from DB_STRING")
+        logger.info("DB type: ${dbType}")
+        return dbString
     }
     
     /**
@@ -63,7 +49,8 @@ public class DatabaseConfig {
         let drvopt = getDriver()
         match (drvopt) {
             case Some(drv) =>
-                let ds = drv.open(getConnectionString())
+                let connStr = getConnectionString()
+                let ds = drv.open(connStr)
                 try {
                     let conn = ds.connect()
                     return Some(conn)
@@ -74,7 +61,7 @@ public class DatabaseConfig {
                     return None
                 }
             case None =>
-                getLogger("database").error("无法获取opengauss驱动")
+                getLogger("database").error("无法获取 ${dbType} 驱动")
                 return None
         }
     }

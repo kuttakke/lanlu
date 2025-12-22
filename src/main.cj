@@ -34,7 +34,6 @@ main(): Int64 {
 
     // 引用 DatabaseConfig 以触发其静态初始化器，加载环境变量
     logger.info("Application starting... step 3: triggering DatabaseConfig static init")
-    let _ = DatabaseConfig.host
     logger.info("Application starting... step 4: config loaded")
 
     let host = getVariable("HOST") ?? "0.0.0.0"
@@ -44,7 +43,6 @@ main(): Int64 {
     logger.info("Application starting... step 6: server config parsed")
     logger.info("Server configuration", ("host", host), ("port", portStr))
     logger.info("Application starting... step 7: database config loaded")
-    logger.info("Database connection", ("host", DatabaseConfig.host), ("port", DatabaseConfig.port.toString()), ("database", DatabaseConfig.database))
 
     // 初始化数据库
     logger.info("Application starting... step 8: initializing database")
