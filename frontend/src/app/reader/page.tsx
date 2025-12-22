@@ -1,6 +1,6 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, Suspense, useRef, memo } from 'react';
 import Image from 'next/image';
 import { ArchiveService } from '@/lib/archive-service';
@@ -44,6 +44,7 @@ const MemoizedImage = memo(Image, (prevProps, nextProps) => {
 MemoizedImage.displayName = 'MemoizedImage';
 
 function ReaderContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams?.get('id') ?? null;
   const { t } = useLanguage();
@@ -85,6 +86,22 @@ function ReaderContent() {
     const aspectRatio = naturalHeight / naturalWidth;
     return containerWidth * aspectRatio;
   }, [getDeviceInfo]);
+
+  // 智能返回逻辑：检查是否能安全返回站内页面
+  const handleBack = useCallback(() => {
+    // 检查是否有历史记录且上一页是站内页面
+    const referrer = document.referrer;
+    const currentOrigin = window.location.origin;
+
+    // 如果有上一页且上一页是站内页面，则返回上一页
+    if (window.history.length > 1 && referrer && referrer.startsWith(currentOrigin)) {
+      window.history.back();
+    } else {
+      // 否则直接跳转到首页
+      router.push('/');
+    }
+  }, [router]);
+
   // 提取localStorage读取逻辑为自定义Hook
   const useLocalStorageBoolean = (key: string, defaultValue: boolean): [boolean, (value: boolean) => void] => {
     const [value, setValue] = useState<boolean>(() => {
@@ -1080,9 +1097,7 @@ function ReaderContent() {
                 variant="outline"
                 size="sm"
                 className="border-border bg-background hover:bg-accent hover:text-accent-foreground pointer-events-auto relative z-50"
-                onClick={() => {
-                  window.history.back();
-                }}
+                onClick={handleBack}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">{t('reader.back')}</span>
