@@ -5,23 +5,14 @@ import std.env.*
 import stdx.log.*
 import stdx.logger.*
 import std.fs.*
-import dotenv.Dotenv
+import std.env.getVariable
 
 
 public func initializeLogging(): Unit {
-    initializeLoggingWithConfig(None)
-}
 
-public func initializeLoggingWithConfig(config: Option<Dotenv>): Unit {
-    // 使用提供的配置或创建新的配置
-    let actualConfig = match (config) {
-        case Some(c) => c
-        case None => Dotenv.createConfig()
-    }
-
-    let logLevel = getLogLevel(actualConfig)
-    let logFormat = getLogFormat(actualConfig)
-    let output = getLogOutput(actualConfig)
+    let logLevel = getLogLevel()
+    let logFormat = getLogFormat()
+    let output = getLogOutput()
 
     let logger: Logger
     match (logFormat) {
@@ -53,8 +44,8 @@ public func getLogger(attrs: Array<Attr>): Logger {
     getGlobalLogger(attrs)
 }
 
-private func getLogLevel(config: Dotenv): LogLevel {
-    let levelStr = config.read("LOG_LEVEL", "INFO")
+private func getLogLevel(): LogLevel {
+    let levelStr = getVariable("LOG_LEVEL") ?? "INFO"
     // 输出调试信息到标准错误，这样我们可以看到实际读取的值
     let stderr = getStdErr()
     stderr.write("DEBUG: Log level from env: '${levelStr}'\n")
@@ -69,12 +60,12 @@ private func getLogLevel(config: Dotenv): LogLevel {
     }
 }
 
-private func getLogFormat(config: Dotenv): String {
-    config.read("LOG_FORMAT", "simple")
+private func getLogFormat(): String {
+    getVariable("LOG_FORMAT") ?? "simple"
 }
 
-private func getLogOutput(config: Dotenv): OutputStream {
-    let logFile = config.read("LOG_FILE", "")
+private func getLogOutput(): OutputStream {
+    let logFile = getVariable("LOG_FILE") ?? ""
     if (logFile.size > 0) {
         try {
             let file = File(logFile, OpenMode.Append)

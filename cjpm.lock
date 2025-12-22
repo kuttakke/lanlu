@@ -3,3 +3,4 @@ version = 0
 [requires]
   cjoy = {git = "https://gitcode.com/Cangjie-SIG/cjoy.git", commitId = "b066d00f7f425829abb1d307c921a750fcaf0a48", branch = "main"}
   opengauss = {git = "https://gitcode.com/copur/opengauss-driver.git", commitId = "62a5f245dfa3073638dd47cce47cb76b49545f26", branch = "master", output-type = "static"}
+  cjdotenv = {git = "https://gitcode.com/Cangjie-SIG/cjdotenv.git", commitId = "2817f2cabd3e706e1f447b65c154be7d4cbbad67", tag = "master"}

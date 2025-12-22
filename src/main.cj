@@ -7,18 +7,19 @@ import lrr4cj.utils.*
 import lrr4cj.models.*
 import std.convert.*
 import cjoy.*
-import dotenv.Dotenv
+import cjdotenv.load
+import std.env.getVariable
 
 main(): Int64 {
     // 先加载环境变量
-    let config = Dotenv.createConfig()
+    load()
 
     // 调试：检查环境变量是否正确加载
-    let logLevel = config.read("LOG_LEVEL", "NOT_FOUND")
+    let logLevel = getVariable("LOG_LEVEL") ?? "NOT_FOUND"
     println("MAIN: LOG_LEVEL from config = '${logLevel}'")
 
     // 初始化日志系统（现在环境变量已经加载）
-    initializeLoggingWithConfig(Some(config))
+    initializeLogging()
 
     // 获取应用日志记录器
     let logger = getLogger("main")
@@ -36,8 +37,8 @@ main(): Int64 {
     let _ = DatabaseConfig.host
     logger.info("Application starting... step 4: config loaded")
 
-    let host = config.read("HOST", "0.0.0.0")
-    let portStr = config.read("PORT", "8082")
+    let host = getVariable("HOST") ?? "0.0.0.0"
+    let portStr = getVariable("PORT") ?? "8082"
     let port = UInt16.parse(portStr)
 
     logger.info("Application starting... step 6: server config parsed")

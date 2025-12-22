@@ -3,7 +3,8 @@ package lrr4cj.config
 import std.database.sql.*
 import std.convert.*
 import stdx.log.*
-import dotenv.Dotenv
+import cjdotenv.load
+import std.env.getVariable
 import lrr4cj.utils.*
 import opengauss.driver.*
 
@@ -23,20 +24,17 @@ public class DatabaseConfig {
      * 静态初始化器，从环境变量读取配置
      */
     static init() {
-        // 确保先加载 .env 文件
-        let config = Dotenv.createConfig()
-
-        // 从配置中读取数据库配置
-        dbType = config.read("DB_TYPE", "postgres")
-        host = config.read("DB_HOST", "127.0.0.1")
-
-        let portStr = config.read("DB_PORT", "5432")
+        load()
+        // 从环境变量中读取数据库配置
+        dbType = getVariable("DB_TYPE") ?? "postgres"
+        host = getVariable("DB_HOST") ?? "127.0.0.1"
+        let portStr = getVariable("DB_PORT") ?? "5432"
         port = Int32.parse(portStr)
 
-        database = config.read("DB_NAME", "lgr")
-        username = config.read("DB_USER", "lgr")
-        password = config.read("DB_PASSWORD", "lgr")
-        ssl = config.read("DB_SSL", "disable")
+        database = getVariable("DB_NAME") ?? "lgr"
+        username = getVariable("DB_USER") ?? "lgr"
+        password = getVariable("DB_PASSWORD") ?? "lgr"
+        ssl = getVariable("DB_SSL") ?? "disable"
     }
     
     /**
@@ -1058,8 +1056,7 @@ public class DatabaseConfig {
         try {
             // 这里不能直接导入 SystemSettingsService，避免循环依赖
             // 暂时直接使用环境变量
-            let config = Dotenv.createConfig()
-            return config.read(key, "")
+            return getVariable(key) ?? ""
         } catch (_: Exception) {
             return ""
         }
@@ -1070,8 +1067,7 @@ public class DatabaseConfig {
      */
     public static func readConfigWithDefault(key: String, defaultValue: String): String {
         try {
-            let config = Dotenv.createConfig()
-            return config.read(key, defaultValue)
+            return getVariable(key) ?? defaultValue
         } catch (_: Exception) {
             return defaultValue
         }
