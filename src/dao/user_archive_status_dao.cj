@@ -310,6 +310,103 @@ public class UserArchiveStatusDao {
     }
 
     /**
+     * 批量获取用户对多个归档的进度和最后阅读时间
+     * 返回包含进度和时间戳的元组 (progressMap, lastReadTimeMap)
+     */
+    public static func getBatchProgressAndTime(userId: Int64, archiveIds: Array<Int64>): (HashMap<Int64, Int32>, HashMap<Int64, Int64>) {
+        let progressMap = HashMap<Int64, Int32>()
+        let lastReadTimeMap = HashMap<Int64, Int64>()
+
+        if (archiveIds.size == 0) {
+            return (progressMap, lastReadTimeMap)
+        }
+
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 构建 IN 子句的占位符
+                    var inClause = ""
+                    for (i in 0..archiveIds.size) {
+                        if (i > 0) {
+                            inClause += ","
+                        }
+                        inClause += "?"
+                    }
+
+                    let sql = """
+                        SELECT archive_id, progress, updated_at
+                        FROM user_archive_status
+                        WHERE user_id = ? AND archive_id IN (${inClause})
+                    """
+
+                    let stmt = conn.prepareStatement(sql)
+                    try {
+                        stmt.set(0, userId)
+                        var idx = 1
+                        for (archiveId in archiveIds) {
+                            stmt.set(idx, archiveId)
+                            idx = idx + 1
+                        }
+
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let archiveId = rs.getOrNull<Int64>(0) ?? 0
+                                let progress = rs.getOrNull<Int32>(1) ?? 0
+                                let updatedAt = rs.getOrNull<String>(2) ?? ""
+
+                                progressMap[archiveId] = progress
+
+                                // 转换时间戳
+                                var timestamp: Int64 = 0
+                                if (updatedAt.size > 0) {
+                                    try {
+                                        let dt = DateTime.parse(updatedAt)
+                                        timestamp = dt.toUnixTimeStamp().toSeconds()
+                                    } catch (_: Exception) {
+                                        timestamp = 0
+                                    }
+                                }
+                                lastReadTimeMap[archiveId] = timestamp
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+
+                    // 对于没有记录的归档，设置默认值
+                    for (archiveId in archiveIds) {
+                        if (!progressMap.contains(archiveId)) {
+                            progressMap[archiveId] = 0
+                        }
+                        if (!lastReadTimeMap.contains(archiveId)) {
+                            lastReadTimeMap[archiveId] = 0
+                        }
+                    }
+                } catch (_: Exception) {
+                    // 出错时，设置默认值
+                    for (archiveId in archiveIds) {
+                        progressMap[archiveId] = 0
+                        lastReadTimeMap[archiveId] = 0
+                    }
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                // 无法连接时，设置默认值
+                for (archiveId in archiveIds) {
+                    progressMap[archiveId] = 0
+                    lastReadTimeMap[archiveId] = 0
+                }
+        }
+
+        return (progressMap, lastReadTimeMap)
+    }
+
+    /**
      * 删除用户的所有归档状态记录
      */
     public static func deleteByUserId(userId: Int64): Bool {

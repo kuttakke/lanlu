@@ -212,6 +212,8 @@ public class SearchController {
         var isNewMap = HashMap<Int64, Bool>()
         var isFavoriteMap = HashMap<Int64, Bool>()
         var favoriteTimeMap = HashMap<Int64, String>()
+        var progressMap = HashMap<Int64, Int32>()
+        var lastReadTimeMap = HashMap<Int64, Int64>()
         if (userId > 0) {
             // 收集所有归档的内部ID
             var archiveIds = ArrayList<Int64>()
@@ -225,6 +227,9 @@ public class SearchController {
                 isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
                 isFavoriteMap = UserFavoriteDao.getBatchFavoriteStatus(userId, archiveIds.toArray())
                 favoriteTimeMap = UserFavoriteDao.getBatchFavoriteTime(userId, archiveIds.toArray())
+                let (progressMapResult, lastReadTimeMapResult) = UserArchiveStatusDao.getBatchProgressAndTime(userId, archiveIds.toArray())
+                progressMap = progressMapResult
+                lastReadTimeMap = lastReadTimeMapResult
             }
         }
 
@@ -331,6 +336,8 @@ public class SearchController {
             var isNew = true  // 默认为新
             var isFavorite = false  // 默认未收藏
             var favoriteTime = ""  // 收藏时间，默认为空
+            var progress: Int32 = 0  // 阅读进度，默认为0
+            var lastReadTime: Int64 = 0  // 最后阅读时间，默认为0
             if (internalId > 0) {
                 match (isNewMap.get(internalId)) {
                     case Some(status) => isNew = status
@@ -344,6 +351,18 @@ public class SearchController {
                     case Some(time) => favoriteTime = time
                     case None => favoriteTime = ""
                 }
+                if (progressMap.contains(internalId)) {
+                    match (progressMap.get(internalId)) {
+                        case Some(p) => if (p > 0i32) { progress = p }
+                        case None => ()
+                    }
+                }
+                if (lastReadTimeMap.contains(internalId)) {
+                    match (lastReadTimeMap.get(internalId)) {
+                        case Some(t) => if (t > 0i64) { lastReadTime = t }
+                        case None => ()
+                    }
+                }
             }
 
             archivesJson += "{"
@@ -354,9 +373,9 @@ public class SearchController {
             archivesJson = archivesJson + "\"isnew\":${isNew},"
             archivesJson = archivesJson + "\"isfavorite\":${isFavorite},"
             archivesJson = archivesJson + "\"favoritetime\":\"${escapeJson(favoriteTime)}\","
-            archivesJson = archivesJson + "\"lastreadtime\":0,"  // lastreadtime 现在从 user_archive_status 获取，暂时返回 0
+            archivesJson = archivesJson + "\"lastreadtime\":${lastReadTime},"
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
-            archivesJson = archivesJson + "\"progress\":0,"  // progress 现在从 user_archive_status 获取，暂时返回 0
+            archivesJson = archivesJson + "\"progress\":${progress},"
             archivesJson = archivesJson + "\"size\":${archive.size()},"
             archivesJson = archivesJson + "\"summary\":\"${escapeJson(archive.summary)}\","
             archivesJson = archivesJson + "\"tags\":\"${escapeJson(archive.tags)}\","
@@ -397,6 +416,8 @@ public class SearchController {
         // 批量获取用户的 isNew 状态和收藏状态
         var isNewMap = HashMap<Int64, Bool>()
         var isFavoriteMap = HashMap<Int64, Bool>()
+        var progressMap = HashMap<Int64, Int32>()
+        var lastReadTimeMap = HashMap<Int64, Int64>()
         match (userIdOpt) {
             case Some(userId) =>
                 // 收集所有归档的内部ID
@@ -410,6 +431,9 @@ public class SearchController {
                 if (archiveIds.size > 0) {
                     isNewMap = UserArchiveStatusDao.getBatchStatus(userId, archiveIds.toArray())
                     isFavoriteMap = UserFavoriteDao.getBatchFavoriteStatus(userId, archiveIds.toArray())
+                    let (progressMapResult, lastReadTimeMapResult) = UserArchiveStatusDao.getBatchProgressAndTime(userId, archiveIds.toArray())
+                    progressMap = progressMapResult
+                    lastReadTimeMap = lastReadTimeMapResult
                 }
             case None => ()
         }
@@ -427,6 +451,8 @@ public class SearchController {
             let internalId = getArchiveInternalId(archive.id)
             var isNew = true  // 默认为新
             var isFavorite = false  // 默认未收藏
+            var progress: Int32 = 0  // 阅读进度，默认为0
+            var lastReadTime: Int64 = 0  // 最后阅读时间，默认为0
             if (internalId > 0) {
                 match (isNewMap.get(internalId)) {
                     case Some(status) => isNew = status
@@ -436,6 +462,18 @@ public class SearchController {
                     case Some(status) => isFavorite = status
                     case None => isFavorite = false  // 没有记录，默认未收藏
                 }
+                if (progressMap.contains(internalId)) {
+                    match (progressMap.get(internalId)) {
+                        case Some(p) => if (p > 0i32) { progress = p }
+                        case None => ()
+                    }
+                }
+                if (lastReadTimeMap.contains(internalId)) {
+                    match (lastReadTimeMap.get(internalId)) {
+                        case Some(t) => if (t > 0i64) { lastReadTime = t }
+                        case None => ()
+                    }
+                }
             }
 
             archivesJson += "{"
@@ -444,9 +482,9 @@ public class SearchController {
             archivesJson = archivesJson + "\"filename\":\"${escapeJson(archive.filename)}\","
             archivesJson = archivesJson + "\"isnew\":${isNew},"
             archivesJson = archivesJson + "\"isfavorite\":${isFavorite},"
-            archivesJson = archivesJson + "\"lastreadtime\":0,"  // lastreadtime 现在从 user_archive_status 获取，暂时返回 0
+            archivesJson = archivesJson + "\"lastreadtime\":${lastReadTime},"
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
-            archivesJson = archivesJson + "\"progress\":0,"  // progress 现在从 user_archive_status 获取，暂时返回 0
+            archivesJson = archivesJson + "\"progress\":${progress},"
             archivesJson = archivesJson + "\"size\":${archive.size()},"
             archivesJson = archivesJson + "\"summary\":\"${escapeJson(archive.summary)}\","
             archivesJson = archivesJson + "\"tags\":\"${escapeJson(archive.tags)}\","
