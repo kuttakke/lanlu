@@ -22,7 +22,23 @@ public class DatabaseConfig {
         load()
         // 从环境变量中读取数据库配置
         dbString = getVariable("DB_STRING") ?? "postgres://lgr:lgr@127.0.0.1:5432/lgr?sslmode=disable"
-        dbType = getVariable("DB_TYPE") ?? "postgres"
+        // 从连接字符串中解析数据库类型
+        dbType = parseDbType(dbString)
+    }
+
+    /**
+     * 从连接字符串中解析数据库类型
+     */
+    private static func parseDbType(connStr: String): String {
+        if (connStr.isEmpty()) {
+            return "postgres"
+        }
+        // 提取协议部分，如 "postgres://" -> "postgres"
+        let parts = connStr.split("://")
+        if (parts.size >= 2) {
+            return parts[0]
+        }
+        return "postgres"
     }
 
     /**
@@ -34,7 +50,7 @@ public class DatabaseConfig {
         logger.info("DB type: ${dbType}")
         return dbString
     }
-    
+
     /**
      * 获取数据库驱动
      */
