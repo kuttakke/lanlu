@@ -16,6 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServerInfo } from '@/contexts/ServerInfoContext';
 import { Logo } from '@/components/brand/Logo';
+import { appEvents, AppEvents } from '@/lib/events';
 
 export function Header() {
   const { t } = useLanguage();
@@ -92,7 +93,10 @@ export function Header() {
             )}
 
             <button
-              onClick={() => router.push('/')}
+              onClick={() => {
+                appEvents.emit(AppEvents.SEARCH_RESET);
+                router.push('/');
+              }}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
               <Logo alt={`${serverName} Logo`} width={32} height={32} />

@@ -39,4 +39,5 @@ export const appEvents = new EventEmitter();
 export const AppEvents = {
   UPLOAD_COMPLETED: 'upload:completed',
   ARCHIVES_REFRESH: 'archives:refresh',
+  SEARCH_RESET: 'search:reset',
 } as const;

@@ -175,12 +175,25 @@ function HomePageContent() {
       fetchRandomArchives();
     };
 
+    const handleSearchReset = () => {
+      // 重置所有搜索相关状态
+      setSearchQuery('');
+      setSortBy('date_added');
+      setSortOrder('desc');
+      setNewonly(false);
+      setUntaggedonly(false);
+      setGroupByTanks(true);
+      setCurrentPage(0);
+    };
+
     appEvents.on(AppEvents.UPLOAD_COMPLETED, handleUploadCompleted);
     appEvents.on(AppEvents.ARCHIVES_REFRESH, handleArchivesRefresh);
+    appEvents.on(AppEvents.SEARCH_RESET, handleSearchReset);
 
     return () => {
       appEvents.off(AppEvents.UPLOAD_COMPLETED, handleUploadCompleted);
       appEvents.off(AppEvents.ARCHIVES_REFRESH, handleArchivesRefresh);
+      appEvents.off(AppEvents.SEARCH_RESET, handleSearchReset);
     };
   }, [currentPage, fetchArchives, fetchRandomArchives]);
 

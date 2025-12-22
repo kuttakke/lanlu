@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { appEvents, AppEvents } from '@/lib/events';
 
 export function SearchBar() {
   const { t } = useLanguage();
@@ -16,6 +17,10 @@ export function SearchBar() {
     e.preventDefault();
     if (query.trim()) {
       router.push(`/?q=${encodeURIComponent(query.trim())}`);
+    } else {
+      // 搜索栏为空时，清空搜索条件回到首页
+      appEvents.emit(AppEvents.SEARCH_RESET);
+      router.push('/');
     }
   };
 
