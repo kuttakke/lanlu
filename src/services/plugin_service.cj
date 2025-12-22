@@ -88,9 +88,6 @@ public class PluginService {
         denoArgs.add("--allow-write=${pluginDir}")
         // 允许读取共享插件基类，支持 '../base_plugin.ts' 相对引用
         denoArgs.add("--allow-read=./data/plugins")
-        // 允许插件写入统一日志文件（仅该文件）
-        denoArgs.add("--allow-read=./data/logs/plugins.log")
-        denoArgs.add("--allow-write=./data/logs/plugins.log")
 
         // 解析插件声明的权限（JSON数组格式）
         var permissionsList = ArrayList<String>()
