@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +14,7 @@ import { useServerInfo } from '@/contexts/ServerInfoContext';
 import { AuthService } from '@/lib/auth-service';
 import { LanguageButton } from '@/components/language/LanguageButton';
 import { ThemeButton } from '@/components/theme/theme-toggle';
+import { Logo } from '@/components/brand/Logo';
 
 function LoginForm() {
   const { t } = useLanguage();
@@ -94,7 +94,7 @@ function LoginForm() {
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1578632738908-4521c726eebf?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-10 grayscale z-[-1]" />
         
         <div className="relative z-10 flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Image src="/logo.svg" alt="Logo" width={40} height={40} />
+          <Logo width={40} height={40} />
           <span>{serverName}</span>
         </div>
 
@@ -123,7 +123,7 @@ function LoginForm() {
 
         <div className="w-full max-w-[400px] space-y-6 animate-slide-in-from-bottom">
           <div className="lg:hidden flex flex-col items-center space-y-2 mb-8">
-            <Image src="/logo.svg" alt="Logo" width={64} height={64} className="rounded-lg shadow-lg" />
+            <Logo width={64} height={64} className="rounded-lg shadow-lg" />
             <h1 className="text-2xl font-bold">{serverName}</h1>
           </div>
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/search/SearchBar';
 import { ArchiveService } from '@/lib/archive-service';
@@ -16,6 +15,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServerInfo } from '@/contexts/ServerInfoContext';
+import { Logo } from '@/components/brand/Logo';
 
 export function Header() {
   const { t } = useLanguage();
@@ -92,7 +92,7 @@ export function Header() {
             )}
 
             <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.svg" alt={`${serverName} Logo`} width={32} height={32} />
+              <Logo alt={`${serverName} Logo`} width={32} height={32} />
               <span className="font-semibold text-lg hidden sm:inline-block">
                 {serverName}
               </span>
