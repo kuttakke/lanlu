@@ -1236,8 +1236,8 @@ function ReaderContent() {
                 <Settings className="w-4 h-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="center" sideOffset={12} className="w-auto p-3">
-              <div className="grid grid-cols-3 gap-1">
+            <PopoverContent align="center" sideOffset={12} className="w-auto p-4">
+              <div className="grid grid-cols-3 gap-3">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1245,18 +1245,19 @@ function ReaderContent() {
                   disabled={readingMode === 'webtoon'}
                   className={`
                     flex flex-col items-center justify-center
-                    aspect-square h-12 md:h-24
-                    rounded-lg border transition-all duration-200
+                    aspect-square h-14 md:h-20
+                    rounded-lg border-2 transition-all duration-200
+                    shadow-sm hover:shadow-md
                     ${doublePageMode
-                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                      ? 'border-primary bg-primary/20 text-primary hover:bg-primary/30'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/50'
                     }
                     ${readingMode === 'webtoon' ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
                   title={t('reader.doublePageTooltip')}
                 >
-                  <Layout className="w-4 h-4 md:w-6 md:h-6 mb-1" />
-                  <span className="text-[10px] md:text-sm leading-tight text-center px-1">{t('reader.doublePage')}</span>
+                  <Layout className="w-5 h-5 md:w-6 md:h-6 mb-1.5" />
+                  <span className="text-xs md:text-sm leading-tight text-center px-1">{t('reader.doublePage')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1265,18 +1266,19 @@ function ReaderContent() {
                   disabled={!doublePageMode}
                   className={`
                     flex flex-col items-center justify-center
-                    aspect-square h-12 md:h-24
-                    rounded-lg border transition-all duration-200
+                    aspect-square h-14 md:h-20
+                    rounded-lg border-2 transition-all duration-200
+                    shadow-sm hover:shadow-md
                     ${splitCoverMode
-                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                      ? 'border-primary bg-primary/20 text-primary hover:bg-primary/30'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/50'
                     }
                     ${!doublePageMode ? 'opacity-50 cursor-not-allowed' : ''}
                   `}
                   title={t('reader.splitCoverTooltip')}
                 >
-                  <Scissors className="w-4 h-4 md:w-6 md:h-6 mb-1" />
-                  <span className="text-[10px] xs:text-xs leading-tight text-center px-1">{t('reader.splitCover')}</span>
+                  <Scissors className="w-5 h-5 md:w-6 md:h-6 mb-1.5" />
+                  <span className="text-xs md:text-sm leading-tight text-center px-1">{t('reader.splitCover')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1284,17 +1286,18 @@ function ReaderContent() {
                   onClick={() => setAutoPlayMode(!autoPlayMode)}
                   className={`
                     flex flex-col items-center justify-center
-                    aspect-square h-12 md:h-24
-                    rounded-lg border transition-all duration-200
+                    aspect-square h-14 md:h-20
+                    rounded-lg border-2 transition-all duration-200
+                    shadow-sm hover:shadow-md
                     ${autoPlayMode
-                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                      ? 'border-primary bg-primary/20 text-primary hover:bg-primary/30'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/50'
                     }
                   `}
                   title={t('reader.autoPlayTooltip')}
                 >
-                  <Play className="w-4 h-4 md:w-6 md:h-6 mb-1" />
-                  <span className="text-[10px] xs:text-xs leading-tight text-center px-1">{t('reader.autoPlay')}</span>
+                  <Play className="w-5 h-5 md:w-6 md:h-6 mb-1.5" />
+                  <span className="text-xs md:text-sm leading-tight text-center px-1">{t('reader.autoPlay')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1302,17 +1305,18 @@ function ReaderContent() {
                   onClick={toggleFullscreen}
                   className={`
                     flex flex-col items-center justify-center
-                    aspect-square h-12 md:h-24
-                    rounded-lg border transition-all duration-200
+                    aspect-square h-14 md:h-20
+                    rounded-lg border-2 transition-all duration-200
+                    shadow-sm hover:shadow-md
                     ${isFullscreen
-                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                      ? 'border-primary bg-primary/20 text-primary hover:bg-primary/30'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/50'
                     }
                   `}
                   title={t('reader.fullscreenTooltip')}
                 >
-                  {isFullscreen ? <Minimize className="w-4 h-4 md:w-6 md:h-6 mb-1" /> : <Maximize className="w-4 h-4 md:w-6 md:h-6 mb-1" />}
-                  <span className="text-[10px] xs:text-xs leading-tight text-center px-1">{t('reader.fullscreen')}</span>
+                  {isFullscreen ? <Minimize className="w-5 h-5 md:w-6 md:h-6 mb-1.5" /> : <Maximize className="w-5 h-5 md:w-6 md:h-6 mb-1.5" />}
+                  <span className="text-xs md:text-sm leading-tight text-center px-1">{t('reader.fullscreen')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1320,17 +1324,18 @@ function ReaderContent() {
                   onClick={() => setDoubleTapZoom(!doubleTapZoom)}
                   className={`
                     flex flex-col items-center justify-center
-                    aspect-square h-12 md:h-24
-                    rounded-lg border transition-all duration-200
+                    aspect-square h-14 md:h-20
+                    rounded-lg border-2 transition-all duration-200
+                    shadow-sm hover:shadow-md
                     ${doubleTapZoom
-                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                      ? 'border-primary bg-primary/20 text-primary hover:bg-primary/30'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/50'
                     }
                   `}
                   title={t('reader.doubleTapTooltip')}
                 >
-                  <ZoomIn className="w-4 h-4 md:w-6 md:h-6 mb-1" />
-                  <span className="text-[10px] xs:text-xs leading-tight text-center px-1">{t('reader.doubleTap')}</span>
+                  <ZoomIn className="w-5 h-5 md:w-6 md:h-6 mb-1.5" />
+                  <span className="text-xs md:text-sm leading-tight text-center px-1">{t('reader.doubleTap')}</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1338,26 +1343,27 @@ function ReaderContent() {
                   onClick={() => setAutoHideEnabled(!autoHideEnabled)}
                   className={`
                     flex flex-col items-center justify-center
-                    aspect-square h-12 md:h-24
-                    rounded-lg border transition-all duration-200
+                    aspect-square h-14 md:h-20
+                    rounded-lg border-2 transition-all duration-200
+                    shadow-sm hover:shadow-md
                     ${autoHideEnabled
-                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                      ? 'border-primary bg-primary/20 text-primary hover:bg-primary/30'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/50'
                     }
                   `}
                   title={t('reader.autoHideTooltip')}
                 >
-                  <Eye className="w-4 h-4 md:w-6 md:h-6 mb-1" />
-                  <span className="text-[10px] xs:text-xs leading-tight text-center px-1">{t('reader.autoHide')}</span>
+                  <Eye className="w-5 h-5 md:w-6 md:h-6 mb-1.5" />
+                  <span className="text-xs md:text-sm leading-tight text-center px-1">{t('reader.autoHide')}</span>
                 </Button>
               </div>
-              
+
               {/* 自动翻页间隔时间调整 */}
               {autoPlayMode && (
-                <div className="mt-3 pt-3 border-t border-border col-span-full">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium">{t('reader.pageInterval')}</span>
-                    <span className="text-xs text-muted-foreground">{autoPlayInterval}秒</span>
+                <div className="mt-4 pt-4 border-t border-border col-span-full">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium">{t('reader.pageInterval')}</span>
+                    <span className="text-sm text-muted-foreground">{autoPlayInterval}秒</span>
                   </div>
                   <Slider
                     value={[autoPlayInterval]}
