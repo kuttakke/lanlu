@@ -161,7 +161,7 @@ export function ArchiveCard({ archive, index = 0 }: ArchiveCardProps) {
 
         <div className="text-xs text-muted-foreground">
           {t('archive.pages').replace('{count}', String(archive.pagecount))}
-          {archive.progress > 0 && ` • ${Math.round(archive.progress)}% ${t('common.read')}`}
+          {archive.progress > 0 && ` • ${Math.round((archive.progress / archive.pagecount) * 100)}% ${t('common.read')}`}
         </div>
       </CardContent>
       

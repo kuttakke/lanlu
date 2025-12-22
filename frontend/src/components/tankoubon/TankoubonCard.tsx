@@ -228,7 +228,7 @@ export function TankoubonCard({ tankoubon }: TankoubonCardProps) {
 
         <div className="text-xs text-muted-foreground">
           {t('tankoubon.totalPages').replace('{count}', String(tankoubon.pagecount || 0))}
-          {(tankoubon.progress ?? 0) > 0 && ` • ${Math.round(tankoubon.progress ?? 0)}% ${t('common.read')}`}
+          {(tankoubon.progress ?? 0) > 0 && ` • ${Math.round(((tankoubon.progress ?? 0) / (tankoubon.pagecount || 1)) * 100)}% ${t('common.read')}`}
         </div>
       </CardContent>
 
