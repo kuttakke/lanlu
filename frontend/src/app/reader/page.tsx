@@ -1337,7 +1337,7 @@ function ReaderContent() {
         {readingMode !== 'webtoon' && (
           <div className="flex items-center justify-center w-full h-full relative">
             {/* 图片显示区域 */}
-            <div className="flex items-center justify-center w-full h-full relative max-w-7xl mx-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+            <div className="flex items-center justify-center w-full h-full relative max-w-7xl mx-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
               {/* 双页模式下的加载提示 */}
               {doublePageMode && (
                 (imagesLoading.has(currentPage) && !loadedImages.has(currentPage)) ||
@@ -1371,7 +1371,7 @@ function ReaderContent() {
                         ${doublePageMode && !(splitCoverMode && currentPage === 0) ? 'object-cover' : 'object-contain'} select-none touch-none
                         w-full h-full
                         transition-opacity duration-200 ease-in-out
-                        ${doublePageMode ? 'max-h-[calc(100vh-180px)]' : ''}
+                        ${doublePageMode ? 'max-h-[calc(100vh-120px)]' : ''}
                       `}
                       style={{
                         maxHeight: '100%',
