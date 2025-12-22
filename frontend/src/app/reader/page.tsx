@@ -1418,7 +1418,7 @@ function ReaderContent() {
         {readingMode !== 'webtoon' && (
           <div className="w-full h-full">
             {/* 图片显示区域 */}
-            <div className="flex items-center justify-center w-full h-full relative max-w-7xl mx-auto">
+            <div className="flex items-center justify-center w-full h-full relative">
               {/* 双页模式下的加载提示 */}
               {doublePageMode && (
                 (imagesLoading.has(currentPage) && !loadedImages.has(currentPage)) ||
