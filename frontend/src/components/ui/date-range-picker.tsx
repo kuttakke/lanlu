@@ -1,16 +1,23 @@
 'use client';
 
 import * as React from 'react';
+import { type DateRange } from 'react-day-picker';
 import { Calendar as CalendarIcon, X } from 'lucide-react';
+
 import { buttonVariants } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
-interface DatePickerProps {
-  value?: string;
-  onChange: (value: string) => void;
+interface DateRangePickerValue {
+  from?: string;
+  to?: string;
+}
+
+interface DateRangePickerProps {
+  value?: DateRangePickerValue;
+  onChange: (value: DateRangePickerValue) => void;
   placeholder?: string;
   className?: string;
 }
@@ -28,15 +35,33 @@ function parseYmd(value?: string): Date | undefined {
   return date;
 }
 
-export function DatePicker({ value, onChange, placeholder, className }: DatePickerProps) {
+function toYmd(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function DateRangePicker({ value, onChange, placeholder, className }: DateRangePickerProps) {
   const { t, language } = useLanguage();
-  const ariaLabel = placeholder || t('common.selectDate');
+  const ariaLabel = placeholder || t('search.dateRange');
   const [open, setOpen] = React.useState(false);
-  const [date, setDate] = React.useState<Date | undefined>(() => parseYmd(value));
+  const [range, setRange] = React.useState<DateRange | undefined>(() => {
+    const from = parseYmd(value?.from);
+    const to = parseYmd(value?.to);
+    if (!from && !to) return undefined;
+    return { from, to };
+  });
 
   React.useEffect(() => {
-    setDate(parseYmd(value));
-  }, [value]);
+    const from = parseYmd(value?.from);
+    const to = parseYmd(value?.to);
+    if (!from && !to) {
+      setRange(undefined);
+      return;
+    }
+    setRange({ from, to });
+  }, [value?.from, value?.to]);
 
   const formatDate = (date: Date) => {
     if (language === 'zh') {
@@ -53,17 +78,13 @@ export function DatePicker({ value, onChange, placeholder, className }: DatePick
     });
   };
 
-  const setValueFromDate = (selectedDate?: Date) => {
-    setDate(selectedDate);
-    if (!selectedDate) {
-      onChange('');
-      return;
-    }
-    const year = selectedDate.getFullYear();
-    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const day = String(selectedDate.getDate()).padStart(2, '0');
-    onChange(`${year}-${month}-${day}`);
-  };
+  const labelText = (() => {
+    if (!range?.from) return ariaLabel;
+    if (!range.to) return formatDate(range.from);
+    return `${formatDate(range.from)} - ${formatDate(range.to)}`;
+  })();
+
+  const hasValue = Boolean(value?.from || value?.to);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -73,18 +94,13 @@ export function DatePicker({ value, onChange, placeholder, className }: DatePick
             type="button"
             aria-label={ariaLabel}
             title={ariaLabel}
-            className={cn(
-              buttonVariants({ variant: 'outline' }),
-              'w-full justify-start font-normal pr-14'
-            )}
+            className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-start font-normal pr-14')}
           >
-            <span className={cn('min-w-0 truncate', !date && 'text-muted-foreground')}>
-              {date ? formatDate(date) : ariaLabel}
-            </span>
+            <span className={cn('min-w-0 truncate', !range?.from && 'text-muted-foreground')}>{labelText}</span>
           </button>
         </PopoverTrigger>
 
-        {value ? (
+        {hasValue ? (
           <button
             type="button"
             className="absolute right-9 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -93,7 +109,8 @@ export function DatePicker({ value, onChange, placeholder, className }: DatePick
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setValueFromDate(undefined);
+              setRange(undefined);
+              onChange({ from: '', to: '' });
             }}
           >
             <X className="h-4 w-4" />
@@ -106,22 +123,21 @@ export function DatePicker({ value, onChange, placeholder, className }: DatePick
         />
       </div>
 
-      <PopoverContent className="w-[280px] p-0" align="start">
+      <PopoverContent className="w-auto p-0" align="start">
         <Calendar
-          mode="single"
-          selected={date}
-          onSelect={(d) => {
-            setValueFromDate(d);
-            setOpen(false);
+          mode="range"
+          defaultMonth={range?.from}
+          selected={range}
+          onSelect={(next) => {
+            setRange(next);
+            onChange({
+              from: next?.from ? toYmd(next.from) : '',
+              to: next?.to ? toYmd(next.to) : '',
+            });
           }}
+          numberOfMonths={2}
           initialFocus
-          classNames={{
-            months: 'flex flex-col space-y-4',
-            caption: 'flex justify-center pt-1 relative items-center',
-            table: 'w-full border-collapse space-y-1',
-            head_cell: 'text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]',
-            cell: 'h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20',
-          }}
+          className="rounded-lg border shadow-sm"
         />
       </PopoverContent>
     </Popover>

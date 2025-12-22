@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Switch } from '@/components/ui/switch';
 import { Search, Filter, SortAsc, SortDesc, BookOpen, Tag, Calendar, Clock, Star } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -262,15 +262,13 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
             {/* 日期范围 */}
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('search.dateRange')}</label>
-              <DatePicker
-                value={dateFrom}
-                onChange={setDateFrom}
-                placeholder={t('search.startDate')}
-              />
-              <DatePicker
-                value={dateTo}
-                onChange={setDateTo}
-                placeholder={t('search.endDate')}
+              <DateRangePicker
+                value={{ from: dateFrom, to: dateTo }}
+                onChange={(next) => {
+                  setDateFrom(next.from || '');
+                  setDateTo(next.to || '');
+                }}
+                placeholder={t('search.dateRange')}
               />
             </div>
 

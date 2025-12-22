@@ -1,7 +1,6 @@
 'use client';
 
 import { ArchiveGrid } from '@/components/archive/ArchiveGrid';
-import { ArchiveCard } from '@/components/archive/ArchiveCard';
 import { Pagination } from '@/components/ui/pagination';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
