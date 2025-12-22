@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface ArchiveCardProps {
   archive: Archive;
+  index?: number;
 }
 
 // 去掉 namespace 前缀的简单显示函数
@@ -21,7 +22,7 @@ function stripNamespace(tag: string): string {
   return idx > 0 ? tag.slice(idx + 1) : tag;
 }
 
-export function ArchiveCard({ archive }: ArchiveCardProps) {
+export function ArchiveCard({ archive, index = 0 }: ArchiveCardProps) {
   const { t, language } = useLanguage();
   const [isFavorite, setIsFavorite] = useState(archive.isfavorite || false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -86,9 +87,13 @@ export function ArchiveCard({ archive }: ArchiveCardProps) {
     }
   };
   
+  // 计算交错动画延迟，最大延迟 500ms
+  const animationDelay = Math.min(index * 50, 500);
+
   return (
     <Card
-      className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+      className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer animate-in fade-in slide-in-from-bottom-4 duration-300 fill-mode-both"
+      style={{ animationDelay: `${animationDelay}ms` }}
       title={hoverTitleParts.length > 0 ? `${archive.title}\n${hoverTitleParts.join('\n')}` : archive.title}
       onClick={() => {
         // 点击卡片其他区域进入阅读器

@@ -256,18 +256,13 @@ function HomePageContent() {
               </div>
             </div>
 
-            {randomLoading ? (
-              <div className="text-center py-12">
-                <Spinner size="lg" />
-                <p className="text-muted-foreground mt-4">{t('common.loading')}</p>
-              </div>
-            ) : randomArchives.length > 0 ? (
+            {randomArchives.length > 0 ? (
               <ArchiveGrid archives={randomArchives} variant="random" />
-            ) : (
+            ) : !randomLoading ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">{t('home.noRecommendations')}</p>
               </div>
-            )}
+            ) : null}
           </section>
           )}
 
@@ -347,12 +342,7 @@ function HomePageContent() {
               </DialogContent>
             </Dialog>
 
-            {loading ? (
-              <div className="text-center py-12">
-                <Spinner size="lg" />
-                <p className="text-muted-foreground mt-4">{t('common.loading')}</p>
-              </div>
-            ) : archives.length > 0 ? (
+            {archives.length > 0 ? (
               <>
                 <ArchiveGrid archives={archives} variant="home" />
 
@@ -366,13 +356,13 @@ function HomePageContent() {
                   </div>
                 )}
               </>
-            ) : (
+            ) : !loading ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
                   {searchQuery ? t('home.noMatchingArchives') : t('home.noArchives')}
                 </p>
               </div>
-            )}
+            ) : null}
           </section>
         </main>
       </div>

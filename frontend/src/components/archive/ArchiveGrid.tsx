@@ -32,7 +32,7 @@ export function ArchiveGrid({ archives, variant = 'default' }: ArchiveGridProps)
 
   return (
     <div className={gridClasses}>
-      {archives.map((item) => {
+      {archives.map((item, index) => {
         if (isTankoubon(item)) {
           return (
             <TankoubonCard
@@ -45,6 +45,7 @@ export function ArchiveGrid({ archives, variant = 'default' }: ArchiveGridProps)
             <ArchiveCard
               key={item.arcid}
               archive={item}
+              index={index}
             />
           );
         }
