@@ -25,7 +25,8 @@ import {
   Scissors,
   Maximize,
   Minimize,
-  ZoomIn
+  ZoomIn,
+  Eye
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -73,6 +74,8 @@ function ReaderContent() {
   const [imageHeights, setImageHeights] = useState<number[]>([]); // 存储每张图片的高度
   const [containerHeight, setContainerHeight] = useState(0); // 容器高度
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 图片加载防抖引用
+  const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 自动隐藏定时器引用
+  const AUTO_HIDE_DELAY = 3000; // 自动隐藏延迟时间（毫秒）
 
   // 提取设备检测和宽度计算的通用函数
   const getDeviceInfo = useCallback(() => {
@@ -178,6 +181,7 @@ function ReaderContent() {
   const [splitCoverMode, setSplitCoverMode] = useLocalStorageBoolean('reader-split-cover-mode', false);
   const [isFullscreen, setIsFullscreen] = useLocalStorageBoolean('reader-fullscreen-mode', false);
   const [doubleTapZoom, setDoubleTapZoom] = useLocalStorageBoolean('reader-double-tap-zoom', false);
+  const [autoHideEnabled, setAutoHideEnabled] = useLocalStorageBoolean('reader-auto-hide-enabled', false);
   
   // 用于跟踪拆分封面模式的变化，避免无限循环
   const splitCoverModeRef = useRef(splitCoverMode);
@@ -393,7 +397,43 @@ function ReaderContent() {
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
-  // 自动隐藏工具栏功能已移除
+  // 自动隐藏工具栏逻辑
+  useEffect(() => {
+    // 清除之前的定时器
+    if (autoHideTimeoutRef.current) {
+      clearTimeout(autoHideTimeoutRef.current);
+    }
+
+    // 如果启用了自动隐藏且工具栏当前可见，则设置定时器
+    if (autoHideEnabled && showToolbar) {
+      autoHideTimeoutRef.current = setTimeout(() => {
+        setShowToolbar(false);
+      }, AUTO_HIDE_DELAY);
+    }
+
+    // 清理函数
+    return () => {
+      if (autoHideTimeoutRef.current) {
+        clearTimeout(autoHideTimeoutRef.current);
+      }
+    };
+  }, [showToolbar, autoHideEnabled]);
+
+  // 监听鼠标移动事件，当移动时显示工具栏
+  useEffect(() => {
+    if (!autoHideEnabled) return;
+
+    const handleMouseMove = () => {
+      if (!showToolbar) {
+        setShowToolbar(true);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [autoHideEnabled, showToolbar]);
 
   // 重置变换
   const resetTransform = useCallback(() => {
@@ -1092,11 +1132,17 @@ function ReaderContent() {
       }}
     >
       {/* 简洁的工具栏 */}
-      <div className={`bg-background/95 backdrop-blur-sm border-b transition-transform duration-300 ${showToolbar ? 'translate-y-0' : '-translate-y-full'}`}>
-        <div className="p-3">
-          <div className="flex items-center justify-between">
+      <div className={`
+        bg-background/95 backdrop-blur-sm border-b
+        transition-all duration-300 ease-in-out
+        ${showToolbar ? 'h-auto translate-y-0 opacity-100' : '!h-0 -translate-y-2 opacity-0 overflow-hidden'}
+      `}>
+        <div className={`
+          ${showToolbar ? 'p-3 opacity-100 visible' : 'p-0 opacity-0 invisible overflow-hidden'}
+        `}>
+          <div className={`flex items-center justify-between transition-all duration-200 ${showToolbar ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
             {/* 左侧：返回按钮和功能按钮 */}
-            <div className="flex items-center space-x-2">
+            <div className={`flex items-center space-x-2 transition-all duration-200 delay-75 ${showToolbar ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}`}>
               <Button
                 variant="outline"
                 size="sm"
@@ -1116,7 +1162,7 @@ function ReaderContent() {
 
             {/* 中间：标题显示（仅PC端且有标题时显示） */}
             {archiveTitle && (
-              <div className="hidden lg:flex items-center justify-center flex-1 px-4">
+              <div className={`hidden lg:flex items-center justify-center flex-1 px-4 transition-all duration-200 delay-100 ${showToolbar ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
                 <h1 className="text-sm font-medium text-foreground truncate max-w-md text-center" title={archiveTitle}>
                   {archiveTitle}
                 </h1>
@@ -1128,7 +1174,7 @@ function ReaderContent() {
               variant="outline"
               size="sm"
               onClick={toggleReadingMode}
-              className="border-border bg-background hover:bg-accent hover:text-accent-foreground"
+              className={`border-border bg-background hover:bg-accent hover:text-accent-foreground transition-all duration-200 delay-75 ${showToolbar ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2'}`}
             >
               {getReadingModeIcon()}
               <span className="ml-2 hidden sm:inline">{getReadingModeText()}</span>
@@ -1138,7 +1184,7 @@ function ReaderContent() {
       </div>
 
       {/* 悬浮进度条和收藏按钮 - 紧挨在一起的两个独立区域 */}
-      <div className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-3 transition-opacity duration-300 z-50 ${showToolbar ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-3 transition-opacity duration-300 z-50 ${showToolbar ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
         {/* 进度条区域 */}
         <div className="bg-background/95 backdrop-blur-sm border border-border rounded-full px-4 py-3 shadow-lg">
           <div className="flex items-center space-x-2">
@@ -1191,7 +1237,7 @@ function ReaderContent() {
               </Button>
             </PopoverTrigger>
             <PopoverContent align="center" sideOffset={12} className="w-auto p-3">
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-6 gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1281,6 +1327,23 @@ function ReaderContent() {
                   <ZoomIn className="w-5 h-5 mb-1" />
                   <span className="text-xs">{t('reader.doubleTap')}</span>
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAutoHideEnabled(!autoHideEnabled)}
+                  className={`
+                    flex flex-col items-center justify-center h-16 w-16
+                    rounded-lg border transition-all duration-200
+                    ${autoHideEnabled
+                      ? 'border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                    }
+                  `}
+                  title={t('reader.autoHideTooltip')}
+                >
+                  <Eye className="w-5 h-5 mb-1" />
+                  <span className="text-xs">{t('reader.autoHide')}</span>
+                </Button>
               </div>
               
               {/* 自动翻页间隔时间调整 */}
@@ -1327,17 +1390,23 @@ function ReaderContent() {
       </div>
 
       {/* 主要阅读区域 */}
-      <div 
-        className="flex-1 relative overflow-hidden"
+      <div
+        className={`flex-1 relative overflow-hidden transition-all duration-300 ease-in-out ${showToolbar ? 'pt-0' : 'pt-0'}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onClick={() => {
+          // 当启用自动隐藏时，点击屏幕可以切换工具栏显示/隐藏
+          if (autoHideEnabled) {
+            setShowToolbar(!showToolbar);
+          }
+        }}
       >
         {/* 单页模式 */}
         {readingMode !== 'webtoon' && (
-          <div className="flex items-center justify-center w-full h-full relative">
+          <div className="w-full h-full">
             {/* 图片显示区域 */}
-            <div className="flex items-center justify-center w-full h-full relative max-w-7xl mx-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+            <div className="flex items-center justify-center w-full h-full relative max-w-7xl mx-auto">
               {/* 双页模式下的加载提示 */}
               {doublePageMode && (
                 (imagesLoading.has(currentPage) && !loadedImages.has(currentPage)) ||
@@ -1354,8 +1423,9 @@ function ReaderContent() {
                 className="relative flex items-center justify-center w-full h-full"
                 style={{
                   maxHeight: '100%',
+                  height: '100%',
                   transform: doublePageMode ? `scale(${scale}) translate(${translateX}px, ${translateY}px)` : 'none',
-                  transition: doublePageMode ? 'transform 0.1s ease-out' : 'none',
+                  transition: 'all 300ms ease-in-out',
                   cursor: doublePageMode && scale > 1 ? 'grab' : 'default'
                 }}
               >
@@ -1370,8 +1440,8 @@ function ReaderContent() {
                       className={`
                         ${doublePageMode && !(splitCoverMode && currentPage === 0) ? 'object-cover' : 'object-contain'} select-none touch-none
                         w-full h-full
-                        transition-opacity duration-200 ease-in-out
-                        ${doublePageMode ? 'max-h-[calc(100vh-120px)]' : ''}
+                        transition-opacity duration-300 ease-in-out
+                        ${doublePageMode ? 'max-h-full' : ''}
                       `}
                       style={{
                         maxHeight: '100%',
@@ -1406,8 +1476,8 @@ function ReaderContent() {
                         className={`
                           object-cover select-none touch-none
                           w-full h-full
-                          transition-opacity duration-200 ease-in-out
-                          max-h-[calc(100vh-180px)]
+                          transition-opacity duration-300 ease-in-out
+                          max-h-full
                         `}
                         style={{
                           maxHeight: '100%',
@@ -1441,7 +1511,7 @@ function ReaderContent() {
         {readingMode === 'webtoon' && (
           <div
             ref={webtoonContainerRef}
-            className="h-full overflow-y-auto overflow-x-hidden"
+            className="h-full overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out"
             onScroll={(e) => {
               const container = e.currentTarget;
 
