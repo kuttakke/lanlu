@@ -9,13 +9,16 @@ import std.convert.*
 import cjoy.*
 import cjdotenv.load
 import std.env.getVariable
+import std.fs.exists
 
 main(): Int64 {
-    // 先加载环境变量
-    load()
+    // 先加载环境变量（如果 .env 文件存在）
+    if (exists(".env")) {
+        load()
+    }
 
     // 调试：检查环境变量是否正确加载
-    let logLevel = getVariable("LOG_LEVEL") ?? "NOT_FOUND"
+    let logLevel = getVariable("LOG_LEVEL") ?? "INFO"
     println("MAIN: LOG_LEVEL from config = '${logLevel}'")
 
     // 初始化日志系统（现在环境变量已经加载）

@@ -7,6 +7,7 @@ import cjdotenv.load
 import std.env.getVariable
 import lrr4cj.utils.*
 import opengauss.driver.*
+import std.fs.exists
 
 /**
  * 数据库配置类
@@ -19,7 +20,9 @@ public class DatabaseConfig {
      * 静态初始化器，从环境变量读取配置
      */
     static init() {
-        load()
+        if (exists(".env")) {
+            load()
+        }
         // 从环境变量中读取数据库配置
         dbString = getVariable("DB_STRING") ?? "postgres://lgr:lgr@127.0.0.1:5432/lgr?sslmode=disable"
         // 从连接字符串中解析数据库类型
