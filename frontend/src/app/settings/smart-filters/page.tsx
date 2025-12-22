@@ -297,7 +297,7 @@ export default function SmartFiltersPage() {
     switch (sortBy) {
       case 'date_added': return t('home.dateAdded');
       case 'lastread': return t('home.lastRead');
-      case 'title': return t('home.title');
+      case 'title': return t('home.titleSort');
       case 'pagecount': return t('home.pageCount');
       default: return sortBy;
     }
