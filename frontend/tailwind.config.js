@@ -102,6 +102,46 @@ module.exports = {
           "80%": { transform: "translate3d(0, 1px, 0) scale(0.995) rotate(-0.05deg)" },
           "100%": { transform: "translate3d(0, 0, 0) scale(1) rotate(0deg)", opacity: "1" },
         },
+        "sheet-overlay-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "sheet-overlay-out": {
+          "0%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
+        "sheet-left-in": {
+          "0%": { transform: "translate3d(-100%, 0, 0)", opacity: "0" },
+          "100%": { transform: "translate3d(0, 0, 0)", opacity: "1" },
+        },
+        "sheet-left-out": {
+          "0%": { transform: "translate3d(0, 0, 0)", opacity: "1" },
+          "100%": { transform: "translate3d(-100%, 0, 0)", opacity: "0" },
+        },
+        "sheet-right-in": {
+          "0%": { transform: "translate3d(18px, 0, 0) scale(0.985)", opacity: "0" },
+          "100%": { transform: "translate3d(0, 0, 0) scale(1)", opacity: "1" },
+        },
+        "sheet-right-out": {
+          "0%": { transform: "translate3d(0, 0, 0) scale(1)", opacity: "1" },
+          "100%": { transform: "translate3d(18px, 0, 0) scale(0.985)", opacity: "0" },
+        },
+        "sheet-top-in": {
+          "0%": { transform: "translate3d(0, -14px, 0) scale(0.99)", opacity: "0" },
+          "100%": { transform: "translate3d(0, 0, 0) scale(1)", opacity: "1" },
+        },
+        "sheet-top-out": {
+          "0%": { transform: "translate3d(0, 0, 0) scale(1)", opacity: "1" },
+          "100%": { transform: "translate3d(0, -14px, 0) scale(0.99)", opacity: "0" },
+        },
+        "sheet-bottom-in": {
+          "0%": { transform: "translate3d(0, 14px, 0) scale(0.99)", opacity: "0" },
+          "100%": { transform: "translate3d(0, 0, 0) scale(1)", opacity: "1" },
+        },
+        "sheet-bottom-out": {
+          "0%": { transform: "translate3d(0, 0, 0) scale(1)", opacity: "1" },
+          "100%": { transform: "translate3d(0, 14px, 0) scale(0.99)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -110,6 +150,16 @@ module.exports = {
         "slide-in-from-bottom": "slide-in-from-bottom 0.5s ease-out",
         "shake": "shake 0.3s ease-in-out",
         "archive-card-in": "archive-card-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "sheet-overlay-in": "sheet-overlay-in 220ms ease-out both",
+        "sheet-overlay-out": "sheet-overlay-out 180ms ease-in both",
+        "sheet-left-in": "sheet-left-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "sheet-left-out": "sheet-left-out 160ms cubic-bezier(0.4, 0, 1, 1) both",
+        "sheet-right-in": "sheet-right-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "sheet-right-out": "sheet-right-out 220ms cubic-bezier(0.4, 0, 1, 1) both",
+        "sheet-top-in": "sheet-top-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "sheet-top-out": "sheet-top-out 200ms cubic-bezier(0.4, 0, 1, 1) both",
+        "sheet-bottom-in": "sheet-bottom-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "sheet-bottom-out": "sheet-bottom-out 200ms cubic-bezier(0.4, 0, 1, 1) both",
       },
     },
   },
