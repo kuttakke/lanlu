@@ -96,6 +96,12 @@ module.exports = {
           "25%": { transform: "translateX(-5px)" },
           "75%": { transform: "translateX(5px)" },
         },
+        "archive-card-in": {
+          "0%": { transform: "translate3d(0, 14px, 0) scale(0.96) rotate(-0.25deg)", opacity: "0" },
+          "55%": { transform: "translate3d(0, -2px, 0) scale(1.02) rotate(0.15deg)", opacity: "1" },
+          "80%": { transform: "translate3d(0, 1px, 0) scale(0.995) rotate(-0.05deg)" },
+          "100%": { transform: "translate3d(0, 0, 0) scale(1) rotate(0deg)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -103,6 +109,7 @@ module.exports = {
         "fade-in": "fade-in 0.5s ease-out",
         "slide-in-from-bottom": "slide-in-from-bottom 0.5s ease-out",
         "shake": "shake 0.3s ease-in-out",
+        "archive-card-in": "archive-card-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },

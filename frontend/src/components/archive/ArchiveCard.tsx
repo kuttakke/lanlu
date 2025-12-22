@@ -92,7 +92,7 @@ export function ArchiveCard({ archive, index = 0 }: ArchiveCardProps) {
 
   return (
     <Card
-      className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer animate-in fade-in slide-in-from-bottom-4 duration-300 fill-mode-both"
+      className="group overflow-hidden cursor-pointer transition-shadow hover:shadow-lg motion-safe:animate-archive-card-in motion-reduce:animate-none will-change-transform"
       style={{ animationDelay: `${animationDelay}ms` }}
       title={hoverTitleParts.length > 0 ? `${archive.title}\n${hoverTitleParts.join('\n')}` : archive.title}
       onClick={() => {
