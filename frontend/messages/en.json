@@ -770,6 +770,8 @@
     "readingTrend": "Reading Trend",
     "readCount": "Read Count",
     "last7Days": "Last 7 Days",
+    "last30Days": "Last 30 Days",
+    "last3Months": "Last 3 Months",
     "recentRead": "Recent Read",
     "recentFavorites": "Recent Favorites",
     "noRecentRead": "No reading history",

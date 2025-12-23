@@ -777,6 +777,8 @@
     "readingTrend": "阅读趋势",
     "readCount": "阅读数",
     "last7Days": "最近7天",
+    "last30Days": "最近30天",
+    "last3Months": "最近3个月",
     "recentRead": "最近阅读",
     "recentFavorites": "最近收藏",
     "noRecentRead": "暂无阅读记录",

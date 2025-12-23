@@ -265,8 +265,12 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
             />
 
             {/* 日期范围 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t('search.dateRange')}</label>
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                {t('search.dateRange')}
+              </label>
+              
               <DateRangePicker
                 value={{ from: dateFrom, to: dateTo }}
                 onChange={(next) => {
