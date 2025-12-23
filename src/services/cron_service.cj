@@ -227,7 +227,6 @@ public class CronService {
         taskParameters!: String = "",
         enabled!: Bool = true,
         priority!: Int32 = 50,
-        maxInstances!: Int32 = 1,
         timeoutSeconds!: Int32 = 3600
     ): Option<ScheduledTask> {
         let task = ScheduledTask(
@@ -237,7 +236,6 @@ public class CronService {
             taskParameters: taskParameters,
             enabled: enabled,
             priority: priority,
-            maxInstances: maxInstances,
             timeoutSeconds: timeoutSeconds
         )
         return ScheduledTaskModel.create(task)

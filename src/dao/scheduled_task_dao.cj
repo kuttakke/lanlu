@@ -18,7 +18,6 @@ public class ScheduledTaskData {
     public var taskParameters: String = ""
     public var enabled: Bool = true
     public var priority: Int32 = 50
-    public var maxInstances: Int32 = 1
     public var timeoutSeconds: Int32 = 3600
 
     public var lastRunAt: String = ""
@@ -77,7 +76,6 @@ public class ScheduledTaskDao {
                                 task_parameters TEXT,
                                 enabled BOOLEAN NOT NULL DEFAULT TRUE,
                                 priority INTEGER NOT NULL DEFAULT 50,
-                                max_instances INTEGER NOT NULL DEFAULT 1,
                                 timeout_seconds INTEGER NOT NULL DEFAULT 3600,
 
                                 last_run_at TIMESTAMPTZ NULL,
@@ -155,9 +153,9 @@ public class ScheduledTaskDao {
                     let stmt = conn.prepareStatement("""
                         INSERT INTO scheduled_tasks (
                             name, cron_expression, task_type, task_parameters, enabled,
-                            priority, max_instances, timeout_seconds, next_run_at,
+                            priority, timeout_seconds, next_run_at,
                             created_at, updated_at, created_by, updated_by
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         RETURNING id
                     """)
                     try {
@@ -171,24 +169,23 @@ public class ScheduledTaskDao {
                         }
                         stmt.set(4, data.enabled)
                         stmt.set(5, data.priority)
-                        stmt.set(6, data.maxInstances)
-                        stmt.set(7, data.timeoutSeconds)
+                        stmt.set(6, data.timeoutSeconds)
                         if (data.nextRunAt.size > 0) {
-                            stmt.set(8, data.nextRunAt)
+                            stmt.set(7, data.nextRunAt)
                         } else {
-                            stmt.setNull(8)
+                            stmt.setNull(7)
                         }
-                        stmt.set(9, data.createdAt)
-                        stmt.set(10, data.updatedAt)
+                        stmt.set(8, data.createdAt)
+                        stmt.set(9, data.updatedAt)
                         if (data.createdBy.size > 0) {
-                            stmt.set(11, data.createdBy)
+                            stmt.set(10, data.createdBy)
                         } else {
-                            stmt.setNull(11)
+                            stmt.setNull(10)
                         }
                         if (data.updatedBy.size > 0) {
-                            stmt.set(12, data.updatedBy)
+                            stmt.set(11, data.updatedBy)
                         } else {
-                            stmt.setNull(12)
+                            stmt.setNull(11)
                         }
 
                         let rs = stmt.query()
@@ -238,7 +235,7 @@ public class ScheduledTaskDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, cron_expression, task_type, task_parameters, enabled,
-                               priority, max_instances, timeout_seconds,
+                               priority, timeout_seconds,
                                last_run_at, last_run_status, last_error, next_run_at,
                                run_count, success_count, failure_count,
                                created_at, updated_at, created_by, updated_by
@@ -287,7 +284,7 @@ public class ScheduledTaskDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, cron_expression, task_type, task_parameters, enabled,
-                               priority, max_instances, timeout_seconds,
+                               priority, timeout_seconds,
                                last_run_at, last_run_status, last_error, next_run_at,
                                run_count, success_count, failure_count,
                                created_at, updated_at, created_by, updated_by
@@ -328,7 +325,7 @@ public class ScheduledTaskDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, cron_expression, task_type, task_parameters, enabled,
-                               priority, max_instances, timeout_seconds,
+                               priority, timeout_seconds,
                                last_run_at, last_run_status, last_error, next_run_at,
                                run_count, success_count, failure_count,
                                created_at, updated_at, created_by, updated_by
@@ -372,7 +369,7 @@ public class ScheduledTaskDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, cron_expression, task_type, task_parameters, enabled,
-                               priority, max_instances, timeout_seconds,
+                               priority, timeout_seconds,
                                last_run_at, last_run_status, last_error, next_run_at,
                                run_count, success_count, failure_count,
                                created_at, updated_at, created_by, updated_by
@@ -454,7 +451,7 @@ public class ScheduledTaskDao {
                     let stmt = conn.prepareStatement("""
                         UPDATE scheduled_tasks SET
                             name = ?, cron_expression = ?, task_type = ?, task_parameters = ?,
-                            enabled = ?, priority = ?, max_instances = ?, timeout_seconds = ?,
+                            enabled = ?, priority = ?, timeout_seconds = ?,
                             next_run_at = ?, updated_at = ?, updated_by = ?
                         WHERE id = ?
                     """)
@@ -469,20 +466,19 @@ public class ScheduledTaskDao {
                         }
                         stmt.set(4, data.enabled)
                         stmt.set(5, data.priority)
-                        stmt.set(6, data.maxInstances)
-                        stmt.set(7, data.timeoutSeconds)
+                        stmt.set(6, data.timeoutSeconds)
                         if (data.nextRunAt.size > 0) {
-                            stmt.set(8, data.nextRunAt)
+                            stmt.set(7, data.nextRunAt)
                         } else {
-                            stmt.setNull(8)
+                            stmt.setNull(7)
                         }
-                        stmt.set(9, data.updatedAt)
+                        stmt.set(8, data.updatedAt)
                         if (data.updatedBy.size > 0) {
-                            stmt.set(10, data.updatedBy)
+                            stmt.set(9, data.updatedBy)
                         } else {
-                            stmt.setNull(10)
+                            stmt.setNull(9)
                         }
-                        stmt.set(11, data.id)
+                        stmt.set(10, data.id)
 
                         stmt.update()
                         logger.info("更新定时任务成功", ("id", data.id))
@@ -690,19 +686,18 @@ public class ScheduledTaskDao {
         data.taskParameters = rs.getOrNull<String>(4) ?? ""
         data.enabled = rs.getOrNull<Bool>(5) ?? true
         data.priority = rs.getOrNull<Int32>(6) ?? 50
-        data.maxInstances = rs.getOrNull<Int32>(7) ?? 1
-        data.timeoutSeconds = rs.getOrNull<Int32>(8) ?? 3600
-        data.lastRunAt = rs.getOrNull<String>(9) ?? ""
-        data.lastRunStatus = rs.getOrNull<String>(10) ?? ""
-        data.lastError = rs.getOrNull<String>(11) ?? ""
-        data.nextRunAt = rs.getOrNull<String>(12) ?? ""
-        data.runCount = rs.getOrNull<Int32>(13) ?? 0
-        data.successCount = rs.getOrNull<Int32>(14) ?? 0
-        data.failureCount = rs.getOrNull<Int32>(15) ?? 0
-        data.createdAt = rs.getOrNull<String>(16) ?? ""
-        data.updatedAt = rs.getOrNull<String>(17) ?? ""
-        data.createdBy = rs.getOrNull<String>(18) ?? ""
-        data.updatedBy = rs.getOrNull<String>(19) ?? ""
+        data.timeoutSeconds = rs.getOrNull<Int32>(7) ?? 3600
+        data.lastRunAt = rs.getOrNull<String>(8) ?? ""
+        data.lastRunStatus = rs.getOrNull<String>(9) ?? ""
+        data.lastError = rs.getOrNull<String>(10) ?? ""
+        data.nextRunAt = rs.getOrNull<String>(11) ?? ""
+        data.runCount = rs.getOrNull<Int32>(12) ?? 0
+        data.successCount = rs.getOrNull<Int32>(13) ?? 0
+        data.failureCount = rs.getOrNull<Int32>(14) ?? 0
+        data.createdAt = rs.getOrNull<String>(15) ?? ""
+        data.updatedAt = rs.getOrNull<String>(16) ?? ""
+        data.createdBy = rs.getOrNull<String>(17) ?? ""
+        data.updatedBy = rs.getOrNull<String>(18) ?? ""
         return data
     }
 

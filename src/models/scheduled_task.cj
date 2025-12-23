@@ -19,7 +19,6 @@ public class ScheduledTask {
     public var taskParameters: String
     public var enabled: Bool
     public var priority: Int32
-    public var maxInstances: Int32
     public var timeoutSeconds: Int32
 
     public var lastRunAt: String
@@ -44,7 +43,6 @@ public class ScheduledTask {
         taskParameters!: String = "",
         enabled!: Bool = true,
         priority!: Int32 = 50,
-        maxInstances!: Int32 = 1,
         timeoutSeconds!: Int32 = 3600,
         lastRunAt!: String = "",
         lastRunStatus!: String = "",
@@ -65,7 +63,6 @@ public class ScheduledTask {
         this.taskParameters = taskParameters
         this.enabled = enabled
         this.priority = priority
-        this.maxInstances = maxInstances
         this.timeoutSeconds = timeoutSeconds
         this.lastRunAt = lastRunAt
         this.lastRunStatus = lastRunStatus
@@ -98,7 +95,6 @@ public class ScheduledTask {
         }
         json += "\"enabled\":${enabled},"
         json += "\"priority\":${priority},"
-        json += "\"maxInstances\":${maxInstances},"
         json += "\"timeoutSeconds\":${timeoutSeconds},"
         json += "\"lastRunAt\":\"${escapeJsonString(lastRunAt)}\","
         json += "\"lastRunStatus\":\"${escapeJsonString(lastRunStatus)}\","
@@ -152,7 +148,6 @@ public class ScheduledTask {
             taskParameters: data.taskParameters,
             enabled: data.enabled,
             priority: data.priority,
-            maxInstances: data.maxInstances,
             timeoutSeconds: data.timeoutSeconds,
             lastRunAt: data.lastRunAt,
             lastRunStatus: data.lastRunStatus,
@@ -180,7 +175,6 @@ public class ScheduledTask {
         data.taskParameters = this.taskParameters
         data.enabled = this.enabled
         data.priority = this.priority
-        data.maxInstances = this.maxInstances
         data.timeoutSeconds = this.timeoutSeconds
         data.lastRunAt = this.lastRunAt
         data.lastRunStatus = this.lastRunStatus

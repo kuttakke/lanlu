@@ -72,7 +72,7 @@ public class CronController {
     /**
      * 创建定时任务
      * POST /api/cron/tasks
-     * Body: { name, cronExpression, taskType, taskParameters?, enabled?, priority?, maxInstances?, timeoutSeconds? }
+     * Body: { name, cronExpression, taskType, taskParameters?, enabled?, priority?, timeoutSeconds? }
      */
     public static func createTask(ctx: JoyContext) {
         let body = ctx.readString()
@@ -89,7 +89,6 @@ public class CronController {
         let taskParameters = extractJsonString(body, "taskParameters")
         let enabled = extractJsonBool(body, "enabled", true)
         let priority = extractJsonInt32(body, "priority", 50)
-        let maxInstances = extractJsonInt32(body, "maxInstances", 1)
         let timeoutSeconds = extractJsonInt32(body, "timeoutSeconds", 3600)
 
         if (name.isEmpty()) {
@@ -111,7 +110,7 @@ public class CronController {
         let service = CronService.getInstance()
         match (service.createScheduledTask(name, cronExpression, taskType,
             taskParameters: taskParameters, enabled: enabled, priority: priority,
-            maxInstances: maxInstances, timeoutSeconds: timeoutSeconds)) {
+            timeoutSeconds: timeoutSeconds)) {
             case Some(task) =>
                 ctx.status(201)
                 ctx.json("{\"success\":true,\"task\":${task.toJson()}}")
@@ -180,9 +179,6 @@ public class CronController {
         }
         if (hasJsonField(body, "priority")) {
             task.priority = extractJsonInt32(body, "priority", task.priority)
-        }
-        if (hasJsonField(body, "maxInstances")) {
-            task.maxInstances = extractJsonInt32(body, "maxInstances", task.maxInstances)
         }
         if (hasJsonField(body, "timeoutSeconds")) {
             task.timeoutSeconds = extractJsonInt32(body, "timeoutSeconds", task.timeoutSeconds)
