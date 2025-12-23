@@ -1,13 +1,17 @@
 <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" fill="none">
   <style>
     :root {
-      --logo-bg: #000000;
+      --logo-bg: #0f172a;
       --logo-fg: #ffffff;
+    }
+    html.dark :root {
+      --logo-bg: #f8fafc;
+      --logo-fg: #0f172a;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --logo-bg: #2563EB;
-        --logo-fg: #FFFFFF;
+        --logo-bg: #f8fafc;
+        --logo-fg: #0f172a;
       }
     }
     .logo-bg {

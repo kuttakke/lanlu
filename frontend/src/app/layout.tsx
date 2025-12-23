@@ -16,10 +16,7 @@ export const metadata: Metadata = {
   title: '兰鹿',
   description: '漫画归档管理系统',
   icons: {
-    icon: [
-      { url: '/logo-light.svg', media: '(prefers-color-scheme: light)' },
-      { url: '/logo-dark.svg', media: '(prefers-color-scheme: dark)' },
-    ],
+    icon: '/logo.svg',
   },
 };
 
