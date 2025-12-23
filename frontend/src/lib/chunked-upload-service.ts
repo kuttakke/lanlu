@@ -685,16 +685,11 @@ export class ChunkedUploadService {
     try {
       const keysToRemove: string[] = [];
       const now = Date.now();
-      let totalUploadKeys = 0;
-      let completedSessions = 0;
-      let expiredSessions = 0;
-      let corruptedSessions = 0;
 
       // 遍历localStorage中所有键
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('upload_')) {
-          totalUploadKeys++;
           try {
             const sessionData = localStorage.getItem(key);
             if (sessionData) {
@@ -705,23 +700,15 @@ export class ChunkedUploadService {
               const isExpired = now - createdAt > maxAge;
               const isCompleted = session.status === 'completed';
 
-              if (isCompleted) {
-                completedSessions++;
-                keysToRemove.push(key);
-              } else if (isExpired) {
-                expiredSessions++;
+              if (isCompleted || isExpired) {
                 keysToRemove.push(key);
               }
-
-              // 输出调试信息
-
+            }
+          } catch {
+            // 如果数据损坏，也清理掉
+            keysToRemove.push(key);
+            console.warn(`Corrupted upload session data detected: ${key}`);
           }
-        } catch {
-          // 如果数据损坏，也清理掉
-          corruptedSessions++;
-          keysToRemove.push(key);
-          console.warn(`Corrupted upload session data detected: ${key}`);
-        }
         }
       }
 
