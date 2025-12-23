@@ -141,52 +141,6 @@ export class ArchiveService {
   }
 
   /**
-   * 传统上传方法（保持向后兼容）
-   * @deprecated 建议使用 uploadArchiveWithChunks 方法
-   */
-  static async uploadArchive(
-    file: File,
-    metadata?: {
-      title?: string;
-      tags?: string;
-      summary?: string;
-      categoryId?: string;
-      fileChecksum?: string;
-    }
-  ): Promise<{ success: boolean; id?: string; error?: string }> {
-    // 添加元数据作为查询参数
-    const params = new URLSearchParams();
-    if (metadata?.title) params.append('title', metadata.title);
-    if (metadata?.tags) params.append('tags', metadata.tags);
-    if (metadata?.summary) params.append('summary', metadata.summary);
-    if (metadata?.categoryId) params.append('category_id', metadata.categoryId);
-    if (metadata?.fileChecksum) params.append('file_checksum', metadata.fileChecksum);
-    params.append('filename', file.name);
-    
-    try {
-      // 将文件转换为 ArrayBuffer
-      const arrayBuffer = await file.arrayBuffer();
-      
-      const response = await apiClient.put(`/api/archives/upload?${params.toString()}`, arrayBuffer, {
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        },
-      });
-      
-      return {
-        success: response.data.success === 1,
-        id: response.data.id,
-        error: response.data.error,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Upload failed',
-      };
-    }
-  }
-
-  /**
    * 新的分片上传方法（推荐使用）
    * 支持断点续传、进度显示、错误重试等功能
    */

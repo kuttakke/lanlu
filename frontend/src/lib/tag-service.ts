@@ -170,15 +170,6 @@ export class TagService {
     const data = resp.data?.data;
     return { job: Number(data?.job ?? 0) };
   }
-
-  // ============ 兼容旧接口 ============
-
-  /**
-   * @deprecated 使用 getTranslations 代替
-   */
-  static async getMap(lang: string, arcid?: string): Promise<Record<string, string>> {
-    return this.getTranslations(lang, arcid);
-  }
 }
 
 // 为了向后兼容，保留旧的类名
