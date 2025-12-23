@@ -28,25 +28,25 @@
   }
 
   .dark {
-    --background: 222 13% 18%;
-    --foreground: 222 15% 88%;
-    --card: 222 13% 16%;
-    --card-foreground: 222 15% 88%;
-    --popover: 222 13% 16%;
-    --popover-foreground: 222 15% 88%;
-    --primary: 222 45% 65%;
-    --primary-foreground: 222 20% 15%;
-    --secondary: 222 13% 22%;
-    --secondary-foreground: 222 15% 88%;
-    --muted: 222 13% 22%;
-    --muted-foreground: 222 10% 65%;
-    --accent: 222 13% 22%;
-    --accent-foreground: 222 15% 88%;
-    --destructive: 0 62.8% 40%;
-    --destructive-foreground: 222 15% 88%;
-    --border: 222 13% 28%;
-    --input: 222 13% 28%;
-    --ring: 222 45% 65%;
+    --background: 220 15% 10%;
+    --foreground: 220 10% 95%;
+    --card: 220 15% 13%;
+    --card-foreground: 220 10% 95%;
+    --popover: 220 15% 13%;
+    --popover-foreground: 220 10% 95%;
+    --primary: 217 70% 60%;
+    --primary-foreground: 220 10% 10%;
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 220 10% 95%;
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 65%;
+    --accent: 220 15% 18%;
+    --accent-foreground: 220 10% 95%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 220 10% 95%;
+    --border: 220 15% 23%;
+    --input: 220 15% 23%;
+    --ring: 217 70% 60%;
   }
 
   /* Modal Design Tokens - 统一弹窗样式 */

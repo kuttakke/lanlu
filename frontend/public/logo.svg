@@ -6,8 +6,8 @@
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --logo-bg: #7E96CE;
-        --logo-fg: #0f172a;
+        --logo-bg: #2563EB;
+        --logo-fg: #FFFFFF;
       }
     }
     .logo-bg {
