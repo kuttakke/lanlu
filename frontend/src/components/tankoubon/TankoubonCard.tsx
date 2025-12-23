@@ -88,16 +88,28 @@ export function TankoubonCard({ tankoubon }: TankoubonCardProps) {
         // 优先使用传入的 archives 数据
         let archives = tankoubon.archives || [];
 
-        // 如果没有 archives 数据，则调用 API 获取
+        // 如果没有 archives 数据，记录警告但不发起API调用
+        // 依赖数据提供者确保数据完整性
         if (archives.length === 0) {
-          const tankoubonDetail = await TankoubonService.getTankoubonById(tankoubon.tankoubon_id);
-          archives = tankoubonDetail.archives || [];
+          console.warn('TankoubonCard: tankoubon.archives is empty. ' +
+            'Please provide complete data or use getTankoubonsWithArchives().');
+          return;
         }
 
         if (archives.length > 0 && !cancelled) {
           try {
-            // 获取第一本归档的详细信息
-            const firstArchiveDetail = await ArchiveService.getArchive(archives[0]);
+            // 如果 archives 是ID数组，需要获取详细信息
+            // 如果已经是 Archive 对象，直接使用
+            let firstArchiveDetail: Archive;
+
+            if (typeof archives[0] === 'string') {
+              // archives[0] 是 ID 字符串
+              firstArchiveDetail = await ArchiveService.getArchive(archives[0] as string);
+            } else {
+              // archives[0] 已经是 Archive 对象
+              firstArchiveDetail = archives[0] as Archive;
+            }
+
             if (!cancelled) {
               setFirstArchive(firstArchiveDetail);
             }

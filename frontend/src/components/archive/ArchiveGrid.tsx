@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { Archive } from '@/types/archive';
 import { Tankoubon } from '@/types/tankoubon';
 import { ArchiveCard } from './ArchiveCard';
 import { TankoubonCard } from '../tankoubon/TankoubonCard';
+import { TankoubonService } from '@/lib/tankoubon-service';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // Type guard to check if an item is a Tankoubon
@@ -12,10 +14,30 @@ function isTankoubon(item: any): item is Tankoubon {
 interface ArchiveGridProps {
   archives: (Archive | Tankoubon)[];
   variant?: 'default' | 'home' | 'random';
+  preloadTankoubonDetails?: boolean; // 新增选项
 }
 
-export function ArchiveGrid({ archives, variant = 'default' }: ArchiveGridProps) {
+export function ArchiveGrid({
+  archives,
+  variant = 'default',
+  preloadTankoubonDetails = true  // 默认启用预加载
+}: ArchiveGridProps) {
   const { t } = useLanguage();
+
+  // 预加载 tankoubon 详细信息
+  useEffect(() => {
+    if (!preloadTankoubonDetails) return;
+
+    const tankoubonIds = archives
+      .filter(isTankoubon)
+      .map(t => t.tankoubon_id);
+
+    if (tankoubonIds.length > 0) {
+      // 在后台预加载数据，但不影响渲染
+      TankoubonService.getTankoubonsWithArchives(tankoubonIds)
+        .catch(err => console.warn('预加载 tankoubon 详情失败:', err));
+    }
+  }, [archives, preloadTankoubonDetails]);
 
   if (archives.length === 0) {
     return (

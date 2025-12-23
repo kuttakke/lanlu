@@ -9,6 +9,7 @@ import { Heart, Trash2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FavoriteService } from '@/lib/favorite-service';
 import { ArchiveService } from '@/lib/archive-service';
+import { TankoubonService } from '@/lib/tankoubon-service';
 import { groupArchivesByTime, TimeGroup } from '@/lib/time-group';
 import { Archive } from '@/types/archive';
 import { ArchiveCard } from '@/components/archive/ArchiveCard';
@@ -71,14 +72,14 @@ export default function FavoritesPage() {
       }
       setTankoubonError(null);
 
-      // 使用搜索接口获取收藏合集
-      const response = await ArchiveService.search({
+      // 使用新的批量获取方法，获取包含 archives 的合集数据
+      const response = await TankoubonService.searchTankoubonsWithArchives({
         favorite_tankoubons_only: true,
         start: 0,
         count: 1000
       });
 
-      const tankoubonData = response.data as unknown as Tankoubon[];
+      const tankoubonData = response.data;
       setTankoubons(tankoubonData);
       // 合集也使用收藏时间分组
       const grouped = groupArchivesByTime(tankoubonData, 'favoritetime', t);
