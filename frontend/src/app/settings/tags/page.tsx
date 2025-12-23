@@ -295,43 +295,60 @@ export default function TagsSettingsPage() {
     }
   };
 
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const [fileInputKey, setFileInputKey] = useState(0);
 
-    const confirmed = await confirm({
-      title: '确认导入标签',
-      description: t('settings.tagImportConfirm'),
-      confirmText: '导入',
-      cancelText: '取消',
-    });
+  const handleImportClick = () => {
+    // Create a new file input element each time to reset the browser's file memory
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.style.display = 'none';
 
-    if (!confirmed) {
-      event.target.value = '';
-      return;
-    }
+    input.onchange = async (e) => {
+      const event = e as unknown as React.ChangeEvent<HTMLInputElement>;
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    setLoading(true);
-    setError(null);
-    try {
-      // Init import job
-      const initResp = await TagService.adminImportInit();
-      const job = initResp.job;
+      const confirmed = await confirm({
+        title: '确认导入标签',
+        description: t('settings.tagImportConfirm'),
+        confirmText: '导入',
+        cancelText: '取消',
+      });
 
-      // Upload file
-      await TagService.adminImportUpload(job, file, initResp.chunk_size);
+      if (!confirmed) {
+        // Remove the temporary input
+        document.body.removeChild(input);
+        setFileInputKey(prev => prev + 1); // Force re-render of the visible input
+        return;
+      }
 
-      setSuccessMsg(t('settings.tagImportStarted', { job }));
-      await loadTags();
-      await loadNamespaces();
-      success('标签导入成功');
-    } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || t('settings.tagImportFailed'));
-    } finally {
-      setLoading(false);
-      // Reset file input
-      event.target.value = '';
-    }
+      setLoading(true);
+      setError(null);
+      try {
+        // Init import job
+        const initResp = await TagService.adminImportInit();
+        const job = initResp.job;
+
+        // Upload file
+        await TagService.adminImportUpload(job, file, initResp.chunk_size);
+
+        setSuccessMsg(t('settings.tagImportStarted', { job }));
+        await loadTags();
+        await loadNamespaces();
+        success('标签导入成功');
+      } catch (e: any) {
+        setError(e?.response?.data?.message || e?.message || t('settings.tagImportFailed'));
+      } finally {
+        setLoading(false);
+        // Remove the temporary input
+        document.body.removeChild(input);
+        setFileInputKey(prev => prev + 1); // Force re-render of the visible input
+      }
+    };
+
+    document.body.appendChild(input);
+    input.click();
   };
 
   if (!isAuthenticated) {
@@ -396,26 +413,15 @@ export default function TagsSettingsPage() {
             <Download className="w-4 h-4" />
             {t('common.export')}
           </Button>
-          <label>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-              disabled={loading}
-            />
-            <Button
-              variant="outline"
-              disabled={loading}
-              className="flex items-center gap-2 cursor-pointer"
-              asChild
-            >
-              <span>
-                <Upload className="w-4 h-4" />
-                {t('common.import')}
-              </span>
-            </Button>
-          </label>
+          <Button
+            variant="outline"
+            onClick={handleImportClick}
+            disabled={loading}
+            className="flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            {t('common.import')}
+          </Button>
         </div>
       </div>
 
