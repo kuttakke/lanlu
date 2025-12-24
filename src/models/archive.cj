@@ -12,7 +12,8 @@ import lrr4cj.dao.*
  * 注意：isNew 字段已移除，现在使用用户级别的已读状态（user_archive_status 表）
  */
 public class Archive {
-    public var id: String = ""
+    public var id: String = ""  // arcid
+    public var internalId: Int64 = 0  // 数据库内部ID，用于关联查询
     public var title: String = ""
     public var filename: String = ""
     public var summary: String = ""
@@ -194,6 +195,7 @@ public class ArchiveModel {
         for (data in archiveDataArray) {
             let archive = Archive()
             archive.id = data.id
+            archive.internalId = data.internalId
             archive.title = data.title
             archive.filename = data.filename
             archive.summary = data.summary

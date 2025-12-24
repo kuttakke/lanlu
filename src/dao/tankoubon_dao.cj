@@ -657,4 +657,228 @@ public class TankoubonDao {
 
         return result
     }
+
+    /**
+     * 批量获取Tankoubon的归档标签
+     */
+    private static func getBatchArchiveTagsForTankoubons(conn: Connection, tankoubonIds: Array<String>): HashMap<String, String> {
+        var result: HashMap<String, String> = HashMap<String, String>()
+        if (tankoubonIds.size == 0) {
+            return result
+        }
+
+        try {
+            var placeholders = ""
+            for (i in 0..tankoubonIds.size) {
+                if (i > 0) { placeholders += "," }
+                placeholders += "?"
+            }
+
+            let stmt = conn.prepareStatement("""
+                SELECT t.tankoubon_id, awt.tags
+                FROM tankoubon_archives ta
+                JOIN tankoubons t ON t.id = ta.tankoubon_id
+                JOIN archives a ON a.id = ta.archive_id
+                JOIN archives_with_tags awt ON awt.arcid = a.arcid
+                WHERE t.tankoubon_id IN (${placeholders}) AND awt.tags != ''
+            """)
+            try {
+                for (i in 0..tankoubonIds.size) {
+                    stmt.set(i, tankoubonIds[i])
+                }
+                let rs = stmt.query()
+                try {
+                    // 按 tankoubon_id 收集所有标签
+                    var tagsMap: HashMap<String, ArrayList<String>> = HashMap<String, ArrayList<String>>()
+                    while (rs.next()) {
+                        let tid = rs.getOrNull<String>(0) ?? ""
+                        let tags = rs.getOrNull<String>(1) ?? ""
+                        if (tid != "" && tags != "") {
+                            match (tagsMap.get(tid)) {
+                                case Some(list) => list.add(tags)
+                                case None =>
+                                    let list = ArrayList<String>()
+                                    list.add(tags)
+                                    tagsMap[tid] = list
+                            }
+                        }
+                    }
+                    // 合并每个 tankoubon 的标签
+                    for ((tid, tagsList) in tagsMap) {
+                        var combined = ""
+                        for (i in 0..tagsList.size) {
+                            if (i > 0) { combined += "," }
+                            combined += tagsList[i]
+                        }
+                        result[tid] = combined
+                    }
+                } finally {
+                    rs.close()
+                }
+            } finally {
+                stmt.close()
+            }
+        } catch (e: Exception) {
+            getLogger("tankoubon_dao").error("批量获取归档标签失败", ("error", e.message))
+        }
+        return result
+    }
+
+    /**
+     * 批量获取Tankoubon的聚合元数据
+     */
+    public static func getBatchAggregatedMetadata(tankoubonIds: Array<String>, userId: Int64): HashMap<String, TankoubonAggregatedData> {
+        var result: HashMap<String, TankoubonAggregatedData> = HashMap<String, TankoubonAggregatedData>()
+        if (tankoubonIds.size == 0) {
+            return result
+        }
+
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    // 构建 IN 子句的占位符
+                    var placeholders = ""
+                    for (i in 0..tankoubonIds.size) {
+                        if (i > 0) { placeholders += "," }
+                        placeholders += "?"
+                    }
+
+                    let stmt = conn.prepareStatement("""
+                        SELECT
+                            t.tankoubon_id,
+                            t.name,
+                            t.summary,
+                            t.tags,
+                            COALESCE(SUM(a.pagecount), 0)::INT as total_pagecount,
+                            COUNT(a.id)::INT as archive_count,
+                            COALESCE(MAX(uas.updated_at)::TEXT, '') as last_read_time,
+                            COALESCE(AVG(uas.progress), 0)::INT as avg_progress,
+                            COALESCE(BOOL_OR(uas.is_new), true) as has_new_archives
+                        FROM tankoubons t
+                        JOIN tankoubon_archives ta ON ta.tankoubon_id = t.id
+                        JOIN archives a ON a.id = ta.archive_id
+                        LEFT JOIN user_archive_status uas ON uas.archive_id = a.id AND uas.user_id = ?
+                        WHERE t.tankoubon_id IN (${placeholders})
+                        GROUP BY t.id, t.tankoubon_id, t.name, t.summary, t.tags
+                    """)
+                    try {
+                        stmt.set(0, userId)
+                        for (i in 0..tankoubonIds.size) {
+                            stmt.set(i + 1, tankoubonIds[i])
+                        }
+
+                        // 临时存储，用于后续获取标签
+                        var tempData: HashMap<String, (TankoubonAggregatedData, String)> = HashMap<String, (TankoubonAggregatedData, String)>()
+
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let data = TankoubonAggregatedData()
+                                data.tankoubon_id = rs.getOrNull<String>(0) ?? ""
+                                data.name = rs.getOrNull<String>(1) ?? ""
+                                data.summary = rs.getOrNull<String>(2) ?? ""
+                                let tankoubonTags = rs.getOrNull<String>(3) ?? ""
+                                data.pagecount = rs.getOrNull<Int32>(4) ?? 0
+                                data.archive_count = rs.getOrNull<Int32>(5) ?? 0
+                                data.last_read_time = rs.getOrNull<String>(6) ?? ""
+                                data.progress = rs.getOrNull<Int32>(7) ?? 0
+                                data.isnew = rs.getOrNull<Bool>(8) ?? true
+                                tempData[data.tankoubon_id] = (data, tankoubonTags)
+                            }
+                        } finally {
+                            rs.close()
+                        }
+
+                        // 批量获取归档标签并合并
+                        let archiveTagsMap = getBatchArchiveTagsForTankoubons(conn, tankoubonIds)
+                        for ((tid, (data, tankoubonTags)) in tempData) {
+                            var archiveTags = ""
+                            match (archiveTagsMap.get(tid)) {
+                                case Some(tags) => archiveTags = tags
+                                case None => ()
+                            }
+                            data.tags = mergeTags(tankoubonTags, archiveTags)
+                            result[tid] = data
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("tankoubon_dao").error("批量获取Tankoubon聚合元数据失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("tankoubon_dao").error("无法连接到数据库")
+        }
+        return result
+    }
+
+    /**
+     * 批量获取Tankoubon中的所有归档arcids
+     */
+    public static func getBatchArchivesInTankoubon(tankoubonIds: Array<String>): HashMap<String, Array<String>> {
+        var result: HashMap<String, Array<String>> = HashMap<String, Array<String>>()
+        if (tankoubonIds.size == 0) {
+            return result
+        }
+
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    var placeholders = ""
+                    for (i in 0..tankoubonIds.size) {
+                        if (i > 0) { placeholders += "," }
+                        placeholders += "?"
+                    }
+
+                    let stmt = conn.prepareStatement("""
+                        SELECT t.tankoubon_id, a.arcid
+                        FROM tankoubon_archives ta
+                        JOIN tankoubons t ON t.id = ta.tankoubon_id
+                        JOIN archives a ON a.id = ta.archive_id
+                        WHERE t.tankoubon_id IN (${placeholders})
+                        ORDER BY t.tankoubon_id, ta.sort_order, ta.id
+                    """)
+                    try {
+                        for (i in 0..tankoubonIds.size) {
+                            stmt.set(i, tankoubonIds[i])
+                        }
+                        let rs = stmt.query()
+                        try {
+                            var tempMap: HashMap<String, ArrayList<String>> = HashMap<String, ArrayList<String>>()
+                            while (rs.next()) {
+                                let tid = rs.getOrNull<String>(0) ?? ""
+                                let arcid = rs.getOrNull<String>(1) ?? ""
+                                if (tid != "" && arcid != "") {
+                                    match (tempMap.get(tid)) {
+                                        case Some(list) => list.add(arcid)
+                                        case None =>
+                                            let list = ArrayList<String>()
+                                            list.add(arcid)
+                                            tempMap[tid] = list
+                                    }
+                                }
+                            }
+                            for ((tid, list) in tempMap) {
+                                result[tid] = list.toArray()
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("tankoubon_dao").error("批量获取Tankoubon归档列表失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("tankoubon_dao").error("无法连接到数据库")
+        }
+        return result
+    }
 }

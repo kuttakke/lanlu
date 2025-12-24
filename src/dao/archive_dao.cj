@@ -13,7 +13,8 @@ import stdx.log.*
  * 注意：isNew 字段已移除，现在使用用户级别的已读状态（user_archive_status 表）
  */
 public class ArchiveData {
-    public var id: String = ""
+    public var id: String = ""  // arcid
+    public var internalId: Int64 = 0  // 数据库内部ID，用于关联查询
     public var title: String = ""
     public var filename: String = ""
     public var summary: String = ""
@@ -362,7 +363,7 @@ public class ArchiveDao {
                 }
                 
                 // 然后查询分页数据，使用archives_with_tags视图获取标签信息
-                var sql = "SELECT arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, tags FROM archives_with_tags"
+                var sql = "SELECT id, arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, tags FROM archives_with_tags"
                 
                 // 使用相同的 WHERE 条件
                 if (whereConditions.size > 0) {
@@ -427,17 +428,18 @@ public class ArchiveDao {
                     while (rs.next()) {
                         let archive = ArchiveData()
                         try {
-                            archive.id = rs.getOrNull<String>(0) ?? ""
-                            archive.filename = rs.getOrNull<String>(1) ?? ""
-                            archive.title = rs.getOrNull<String>(2) ?? ""
-                            archive.summary = rs.getOrNull<String>(3) ?? ""
-                            archive.thumbhash = rs.getOrNull<String>(4) ?? ""
-                            archive.created_at = rs.getOrNull<String>(5) ?? ""
-                            archive.updated_at = rs.getOrNull<String>(6) ?? ""
-                            archive.relative_path = rs.getOrNull<String>(7) ?? ""
-                            archive.file_size = rs.getOrNull<Int64>(8) ?? 0
-                            archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
-                            archive.tags = rs.getOrNull<String>(10) ?? ""
+                            archive.internalId = rs.getOrNull<Int64>(0) ?? 0
+                            archive.id = rs.getOrNull<String>(1) ?? ""
+                            archive.filename = rs.getOrNull<String>(2) ?? ""
+                            archive.title = rs.getOrNull<String>(3) ?? ""
+                            archive.summary = rs.getOrNull<String>(4) ?? ""
+                            archive.thumbhash = rs.getOrNull<String>(5) ?? ""
+                            archive.created_at = rs.getOrNull<String>(6) ?? ""
+                            archive.updated_at = rs.getOrNull<String>(7) ?? ""
+                            archive.relative_path = rs.getOrNull<String>(8) ?? ""
+                            archive.file_size = rs.getOrNull<Int64>(9) ?? 0
+                            archive.pagecount = rs.getOrNull<Int32>(10) ?? 0
+                            archive.tags = rs.getOrNull<String>(11) ?? ""
                             archives.add(archive)
                         } catch (e: Exception) {
                             getLogger("archive_dao").error("读取字段时出错", ("error", e.message))

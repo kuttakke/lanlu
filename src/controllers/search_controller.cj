@@ -29,37 +29,6 @@ public class SearchController {
         escaped = escaped.replace("\t", "\\t")
         return escaped
     }
-    /**
-     * 根据 arcid 获取归档的数据库内部ID
-     */
-    private static func getArchiveInternalId(arcid: String): Int64 {
-        let connOpt = DatabaseConfig.createConnection()
-        match (connOpt) {
-            case Some(conn) =>
-                try {
-                    let stmt = conn.prepareStatement("SELECT id FROM archives WHERE arcid = ?")
-                    try {
-                        stmt.set(0, arcid)
-                        let rs = stmt.query()
-                        try {
-                            if (rs.next()) {
-                                return rs.getOrNull<Int64>(0) ?? 0
-                            }
-                        } finally {
-                            rs.close()
-                        }
-                    } finally {
-                        stmt.close()
-                    }
-                } catch (_: Exception) {
-                    return 0
-                } finally {
-                    try { conn.close() } catch (_: Exception) {}
-                }
-            case None => return 0
-        }
-        return 0
-    }
 
     /**
      * 搜索归档
@@ -187,21 +156,18 @@ public class SearchController {
             // 获取归档到Tankoubon的映射
             tankoubonMapping = ArchiveDao.getArchiveTankoubonMapping(arcids.toArray())
 
-            // 预加载所有需要的Tankoubon聚合数据
+            // 收集所有唯一的 Tankoubon ID
             for ((_, tankoubonId) in tankoubonMapping) {
                 match (processedTankoubons.get(tankoubonId)) {
                     case Some(_) => ()  // 已处理，跳过
                     case None =>
-                        let aggDataOpt = TankoubonDao.getAggregatedMetadata(tankoubonId, userId)
-                        match (aggDataOpt) {
-                            case Some(aggData) =>
-                                tankoubonDataCache[tankoubonId] = aggData
-                            case None => ()
-                        }
                         processedTankoubons[tankoubonId] = true
                         tankoubonIdsList.add(tankoubonId)
                 }
             }
+
+            // 批量获取所有 Tankoubon 的聚合数据
+            tankoubonDataCache = TankoubonDao.getBatchAggregatedMetadata(tankoubonIdsList.toArray(), userId)
         }
 
         // 批量获取Tankoubon收藏状态和收藏时间
@@ -215,12 +181,11 @@ public class SearchController {
         var progressMap = HashMap<Int64, Int32>()
         var lastReadTimeMap = HashMap<Int64, Int64>()
         if (userId > 0) {
-            // 收集所有归档的内部ID
+            // 使用 archive.internalId，无需额外查询
             var archiveIds = ArrayList<Int64>()
             for (archive in archives) {
-                let internalId = getArchiveInternalId(archive.id)
-                if (internalId > 0) {
-                    archiveIds.add(internalId)
+                if (archive.internalId > 0) {
+                    archiveIds.add(archive.internalId)
                 }
             }
             if (archiveIds.size > 0) {
@@ -237,6 +202,9 @@ public class SearchController {
         var archivesJson = "["
         var isFirst = true
         var alreadyAddedTankoubons: HashMap<String, Bool> = HashMap<String, Bool>()
+
+        // 批量获取所有 Tankoubon 的归档列表
+        let tankoubonArchivesCache = TankoubonDao.getBatchArchivesInTankoubon(tankoubonIdsList.toArray())
 
         for (archive in archives) {
             // 检查此归档是否属于某个Tankoubon
@@ -270,16 +238,19 @@ public class SearchController {
                         }
                         isFirst = false
 
-                        // 获取合集的archives列表
-                        let tankoubonArchives = TankoubonDao.getArchivesInTankoubon(tankoubonId)
+                        // 从缓存获取合集的archives列表
                         var tankoubonArchivesJson = "["
-                        var isFirstArchive = true
-                        for (archiveId in tankoubonArchives) {
-                            if (!isFirstArchive) {
-                                tankoubonArchivesJson += ","
-                            }
-                            tankoubonArchivesJson += "\"${archiveId}\""
-                            isFirstArchive = false
+                        match (tankoubonArchivesCache.get(tankoubonId)) {
+                            case Some(tankoubonArchives) =>
+                                var isFirstArchive = true
+                                for (archiveId in tankoubonArchives) {
+                                    if (!isFirstArchive) {
+                                        tankoubonArchivesJson += ","
+                                    }
+                                    tankoubonArchivesJson += "\"${archiveId}\""
+                                    isFirstArchive = false
+                                }
+                            case None => ()
                         }
                         tankoubonArchivesJson += "]"
 
@@ -332,7 +303,7 @@ public class SearchController {
             isFirst = false
 
             // 获取用户级别的 isNew 状态、收藏状态和收藏时间
-            let internalId = getArchiveInternalId(archive.id)
+            let internalId = archive.internalId
             var isNew = true  // 默认为新
             var isFavorite = false  // 默认未收藏
             var favoriteTime = ""  // 收藏时间，默认为空
@@ -420,12 +391,11 @@ public class SearchController {
         var lastReadTimeMap = HashMap<Int64, Int64>()
         match (userIdOpt) {
             case Some(userId) =>
-                // 收集所有归档的内部ID
+                // 使用 archive.internalId，无需额外查询
                 var archiveIds = ArrayList<Int64>()
                 for (archive in resultArchives) {
-                    let internalId = getArchiveInternalId(archive.id)
-                    if (internalId > 0) {
-                        archiveIds.add(internalId)
+                    if (archive.internalId > 0) {
+                        archiveIds.add(archive.internalId)
                     }
                 }
                 if (archiveIds.size > 0) {
@@ -448,7 +418,7 @@ public class SearchController {
             isFirst = false
 
             // 获取用户级别的 isNew 状态和收藏状态
-            let internalId = getArchiveInternalId(archive.id)
+            let internalId = archive.internalId
             var isNew = true  // 默认为新
             var isFavorite = false  // 默认未收藏
             var progress: Int32 = 0  // 阅读进度，默认为0

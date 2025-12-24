@@ -1021,6 +1021,7 @@ public class DatabaseConfig {
             execUpdate(conn, """
                 CREATE VIEW archives_with_tags AS
                 SELECT
+                    a.id,
                     a.arcid,
                     a.filename,
                     a.title,
@@ -1040,7 +1041,7 @@ public class DatabaseConfig {
                 LEFT JOIN archive_tags atg ON atg.archive_id = a.id
                 LEFT JOIN tags t ON t.id = atg.tag_id
                 GROUP BY
-                    a.arcid, a.filename, a.title, a.summary, a.thumbhash,
+                    a.id, a.arcid, a.filename, a.title, a.summary, a.thumbhash,
                     a.created_at, a.updated_at, a.relative_path, a.file_size,
                     a.pagecount
             """)
