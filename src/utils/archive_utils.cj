@@ -325,31 +325,21 @@ public class ArchiveUtils {
             }
 
             let resizedPath = joinPath(tempPath, "temp_resized.jpg")
-            let (resizeExitCode, _, resizeStderr) = executeCommand(
-                "convert",
-                [inputPath, "-resize", "500x1000>", resizedPath]
-            )
+            let resizeProcess = launch("convert", inputPath, "-resize", "500x1000>", resizedPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+            let (resizeExitCode, _, resizeStderr) = resizeProcess.waitOutput()
 
             if (resizeExitCode != 0) {
                 let error = String.fromUtf8(resizeStderr)
                 return ProcessResultData(false, "", error)
             }
 
-            let (qualityExitCode, _, qualityStderr) = executeCommand(
-                "convert",
-                [resizedPath, "-quality", "85", outputPath]
-            )
+            let qualityProcess = launch("convert", resizedPath, "-quality", "85", outputPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+            let (qualityExitCode, _, qualityStderr) = qualityProcess.waitOutput()
 
             // 清理临时文件
             try {
                 if (fileExists(resizedPath)) {
-                    let (rmExitCode, _, _) = executeCommand(
-                        "rm",
-                        ["-f", resizedPath]
-                    )
-                    if (rmExitCode != 0) {
-                        // 静默处理
-                    }
+                    remove(resizedPath)
                 }
             } catch (_: Exception) {
                 // 静默处理
@@ -541,50 +531,6 @@ public class ArchiveUtils {
                 return base + part
             }
             return base + "/" + part
-        }
-    }
-
-    /**
-     * 执行命令并获取输出
-     */
-    private static func executeCommand(command: String, args: Array<String>): (Int32, Array<UInt8>, Array<UInt8>) {
-        try {
-            if (args.size == 0) {
-                let process = launch(command, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let exitCode = process.wait()
-                return (Int32(exitCode), Array<UInt8>(), Array<UInt8>())
-            } else if (args.size == 1) {
-                let process = launch(command, args[0], stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let exitCode = process.wait()
-                return (Int32(exitCode), Array<UInt8>(), Array<UInt8>())
-            } else if (args.size == 2) {
-                let process = launch(command, args[0], args[1], stdOut: ProcessRedirect.Pipe,
-                    stdErr: ProcessRedirect.Pipe)
-                let exitCode = process.wait()
-                return (Int32(exitCode), Array<UInt8>(), Array<UInt8>())
-            } else if (args.size == 3) {
-                let process = launch(command, args[0], args[1], args[2], stdOut: ProcessRedirect.Pipe,
-                    stdErr: ProcessRedirect.Pipe)
-                let exitCode = process.wait()
-                return (Int32(exitCode), Array<UInt8>(), Array<UInt8>())
-            } else if (args.size == 4) {
-                let process = launch(command, args[0], args[1], args[2], args[3], stdOut: ProcessRedirect.Pipe,
-                    stdErr: ProcessRedirect.Pipe)
-                let exitCode = process.wait()
-                return (Int32(exitCode), Array<UInt8>(), Array<UInt8>())
-            } else {
-                // 对于更多参数，使用 shell 执行
-                var fullCmd = command
-                for (arg in args) {
-                    fullCmd += " " + arg
-                }
-                let process = launch("/bin/sh", "-c", fullCmd, stdOut: ProcessRedirect.Pipe,
-                    stdErr: ProcessRedirect.Pipe)
-                let exitCode = process.wait()
-                return (Int32(exitCode), Array<UInt8>(), Array<UInt8>())
-            }
-        } catch (_: Exception) {
-            return (1, [], [])
         }
     }
 
