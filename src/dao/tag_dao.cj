@@ -870,16 +870,15 @@ public class TagDao {
                     try {
                         let rs = stmt.query()
                         try {
-                            let lowerSearchTerm = searchTerm.toAsciiLower()
                             while (rs.next()) {
                                 let namespace = rs.getOrNull<String>(0) ?? ""
                                 let name = rs.getOrNull<String>(1) ?? ""
                                 let translationsJson = rs.getOrNull<String>(2) ?? "{}"
                                 let translations = parseTranslationsJson(translationsJson)
 
-                                // 检查任意语言的翻译是否精确匹配
+                                // 检查任意语言的翻译是否精确匹配（直接比较，支持中文）
                                 for ((_, t) in translations) {
-                                    if (t.text.toAsciiLower() == lowerSearchTerm) {
+                                    if (t.text == searchTerm) {
                                         let fullName = if (namespace.size > 0) {
                                             "${namespace}:${name}"
                                         } else {

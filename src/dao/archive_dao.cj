@@ -222,6 +222,11 @@ public class ArchiveDao {
                 let searchResult = SearchFilter.parse(filter)
                 var filterParams: ArrayList<String> = ArrayList<String>()
 
+                getLogger("archive_dao").info("搜索过滤器解析结果",
+                    ("filter", filter),
+                    ("terms", searchResult.terms.size.toString()),
+                    ("exactTagTerms", searchResult.exactTagTerms.size.toString()))
+
                 // 处理普通搜索词（支持通配符和翻译搜索）
                 if (searchResult.terms.size > 0) {
                     var termConditions: ArrayList<String> = ArrayList<String>()
@@ -303,6 +308,7 @@ public class ArchiveDao {
                 // 处理精确标签（支持翻译搜索）
                 if (searchResult.exactTagTerms.size > 0) {
                     for (tagTerm in searchResult.exactTagTerms) {
+                        getLogger("archive_dao").info("处理精确标签", ("tagTerm", tagTerm))
                         // 精确标签匹配：标签必须完全匹配（不区分大小写）
                         // 标签格式可能是 "namespace:name" 或 "name"
                         var tagConditions: ArrayList<String> = ArrayList<String>()
@@ -315,6 +321,7 @@ public class ArchiveDao {
 
                         // 查询翻译精确匹配的标签
                         let translatedTags = TagDao.findTagsByExactTranslation(tagTerm)
+                        getLogger("archive_dao").info("翻译匹配结果", ("count", translatedTags.size.toString()))
                         for (matchedTag in translatedTags) {
                             tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
                             tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
