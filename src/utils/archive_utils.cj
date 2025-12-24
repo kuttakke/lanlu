@@ -371,13 +371,8 @@ public class ArchiveUtils {
      */
     public static func extractArchiveEntryToStream(archivePath: String, entryName: String): (Int64, Array<UInt8>, Array<UInt8>) {
         try {
-            let bsdtarPath = "/usr/bin/bsdtar"
-            // 使用shell执行以正确处理带特殊字符的路径
-            let command = "${shellQuote(bsdtarPath)} -xO -f ${shellQuote(archivePath)} ${shellQuote(entryName)}"
-            logger.info("Extracting entry from archive", ("archive_path", archivePath), ("entry_name", entryName),
-                ("command", command))
-
-            let result = executeShellCommand(command)
+            let process = launch("bsdtar", "-xO", "-f", archivePath, entryName, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+            let result = process.waitOutput()
 
             if (result[0] == 0) {
                 logger.info("Successfully extracted entry", ("archive_path", archivePath), ("entry_name", entryName),
@@ -594,72 +589,6 @@ public class ArchiveUtils {
     }
 
     /**
-     * 执行shell命令并获取输出
-     */
-    private static func executeShellCommand(command: String): (Int64, Array<UInt8>, Array<UInt8>) {
-        try {
-            logger.debug("About to execute shell command", ("command", command))
-            let process = launch("/bin/sh", "-c", command, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-            return process.waitOutput()
-        } catch (e: Exception) {
-            logger.error("Exception in executeShellCommand", ("command", command), ("exception", e.message))
-            return (1, [], [])
-        }
-    }
-
-    /**
-     * Shell转义单个字符串参数
-     * 使用单引号包裹，这是最安全的方式，因为单引号内的所有字符都按字面意义处理
-     */
-    private static func shellQuote(s: String): String {
-        if (s.size == 0) {
-            return "''"
-        }
-
-        // 检查是否包含单引号
-        let bytes = s.toArray()
-        var hasSingleQuote = false
-        for (i in 0..bytes.size) {
-            if (bytes[i] == 0x27) { // 单引号 ASCII 码
-                hasSingleQuote = true
-                break
-            }
-        }
-
-        // 如果没有单引号，直接用单引号包裹（最安全，支持所有 UTF-8 字符）
-        if (!hasSingleQuote) {
-            return "'" + s + "'"
-        }
-
-        // 如果有单引号，需要特殊处理：将每个 ' 替换为 '\''
-        // 方法：先分割字符串，然后用 '\'' 连接
-        // 例如：a'b'c -> 'a'\''b'\''c'
-        var result = "'"
-        var lastPos = 0
-        for (i in 0..bytes.size) {
-            if (bytes[i] == 0x27) { // 找到单引号
-                // 添加从 lastPos 到当前位置的子串
-                if (i > lastPos) {
-                    let startPos = lastPos
-                    let subBytes = Array<UInt8>(i - startPos, {idx => bytes[startPos + idx]})
-                    result += String.fromUtf8(subBytes)
-                }
-                // 添加转义的单引号
-                result += "'\\\''"
-                lastPos = i + 1
-            }
-        }
-        // 添加剩余部分
-        if (lastPos < bytes.size) {
-            let startPos = lastPos
-            let subBytes = Array<UInt8>(bytes.size - startPos, {idx => bytes[startPos + idx]})
-            result += String.fromUtf8(subBytes)
-        }
-        result += "'"
-        return result
-    }
-
-    /**
      * 获取PDF文件的页数
      * 使用GhostScript命令: gs -q -dNOSAFER -sDEVICE=jpeg -f "$pdf_path" -c "pdfpagecount = quit"
      */
@@ -722,26 +651,6 @@ public class ArchiveUtils {
         } catch (e: Exception) {
             logger.error("Exception extracting PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("exception", e.message))
             return false
-        }
-    }
-
-    /**
-     * 从PDF文件中提取指定页面到内存流
-     * @param pdfPath PDF文件路径
-     * @param pageNumber 页码（从1开始）
-     * @return (exitCode, stdout, stderr)
-     */
-    public static func extractPdfPageToStream(pdfPath: String, pageNumber: Int32): (Int64, Array<UInt8>, Array<UInt8>) {
-        try {
-            logger.info("Extracting PDF page to stream", ("pdf_path", pdfPath), ("page", pageNumber.toString()))
-            let quotedPdfPath = shellQuote(pdfPath)
-            let command = "gs -dNOPAUSE -dFirstPage=${pageNumber} -dLastPage=${pageNumber} -sDEVICE=jpeg -r200 -sOutputFile=- ${quotedPdfPath}"
-            logger.info("Executing command", ("command", command))
-            let result = executeShellCommand(command)
-            return result
-        } catch (e: Exception) {
-            logger.error("Exception extracting PDF page to stream", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("exception", e.message))
-            return (1, [], [])
         }
     }
 }
