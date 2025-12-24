@@ -262,12 +262,6 @@ public class ScanArchiveTaskRunner {
                 return ProcessResultData(false, "", "Failed to create archive record in database")
             }
 
-            // 提交缩略图生成任务（异步）
-            let taskSubmitted = submitThumbnailTask(filePath, archiveId, config.archiveType)
-            if (!taskSubmitted) {
-                logger.error("Failed to submit thumbnail generation task for archive: ${archiveId}")
-            }
-
             return ProcessResultData(true, archiveId, "")
         } catch (e: Exception) {
             let error = "Exception adding archive to database: ${e.message}"
