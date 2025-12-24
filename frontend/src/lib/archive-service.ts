@@ -40,26 +40,36 @@ export class ArchiveService {
   }
 
   static async getRandom(params: RandomParams = {}): Promise<Archive[]> {
-    const response = await apiClient.get('/api/search/random', { 
+    const response = await apiClient.get('/api/search/random', {
       params: {
         count: params.count || 5,
         filter: params.filter,
         category: params.category,
         newonly: params.newonly,
-        untaggedonly: params.untaggedonly
+        untaggedonly: params.untaggedonly,
+        lang: params.lang
       }
     });
     return response.data.data || [];
   }
 
-  static async getMetadata(id: string): Promise<ArchiveMetadata> {
-    const response = await apiClient.get(`/api/archives/${id}/metadata`);
+  static async getMetadata(id: string, lang?: string): Promise<ArchiveMetadata> {
+    const params: Record<string, string> = {};
+    if (lang) {
+      params.lang = lang;
+    }
+    const response = await apiClient.get(`/api/archives/${id}/metadata`, { params });
     return response.data;
   }
 
-  static async updateMetadata(id: string, metadata: Partial<ArchiveMetadata>): Promise<void> {
+  static async updateMetadata(id: string, metadata: Partial<ArchiveMetadata>, lang?: string): Promise<void> {
     const params = new URLSearchParams();
-    
+
+    // 添加语言参数
+    if (lang) {
+      params.append('lang', lang);
+    }
+
     if (metadata.title !== undefined) {
       params.append('title', metadata.title);
     }
@@ -69,7 +79,7 @@ export class ArchiveService {
     if (metadata.tags !== undefined) {
       params.append('tags', metadata.tags);
     }
-    
+
     await apiClient.put(`/api/archives/${id}/metadata?${params.toString()}`);
   }
 

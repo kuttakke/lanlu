@@ -21,7 +21,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 
 function HomePageContent() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
   const gridColumnCount = useGridColumnCount();
@@ -74,6 +74,7 @@ function HomePageContent() {
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
       params.groupby_tanks = groupByTanks; // 添加Tankoubon分组参数
+      params.lang = language; // 添加语言参数用于标签翻译
 
       const result = await ArchiveService.search(params);
       let data: (Archive | Tankoubon)[] = [...result.data];
@@ -118,12 +119,12 @@ function HomePageContent() {
     } finally {
       setLoading(false);
     }
-  }, [pageSize, sortBy, sortOrder, searchQuery, newonly, untaggedonly, favoriteonly, dateFrom, dateTo, groupByTanks]);
+  }, [pageSize, sortBy, sortOrder, searchQuery, newonly, untaggedonly, favoriteonly, dateFrom, dateTo, groupByTanks, language]);
 
   const fetchRandomArchives = useCallback(async () => {
     try {
       setRandomLoading(true);
-      const archives = await ArchiveService.getRandom({ count: gridColumnCount });
+      const archives = await ArchiveService.getRandom({ count: gridColumnCount, lang: language });
       setRandomArchives(archives);
     } catch (error) {
       logger.apiError('fetch random archives', error);
@@ -131,7 +132,7 @@ function HomePageContent() {
     } finally {
       setRandomLoading(false);
     }
-  }, [gridColumnCount]);
+  }, [gridColumnCount, language]);
 
   // 设置初始状态（从URL参数）
   useEffect(() => {

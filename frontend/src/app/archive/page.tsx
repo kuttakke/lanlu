@@ -18,7 +18,6 @@ import { BookOpen, Download, Info, X, Eye, Edit, CheckCircle, RotateCcw, Play, H
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { TagService } from '@/lib/tag-service';
 import { FavoriteService } from '@/lib/favorite-service';
 import { AddToTankoubonDialog } from '@/components/tankoubon/AddToTankoubonDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -38,25 +37,20 @@ function ArchiveDetailContent() {
   // 添加 mounted 状态以避免水合错误
   const [mounted, setMounted] = useState(false);
 
-  // 档案专属的 tag i18n map
-  const [tagI18nMap, setTagI18nMap] = useState<Record<string, string>>({});
-
   const displayTag = useCallback((tag: string) => {
     const key = String(tag || '').trim();
     if (!key) return '';
-    const translated = tagI18nMap[key];
-    if (translated && String(translated).trim()) return String(translated);
-    // 如果没有翻译，去掉 namespace 前缀
+    // 现在标签已经是翻译后的，只需要去掉 namespace 前缀显示
     const idx = key.indexOf(':');
     return idx > 0 ? key.slice(idx + 1) : key;
-  }, [tagI18nMap]);
+  }, []);
 
   // 提取 fetchMetadata 函数到顶层
   const fetchMetadata = useCallback(async (): Promise<ArchiveMetadata | null> => {
     if (!id) return null;
 
     try {
-      const data = await ArchiveService.getMetadata(id);
+      const data = await ArchiveService.getMetadata(id, language);
       setMetadata(data);
       // 从元数据中获取收藏状态
       setIsFavorite(data.isfavorite || false);
@@ -65,7 +59,7 @@ function ArchiveDetailContent() {
       logger.apiError('fetch metadata', error);
       return null;
     }
-  }, [id]);
+  }, [id, language]);
 
   const [metadata, setMetadata] = useState<ArchiveMetadata | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,30 +121,6 @@ function ArchiveDetailContent() {
       setFavoriteLoading(false);
     }
   };
-
-  // 获取档案专属的 tag i18n
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const map = await TagService.getTranslations(language, id);
-        if (!cancelled) {
-          setTagI18nMap(map || {});
-        }
-      } catch (e) {
-        logger.apiError('fetch tag i18n', e);
-        if (!cancelled) {
-          setTagI18nMap({});
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id, language]);
 
   // 获取存档页面列表
   useEffect(() => {
@@ -311,21 +281,17 @@ function ArchiveDetailContent() {
     if (!metadata) return;
     setIsSaving(true);
     try {
-      await ArchiveService.updateMetadata(metadata.arcid, {
-        title: formData.title,
-        summary: formData.summary,
-        tags: formData.tags.join(', '),
-      });
+      await ArchiveService.updateMetadata(
+        metadata.arcid,
+        {
+          title: formData.title,
+          summary: formData.summary,
+          tags: formData.tags.join(', '),
+        },
+        language
+      );
       setIsEditing(false);
       await fetchMetadata();
-      // 重新获取 tag i18n 映射，确保新标签的翻译能够及时显示
-      try {
-        const map = await TagService.getTranslations(language, metadata.arcid);
-        setTagI18nMap(map || {});
-      } catch (e) {
-        logger.apiError('fetch tag i18n', e);
-        setTagI18nMap({});
-      }
     } catch (error) {
       logger.operationFailed('update metadata', error);
       showError(t('archive.updateFailed'));
@@ -372,14 +338,6 @@ function ArchiveDetailContent() {
           summary: updated.summary || '',
           tags: updated.tags ? updated.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
         });
-      }
-      // 重新获取 tag i18n 映射，确保插件更新后的标签翻译能够及时显示
-      try {
-        const map = await TagService.getTranslations(language, metadata.arcid);
-        setTagI18nMap(map || {});
-      } catch (e) {
-        logger.apiError('fetch tag i18n', e);
-        setTagI18nMap({});
       }
       setMetadataPluginMessage(t('archive.metadataPluginCompleted'));
       setMetadataPluginProgress(100);

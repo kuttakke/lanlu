@@ -35,6 +35,7 @@ export interface SearchParams {
   date_from?: string;
   date_to?: string;
   groupby_tanks?: boolean;
+  lang?: string;
 }
 
 export interface RandomParams {
@@ -43,6 +44,7 @@ export interface RandomParams {
   count?: number;
   newonly?: boolean;
   untaggedonly?: boolean;
+  lang?: string;
 }
 
 export interface ArchiveMetadata {

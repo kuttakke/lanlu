@@ -59,6 +59,9 @@ public class SearchController {
         let dateFrom = ctx.getQuery("date_from") ?? ""
         let dateTo = ctx.getQuery("date_to") ?? ""
 
+        // 处理语言参数（用于标签翻译）
+        let lang = ctx.getQuery("lang") ?? ""
+
         // 解析分页参数
         let start = try {
             Int32.parse(startStr)
@@ -113,12 +116,19 @@ public class SearchController {
                             case None => tankFavoriteTime = ""
                         }
 
+                        // 翻译标签
+                        let translatedTags = if (lang.size > 0) {
+                            TagDao.translateTagsString(agg.tags, lang)
+                        } else {
+                            agg.tags
+                        }
+
                         tanksJson += "{"
                         tanksJson += "\"type\":\"tankoubon\","
                         tanksJson += "\"tankoubon_id\":\"${escapeJson(agg.tankoubon_id)}\","
                         tanksJson += "\"name\":\"${escapeJson(agg.name)}\","
                         tanksJson += "\"summary\":\"${escapeJson(agg.summary)}\","
-                        tanksJson += "\"tags\":\"${escapeJson(agg.tags)}\","
+                        tanksJson += "\"tags\":\"${escapeJson(translatedTags)}\","
                         tanksJson += "\"archives\":${archivesJson},"
                         tanksJson += "\"pagecount\":${agg.pagecount},"
                         tanksJson += "\"progress\":${agg.progress},"
@@ -254,13 +264,20 @@ public class SearchController {
                         }
                         tankoubonArchivesJson += "]"
 
+                        // 翻译标签
+                        let translatedTankTags = if (lang.size > 0) {
+                            TagDao.translateTagsString(tankoubon.tags, lang)
+                        } else {
+                            tankoubon.tags
+                        }
+
                         // 添加Tankoubon条目
                         archivesJson += "{"
                         archivesJson = archivesJson + "\"type\":\"tankoubon\","
                         archivesJson = archivesJson + "\"tankoubon_id\":\"${escapeJson(tankoubon.tankoubon_id)}\","
                         archivesJson = archivesJson + "\"name\":\"${escapeJson(tankoubon.name)}\","
                         archivesJson = archivesJson + "\"summary\":\"${escapeJson(tankoubon.summary)}\","
-                        archivesJson = archivesJson + "\"tags\":\"${escapeJson(tankoubon.tags)}\","
+                        archivesJson = archivesJson + "\"tags\":\"${escapeJson(translatedTankTags)}\","
                         archivesJson = archivesJson + "\"archives\":${tankoubonArchivesJson},"
                         archivesJson = archivesJson + "\"pagecount\":${tankoubon.pagecount},"
                         archivesJson = archivesJson + "\"progress\":${tankoubon.progress},"
@@ -336,6 +353,13 @@ public class SearchController {
                 }
             }
 
+            // 翻译标签
+            let translatedArchiveTags = if (lang.size > 0) {
+                TagDao.translateTagsString(archive.tags, lang)
+            } else {
+                archive.tags
+            }
+
             archivesJson += "{"
             archivesJson = archivesJson + "\"type\":\"archive\","
             archivesJson = archivesJson + "\"arcid\":\"${escapeJson(archive.id)}\","
@@ -349,7 +373,7 @@ public class SearchController {
             archivesJson = archivesJson + "\"progress\":${progress},"
             archivesJson = archivesJson + "\"size\":${archive.size()},"
             archivesJson = archivesJson + "\"summary\":\"${escapeJson(archive.summary)}\","
-            archivesJson = archivesJson + "\"tags\":\"${escapeJson(archive.tags)}\","
+            archivesJson = archivesJson + "\"tags\":\"${escapeJson(translatedArchiveTags)}\","
             archivesJson = archivesJson + "\"title\":\"${escapeJson(archive.title)}\""
             archivesJson += "}"
         }
@@ -368,6 +392,7 @@ public class SearchController {
         let countStr = ctx.getQuery("count") ?? "5"
         let newOnlyStr = ctx.getQuery("newonly") ?? "false"
         let untaggedOnlyStr = ctx.getQuery("untaggedonly") ?? "false"
+        let lang = ctx.getQuery("lang") ?? ""
 
         let count = try {
             Int32.parse(countStr)
@@ -446,6 +471,13 @@ public class SearchController {
                 }
             }
 
+            // 翻译标签
+            let translatedRandomTags = if (lang.size > 0) {
+                TagDao.translateTagsString(archive.tags, lang)
+            } else {
+                archive.tags
+            }
+
             archivesJson += "{"
             archivesJson = archivesJson + "\"arcid\":\"${escapeJson(archive.id)}\","
             archivesJson = archivesJson + "\"extension\":\"${escapeJson(archive.extension())}\","
@@ -457,7 +489,7 @@ public class SearchController {
             archivesJson = archivesJson + "\"progress\":${progress},"
             archivesJson = archivesJson + "\"size\":${archive.size()},"
             archivesJson = archivesJson + "\"summary\":\"${escapeJson(archive.summary)}\","
-            archivesJson = archivesJson + "\"tags\":\"${escapeJson(archive.tags)}\","
+            archivesJson = archivesJson + "\"tags\":\"${escapeJson(translatedRandomTags)}\","
             archivesJson = archivesJson + "\"title\":\"${escapeJson(archive.title)}\""
             archivesJson += "}"
         }

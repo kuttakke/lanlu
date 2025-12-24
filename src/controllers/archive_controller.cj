@@ -120,6 +120,7 @@ public class ArchiveController {
     // GET /api/archives/{id}/metadata
     public static func getMetadata(ctx: JoyContext): Unit {
         let id = ctx.getParam("id").getOrThrow()
+        let lang = ctx.getQuery("lang") ?? ""
 
         // 检查ID是否为空
         if (id.size == 0) {
@@ -169,9 +170,14 @@ public class ArchiveController {
         metadataJson += "\"title\":\"${archive.title}\","
         metadataJson += "\"filename\":\"${archive.filename}\","
         metadataJson += "\"summary\":\"${archive.summary}\","
-        // 从标签关联表获取实际标签数据
+        // 从标签关联表获取实际标签数据，并根据lang参数翻译
         let tagsString = TagDao.getArchiveTags(archive.id)
-        metadataJson += "\"tags\":\"${tagsString}\","
+        let translatedTags = if (lang.size > 0) {
+            TagDao.translateTagsString(tagsString, lang)
+        } else {
+            tagsString
+        }
+        metadataJson += "\"tags\":\"${translatedTags}\","
         metadataJson += "\"isnew\":${isNew},"  // 查询用户级别的 isNew 状态
         metadataJson += "\"isfavorite\":${isFavorite},"  // 查询用户级别的收藏状态
         metadataJson += "\"pagecount\":${archive.pagecount},"
@@ -191,7 +197,8 @@ public class ArchiveController {
     // PUT /api/archives/{id}/metadata
     public static func updateMetadata(ctx: JoyContext): Unit {
         let id = ctx.getParam("id").getOrThrow()
-        
+        let lang = ctx.getQuery("lang") ?? ""
+
         // 检查ID是否为空
         if (id.size == 0) {
             let errorResponse = "{\"operation\":\"update_metadata\",\"error\":\"No archive ID specified.\",\"success\":0}"
@@ -199,7 +206,7 @@ public class ArchiveController {
             ctx.json(errorResponse)
             return
         }
-        
+
         // 获取查询参数
         let titleParam = ctx.getQuery("title")
         let tagsParam = ctx.getQuery("tags")
@@ -244,8 +251,14 @@ public class ArchiveController {
             // 如果有标签参数，更新标签
             match (tagsParam) {
                 case Some(tags) =>
+                    // 如果提供了lang参数，需要将翻译后的标签还原为原始标签
+                    let originalTags = if (lang.size > 0) {
+                        TagDao.reverseTranslateTagsString(tags, lang)
+                    } else {
+                        tags
+                    }
                     // 使用TagDao更新标签
-                    let tagUpdateSuccess = TagDao.updateArchiveTags(id, tags)
+                    let tagUpdateSuccess = TagDao.updateArchiveTags(id, originalTags)
                     if (!tagUpdateSuccess) {
                         println("Failed to update tags for archive ${id}")
                     }

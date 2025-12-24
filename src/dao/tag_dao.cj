@@ -795,6 +795,105 @@ public class TagDao {
         }
     }
 
+    /**
+     * 翻译标签字符串（用于API返回）
+     * 将逗号分隔的标签字符串翻译为指定语言，格式为 "namespace:翻译文本"
+     * @param tagsString 原始标签字符串（逗号分隔，namespace:name 格式）
+     * @param lang 语言代码
+     * @return 翻译后的标签字符串
+     */
+    public static func translateTagsString(tagsString: String, lang: String): String {
+        if (tagsString.size == 0 || lang.size == 0) {
+            return tagsString
+        }
+
+        let tags = parseTagsString(tagsString)
+        if (tags.size == 0) {
+            return tagsString
+        }
+
+        // 获取翻译映射
+        let translationsMap = batchGetTranslations(tags.toArray(), lang)
+
+        // 构建翻译后的标签字符串
+        var translatedTags: ArrayList<String> = ArrayList<String>()
+        for (tag in tags) {
+            let (namespace, name) = parseTagName(tag)
+            // 查找翻译
+            match (translationsMap.get(tag)) {
+                case Some(translatedText) =>
+                    // 有翻译：namespace:翻译文本
+                    if (namespace.size > 0) {
+                        translatedTags.add("${namespace}:${translatedText}")
+                    } else {
+                        translatedTags.add(translatedText)
+                    }
+                case None =>
+                    // 无翻译：保持原样 namespace:name
+                    translatedTags.add(tag)
+            }
+        }
+
+        return String.join(translatedTags.toArray(), delimiter: ", ")
+    }
+
+    /**
+     * 反向翻译标签字符串（用于后端存储）
+     * 将翻译后的标签字符串还原为原始标签字符串，格式为 "namespace:原始name"
+     * @param translatedTagsString 翻译后的标签字符串（逗号分隔，namespace:翻译文本 或 namespace:原始name）
+     * @param lang 语言代码
+     * @return 原始标签字符串
+     */
+    public static func reverseTranslateTagsString(translatedTagsString: String, lang: String): String {
+        if (translatedTagsString.size == 0 || lang.size == 0) {
+            return translatedTagsString
+        }
+
+        let tags = parseTagsString(translatedTagsString)
+        if (tags.size == 0) {
+            return translatedTagsString
+        }
+
+        // 获取所有标签的翻译映射
+        let allTags = listAllTagNames()
+        let allTranslationsMap = batchGetTranslations(allTags, lang)
+
+        // 构建反向映射：翻译文本 -> 原始标签
+        var reverseMap: HashMap<String, String> = HashMap<String, String>()
+        for ((originalTag, translatedText) in allTranslationsMap) {
+            let (namespace, name) = parseTagName(originalTag)
+            let key = if (namespace.size > 0) {
+                "${namespace}:${translatedText}"
+            } else {
+                translatedText
+            }
+            reverseMap[key] = originalTag
+        }
+
+        // 构建还原后的标签字符串
+        var originalTags: ArrayList<String> = ArrayList<String>()
+        for (translatedTag in tags) {
+            let (namespace, translatedText) = parseTagName(translatedTag)
+            // 尝试反向查找
+            let lookupKey = if (namespace.size > 0) {
+                "${namespace}:${translatedText}"
+            } else {
+                translatedText
+            }
+
+            match (reverseMap.get(lookupKey)) {
+                case Some(originalTag) =>
+                    // 找到原始标签
+                    originalTags.add(originalTag)
+                case None =>
+                    // 没找到，可能是原始标签（无翻译）或无法识别，保持原样
+                    originalTags.add(translatedTag)
+            }
+        }
+
+        return String.join(originalTags.toArray(), delimiter: ", ")
+    }
+
     // ============ 翻译搜索方法 ============
 
     /**
