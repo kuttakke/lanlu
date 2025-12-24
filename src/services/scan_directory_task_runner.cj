@@ -139,15 +139,8 @@ public class ScanDirectoryTaskRunner {
                 getLogger("scan_directory").debug("Archive not found in database, will process: ${filePath}")
         }
 
-        // 获取配置
-        let archiveBasePath = archivePath.toString()
-        let cachePathStr = cachePath.toString()
-        let thumbnailPathStr = thumbnailPath.toString()
-
-        // 检测归档类型
-        let archiveType = detectArchiveType(filePath)
-
-        let params = "{\"archive_path\":\"${escapeJson(filePath)}\",\"archive_base_path\":\"${escapeJson(archiveBasePath)}\",\"cache_path\":\"${escapeJson(cachePathStr)}\",\"thumbnail_path\":\"${escapeJson(thumbnailPathStr)}\",\"archive_type\":\"${archiveType}\"}"
+        // 只传递archive_path，让scan_archive自己获取其他配置
+        let params = "{\"archive_path\":\"${escapeJson(filePath)}\"}"
         let childTask = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, priority, groupId, triggerSource)
         if (childTask.id > 0) {
             TaskPoolService.getInstance().notifyTaskAvailable()

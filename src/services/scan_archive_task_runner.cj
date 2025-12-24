@@ -157,7 +157,9 @@ public class ScanArchiveTaskRunner {
 
     private static func processArchiveInternal(filePath: String, config: ArchiveConfig): ProcessResultData {
         try {
-            let relativePath = ArchiveUtils.calculateRelativePath(filePath, config.archivePath)
+            // 从系统配置获取archive_base_path
+            let archiveBasePath = SystemSettingsService.getPath("ARCHIVE_PATH")
+            let relativePath = ArchiveUtils.calculateRelativePath(filePath, archiveBasePath)
             let fileName = ArchiveUtils.getFullFileName(filePath)
             let existingArchive = ArchiveDao.getByPathAndFilename(relativePath, fileName)
 
@@ -191,17 +193,20 @@ public class ScanArchiveTaskRunner {
                     logger.debug("Archive not found in database, processing new file: ${filePath}")
             }
 
+            // 自动检测archive_type
+            let archiveType = detectArchiveTypeFromPath(filePath)
+
             // 根据 archive_type 进行不同处理
             var pageCount: Int32 = 0
 
-            if (config.archiveType == "folder") {
+            if (archiveType == "folder") {
                 // 文件夹类型：直接遍历文件夹中的图片文件
                 pageCount = countImagesInFolder(filePath)
                 logger.info("Folder ${filePath} contains ${pageCount} images")
-            } else if (config.archiveType == "pdf") {
+            } else if (archiveType == "pdf") {
                 pageCount = ArchiveUtils.getPdfPageCount(filePath)
                 logger.info("PDF file: ${filePath}, page count: ${pageCount}")
-            } else if (config.archiveType == "archive") {
+            } else if (archiveType == "archive") {
                 // 压缩包类型：使用现有逻辑
                 let entries = ArchiveUtils.listArchiveEntries(filePath)
                 for (entry in entries) {
@@ -212,7 +217,7 @@ public class ScanArchiveTaskRunner {
                 logger.info("Archive ${filePath} contains ${pageCount} images")
             } else {
                 // 未知类型，按压缩包处理
-                logger.warn("Unknown archive type: ${config.archiveType}, treating as archive")
+                logger.warn("Unknown archive type: ${archiveType}, treating as archive")
                 let entries = ArchiveUtils.listArchiveEntries(filePath)
                 for (entry in entries) {
                     if (ArchiveUtils.isImageFile(entry)) {
@@ -222,7 +227,7 @@ public class ScanArchiveTaskRunner {
                 logger.info("Archive ${filePath} contains ${pageCount} images")
             }
 
-            let dbResult = addArchiveToDatabase(filePath, config)
+            let dbResult = addArchiveToDatabase(filePath, archiveBasePath)
             if (!dbResult.success) {
                 return dbResult
             }
@@ -233,7 +238,7 @@ public class ScanArchiveTaskRunner {
             }
 
             // 提交缩略图生成任务（异步）
-            let taskSubmitted = submitThumbnailTask(filePath, dbResult.archiveId, config.archiveType)
+            let taskSubmitted = submitThumbnailTask(filePath, dbResult.archiveId, archiveType)
             if (!taskSubmitted) {
                 logger.error("Failed to submit thumbnail generation task for archive: ${dbResult.archiveId}")
             }
@@ -244,7 +249,7 @@ public class ScanArchiveTaskRunner {
         }
     }
 
-    private static func addArchiveToDatabase(filePath: String, config: ArchiveConfig): ProcessResultData {
+    private static func addArchiveToDatabase(filePath: String, archiveBasePath: String): ProcessResultData {
         try {
             let archiveId = ArchiveUtils.generateArchiveId(filePath)
 
@@ -253,9 +258,12 @@ public class ScanArchiveTaskRunner {
             let fileSize = ArchiveUtils.getArchiveFileSize(filePath)
             let fileModTime = ArchiveUtils.getArchiveFileModTime(filePath)
 
-            let relativePath = ArchiveUtils.calculateRelativePath(filePath, config.archivePath)
+            let relativePath = ArchiveUtils.calculateRelativePath(filePath, archiveBasePath)
 
-            let success = ArchiveDao.insertArchive(archiveId, defaultTitle, fileName, fileSize, fileModTime, relativePath, config.archiveType)
+            // 自动检测archive_type
+            let archiveType = detectArchiveTypeFromPath(filePath)
+
+            let success = ArchiveDao.insertArchive(archiveId, defaultTitle, fileName, fileSize, fileModTime, relativePath, archiveType)
             if (!success) {
                 return ProcessResultData(false, "", "Failed to create archive record in database")
             }
