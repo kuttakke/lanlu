@@ -222,16 +222,27 @@ public class ArchiveDao {
                 let searchResult = SearchFilter.parse(filter)
                 var filterParams: ArrayList<String> = ArrayList<String>()
 
-                // 处理普通搜索词（支持通配符）
+                // 处理普通搜索词（支持通配符和翻译搜索）
                 if (searchResult.terms.size > 0) {
                     var termConditions: ArrayList<String> = ArrayList<String>()
                     for (term in searchResult.terms) {
                         let pattern = SearchFilter.toLikePattern(term)
-                        termConditions.add("(title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')")
+                        // 原有的字段匹配条件
+                        var fieldCondition = "(title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\'"
                         filterParams.add(pattern)
                         filterParams.add(pattern)
                         filterParams.add(pattern)
                         filterParams.add(pattern)
+
+                        // 查询翻译匹配的标签，添加 OR 条件
+                        let translatedTags = TagDao.findTagsByTranslation(term)
+                        for (tagName in translatedTags) {
+                            fieldCondition += " OR tags LIKE ? ESCAPE '\\'"
+                            filterParams.add("%" + tagName + "%")
+                        }
+
+                        fieldCondition += ")"
+                        termConditions.add(fieldCondition)
                     }
                     if (termConditions.size > 0) {
                         var combined = ""
@@ -245,48 +256,113 @@ public class ArchiveDao {
                     }
                 }
 
-                // 处理精确短语（引号内的内容）
+                // 处理精确短语（引号内的内容，支持翻译搜索）
                 if (searchResult.exactTerms.size > 0) {
                     for (phrase in searchResult.exactTerms) {
                         let pattern = SearchFilter.toLikePattern(phrase)
-                        whereConditions.add("(title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')")
+                        var fieldCondition = "(title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\'"
                         filterParams.add(pattern)
                         filterParams.add(pattern)
                         filterParams.add(pattern)
                         filterParams.add(pattern)
+
+                        // 查询翻译匹配的标签
+                        let translatedTags = TagDao.findTagsByTranslation(phrase)
+                        for (tagName in translatedTags) {
+                            fieldCondition += " OR tags LIKE ? ESCAPE '\\'"
+                            filterParams.add("%" + tagName + "%")
+                        }
+
+                        fieldCondition += ")"
+                        whereConditions.add(fieldCondition)
                     }
                 }
 
-                // 处理排除词
+                // 处理排除词（支持翻译搜索）
                 if (searchResult.excludeTerms.size > 0) {
                     for (excludeTerm in searchResult.excludeTerms) {
                         let pattern = SearchFilter.toLikePattern(excludeTerm)
-                        whereConditions.add("NOT (title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')")
+                        var fieldCondition = "(title LIKE ? ESCAPE '\\' OR filename LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\'"
                         filterParams.add(pattern)
                         filterParams.add(pattern)
                         filterParams.add(pattern)
                         filterParams.add(pattern)
+
+                        // 查询翻译匹配的标签
+                        let translatedTags = TagDao.findTagsByTranslation(excludeTerm)
+                        for (tagName in translatedTags) {
+                            fieldCondition += " OR tags LIKE ? ESCAPE '\\'"
+                            filterParams.add("%" + tagName + "%")
+                        }
+
+                        fieldCondition += ")"
+                        whereConditions.add("NOT " + fieldCondition)
                     }
                 }
 
-                // 处理精确标签
+                // 处理精确标签（支持翻译搜索）
                 if (searchResult.exactTagTerms.size > 0) {
                     for (tagTerm in searchResult.exactTagTerms) {
                         // 精确标签匹配：标签必须完全匹配（不区分大小写）
                         // 标签格式可能是 "namespace:name" 或 "name"
-                        whereConditions.add("(LOWER(tags) LIKE LOWER(?) ESCAPE '\\' OR LOWER(tags) LIKE LOWER(?) ESCAPE '\\')")
-                        // 匹配 "namespace:name," 或 ", namespace:name" 或开头/结尾
+                        var tagConditions: ArrayList<String> = ArrayList<String>()
+
+                        // 原有的精确匹配条件
+                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
+                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
                         filterParams.add("%, " + tagTerm + ",%")
                         filterParams.add(tagTerm + ",%")
+
+                        // 查询翻译精确匹配的标签
+                        let translatedTags = TagDao.findTagsByExactTranslation(tagTerm)
+                        for (matchedTag in translatedTags) {
+                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
+                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
+                            filterParams.add("%, " + matchedTag + ",%")
+                            filterParams.add(matchedTag + ",%")
+                        }
+
+                        // 组合所有条件
+                        var combined = ""
+                        for (i in 0..tagConditions.size) {
+                            if (i > 0) {
+                                combined += " OR "
+                            }
+                            combined += tagConditions[i]
+                        }
+                        whereConditions.add("(" + combined + ")")
                     }
                 }
 
-                // 处理排除的精确标签
+                // 处理排除的精确标签（支持翻译搜索）
                 if (searchResult.exactTagExcludeTerms.size > 0) {
                     for (tagTerm in searchResult.exactTagExcludeTerms) {
-                        whereConditions.add("NOT (LOWER(tags) LIKE LOWER(?) ESCAPE '\\' OR LOWER(tags) LIKE LOWER(?) ESCAPE '\\')")
+                        var tagConditions: ArrayList<String> = ArrayList<String>()
+
+                        // 原有的精确匹配条件
+                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
+                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
                         filterParams.add("%, " + tagTerm + ",%")
                         filterParams.add(tagTerm + ",%")
+
+                        // 查询翻译精确匹配的标签
+                        let translatedTags = TagDao.findTagsByExactTranslation(tagTerm)
+                        for (matchedTag in translatedTags) {
+                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
+                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
+                            filterParams.add("%, " + matchedTag + ",%")
+                            filterParams.add(matchedTag + ",%")
+                        }
+
+                        // 组合所有条件
+                        var combined = ""
+                        for (i in 0..tagConditions.size) {
+                            if (i > 0) {
+                                combined += " OR "
+                            }
+                            combined += tagConditions[i]
+                        }
+                        whereConditions.add("NOT (" + combined + ")")
                     }
                 }
                 
