@@ -445,6 +445,14 @@ public class ArchiveController {
         if (archive.archive_type == "folder") {
             // 文件夹类型：使用DirectoryScanner列出文件
             entries = DirectoryScanner.listDirectory(actualPath)
+        } else if (archive.archive_type == "pdf") {
+            // PDF类型：生成页面列表（page_1.jpg, page_2.jpg, ...）
+            let pageCount = archive.pagecount
+            var pageList = ArrayList<String>()
+            for (i in 1..pageCount + 1) {
+                pageList.add("page_${i}.jpg")
+            }
+            entries = pageList.toArray()
         } else {
             // 压缩包类型：使用ArchiveUtils列出文件
             entries = ArchiveUtils.listArchiveEntries(actualPath)
@@ -722,6 +730,54 @@ public class ArchiveController {
                         ctx.header("Content-Type", contentType)
                         ctx.status(HttpStatusCode.STATUS_OK)
                         ctx.data(fileData)
+                    } else if (archive.archive_type == "pdf") {
+                        // PDF类型：提取指定页面
+                        // 从路径中提取页码（格式：page_1.jpg）
+                        let pageNumber = extractPageNumberFromPath(path)
+                        if (pageNumber < 1) {
+                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Invalid page number in path\",\"success\":0}"
+                            ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+                            ctx.json(errorResponse)
+                            return
+                        }
+
+                        // 使用临时文件方式提取页面（避免stdout阻塞）
+                        let cachePath = SystemSettingsService.getPath("CACHE_PATH")
+                        let tempOutputPath = "${cachePath}/temp_pdf_${id}_${pageNumber}.jpg"
+
+                        let success = ArchiveUtils.extractPdfPage(actualPath, pageNumber, tempOutputPath)
+
+                        if (success) {
+                            // 读取临时文件
+                            let fileData = File.readFrom(Path(tempOutputPath))
+                            let contentSize = fileData.size
+
+                            // 删除临时文件
+                            try {
+                                remove(Path(tempOutputPath))
+                            } catch (_: Exception) {}
+
+                            // 生成 ETag（基于归档ID、页码和内容大小）
+                            let etag = CacheUtils.generateETag("${id}-${pageNumber}-${contentSize}")
+
+                            // 检查条件请求 - If-None-Match
+                            if (CacheUtils.checkIfNoneMatch(ctx, etag)) {
+                                CacheUtils.sendNotModifiedDynamic(ctx, etag)
+                                return
+                            }
+
+                            // 设置缓存头
+                            CacheUtils.setDynamicCacheHeaders(ctx, etag)
+
+                            // 设置Content-Type为JPEG
+                            ctx.header("Content-Type", "image/jpeg")
+                            ctx.status(HttpStatusCode.STATUS_OK)
+                            ctx.data(fileData)
+                        } else {
+                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Failed to extract PDF page\",\"success\":0}"
+                            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                            ctx.json(errorResponse)
+                        }
                     } else {
                         // 压缩包类型：使用 bsdtar 的 -xO 选项直接输出到标准输出
                         let (exitCode, stdout, stderr) = ArchiveUtils.extractArchiveEntryToStream(actualPath, path)
@@ -783,6 +839,41 @@ public class ArchiveController {
             return "image/webp"
         } else {
             return "application/octet-stream"
+        }
+    }
+
+    /**
+     * 从路径中提取页码（格式：page_1.jpg）
+     */
+    private static func extractPageNumberFromPath(path: String): Int32 {
+        try {
+            // 路径格式：page_1.jpg 或 page_001.jpg
+            // 提取文件名部分
+            let parts = path.split("/")
+            let fileName = if (parts.size > 0) { parts[parts.size - 1] } else { path }
+
+            // 提取页码（page_1.jpg -> 1）
+            if (fileName.startsWith("page_")) {
+                let withoutPrefix = fileName[5..]  // 移除 "page_"
+                
+                let dotIndexOpt = withoutPrefix.indexOf(".")
+                match (dotIndexOpt) {
+                    case Some(dotIndex) =>
+                        if (dotIndex > 0) {
+                            let numberStr = withoutPrefix[0..dotIndex]
+                            let result = try {
+                                Int32.parse(numberStr)
+                            } catch (_: Exception) {
+                                -1i32
+                            }
+                            return result
+                        }
+                    case None => ()
+                }
+            }
+            return -1
+        } catch (_: Exception) {
+            return -1
         }
     }
 

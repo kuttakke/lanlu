@@ -199,10 +199,8 @@ public class ScanArchiveTaskRunner {
                 pageCount = countImagesInFolder(filePath)
                 logger.info("Folder ${filePath} contains ${pageCount} images")
             } else if (config.archiveType == "pdf") {
-                // PDF类型：需要解析PDF页数（TODO: 实现PDF解析）
-                // 暂时设置为0，实际应该调用PDF解析工具
-                pageCount = 0
-                logger.info("PDF file: ${filePath}, page count will be updated later")
+                pageCount = ArchiveUtils.getPdfPageCount(filePath)
+                logger.info("PDF file: ${filePath}, page count: ${pageCount}")
             } else if (config.archiveType == "archive") {
                 // 压缩包类型：使用现有逻辑
                 let entries = ArchiveUtils.listArchiveEntries(filePath)

@@ -658,4 +658,95 @@ public class ArchiveUtils {
         result += "'"
         return result
     }
+
+    /**
+     * 获取PDF文件的页数
+     * 使用GhostScript命令: gs -q -dNOSAFER -sDEVICE=jpeg -f "$pdf_path" -c "pdfpagecount = quit"
+     */
+    public static func getPdfPageCount(pdfPath: String): Int32 {
+        try {
+            logger.info("Getting PDF page count", ("pdf_path", pdfPath))
+            let quotedPath = shellQuote(pdfPath)
+            let command = "gs -q -dNOSAFER -sDEVICE=nullpage -c '(${quotedPath}) (r) file runpdfbegin pdfpagecount = quit'"
+            logger.info("Executing command", ("command", command))
+            let (exitCode, stdout, stderr) = executeShellCommand(command)
+
+            if (exitCode == 0 && stdout.size > 0) {
+                let output = String.fromUtf8(stdout)
+                let trimmed = output.trimAscii()
+                let pageCount = try {
+                    Int32.parse(trimmed)
+                } catch (_: Exception) {
+                    0i32
+                }
+                logger.info("PDF page count", ("pdf_path", pdfPath), ("page_count", pageCount.toString()))
+                return pageCount
+            } else {
+                let error = String.fromUtf8(stderr)
+                logger.error("Failed to get PDF page count", ("pdf_path", pdfPath), ("error", error))
+                return 0i32
+            }
+        } catch (e: Exception) {
+            logger.error("Exception getting PDF page count", ("pdf_path", pdfPath), ("exception", e.message))
+            return 0i32
+        }
+    }
+
+    /**
+     * 从PDF文件中提取指定页面为JPEG图片
+     * 使用GhostScript命令: gs -dNOPAUSE -dFirstPage=$page -dLastPage=$page -sDEVICE=jpeg -r200 -o "outfile" "archive.pdf"
+     * @param pdfPath PDF文件路径
+     * @param pageNumber 页码（从1开始）
+     * @param outputPath 输出图片路径
+     * @return 是否成功提取
+     */
+    public static func extractPdfPage(pdfPath: String, pageNumber: Int32, outputPath: String): Bool {
+        try {
+            logger.info("Extracting PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("output_path", outputPath))
+
+            // 确保输出目录存在
+            let outputDir = getParentDirectory(outputPath)
+            if (!directoryExists(outputDir)) {
+                Directory.create(outputDir, recursive: true)
+            }
+
+            let quotedPdfPath = shellQuote(pdfPath)
+            let quotedOutputPath = shellQuote(outputPath)
+            let command = "gs -dNOPAUSE -dFirstPage=${pageNumber} -dLastPage=${pageNumber} -sDEVICE=jpeg -r200 -o ${quotedOutputPath} ${quotedPdfPath}"
+            logger.info("Executing command", ("command", command))
+            let (exitCode, _, stderr) = executeShellCommand(command)
+
+            if (exitCode == 0) {
+                logger.info("Successfully extracted PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()))
+                return true
+            } else {
+                let error = String.fromUtf8(stderr)
+                logger.error("Failed to extract PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("error", error))
+                return false
+            }
+        } catch (e: Exception) {
+            logger.error("Exception extracting PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("exception", e.message))
+            return false
+        }
+    }
+
+    /**
+     * 从PDF文件中提取指定页面到内存流
+     * @param pdfPath PDF文件路径
+     * @param pageNumber 页码（从1开始）
+     * @return (exitCode, stdout, stderr)
+     */
+    public static func extractPdfPageToStream(pdfPath: String, pageNumber: Int32): (Int64, Array<UInt8>, Array<UInt8>) {
+        try {
+            logger.info("Extracting PDF page to stream", ("pdf_path", pdfPath), ("page", pageNumber.toString()))
+            let quotedPdfPath = shellQuote(pdfPath)
+            let command = "gs -dNOPAUSE -dFirstPage=${pageNumber} -dLastPage=${pageNumber} -sDEVICE=jpeg -r200 -sOutputFile=- ${quotedPdfPath}"
+            logger.info("Executing command", ("command", command))
+            let result = executeShellCommand(command)
+            return result
+        } catch (e: Exception) {
+            logger.error("Exception extracting PDF page to stream", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("exception", e.message))
+            return (1, [], [])
+        }
+    }
 }

@@ -106,6 +106,9 @@ public class GenerateThumbnailTaskRunner {
         let copySuccess = if (archiveType == "folder") {
             // 文件夹类型：直接复制文件
             copyImageFile(imageFilePath, tempImagePath)
+        } else if (archiveType == "pdf") {
+            // PDF类型：提取第一页
+            ArchiveUtils.extractPdfPage(actualArchivePath, 1, tempImagePath)
         } else {
             // 压缩包类型：从归档中提取
             ArchiveUtils.extractArchiveEntry(actualArchivePath, firstImageEntry, tempImagePath)
@@ -317,7 +320,11 @@ public class GenerateThumbnailTaskRunner {
      * imageFilePath: 图片文件的完整路径（用于文件夹类型）
      */
     private static func getFirstImageForThumbnail(taskId: Int64, archivePath: String, archiveType: String, archiveId: String): (String, String) {
-        if (archiveType == "folder") {
+        if (archiveType == "pdf") {
+            // PDF类型：直接返回第一页的占位符
+            TaskIO.appendLog(taskId, "PDF archive: will extract first page")
+            return ("page_1.jpg", "")
+        } else if (archiveType == "folder") {
             // 文件夹类型：列出文件夹中的文件
             TaskIO.appendLog(taskId, "Listing files in folder: ${archivePath}")
             let entries = DirectoryScanner.listDirectory(archivePath)
