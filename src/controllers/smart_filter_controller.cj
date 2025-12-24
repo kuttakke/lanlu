@@ -55,11 +55,20 @@ public class SmartFilterController {
         }
     }
 
+    private static func getJsonObjectString(obj: JsonObject, key: String): String {
+        let fields = obj.getFields()
+        if (!fields.contains(key)) { return "{}" }
+        match (fields[key]) {
+            case o: JsonObject => return o.toJsonString()
+            case _ => return "{}"
+        }
+    }
+
     private static func filterToJson(filter: SmartFilterData): String {
         var json = "{"
         json += "\"id\":${filter.id.toString()},"
         json += "\"name\":\"${escapeJsonString(filter.name)}\","
-        json += "\"name_en\":\"${escapeJsonString(filter.name_en)}\","
+        json += "\"translations\":${filter.translations},"
         json += "\"icon\":\"${escapeJsonString(filter.icon)}\","
         json += "\"query\":\"${escapeJsonString(filter.query)}\","
         json += "\"sort_by\":\"${escapeJsonString(filter.sort_by)}\","
@@ -161,7 +170,7 @@ public class SmartFilterController {
             match (json) {
                 case obj: JsonObject =>
                     filter.name = getJsonString(obj, "name")
-                    filter.name_en = getJsonString(obj, "name_en")
+                    filter.translations = getJsonObjectString(obj, "translations")
                     filter.icon = getJsonString(obj, "icon")
                     filter.query = getJsonString(obj, "query")
                     filter.sort_by = getJsonString(obj, "sort_by")
@@ -248,7 +257,7 @@ public class SmartFilterController {
             match (json) {
                 case obj: JsonObject =>
                     filter.name = getJsonString(obj, "name")
-                    filter.name_en = getJsonString(obj, "name_en")
+                    filter.translations = getJsonObjectString(obj, "translations")
                     filter.icon = getJsonString(obj, "icon")
                     filter.query = getJsonString(obj, "query")
                     filter.sort_by = getJsonString(obj, "sort_by")

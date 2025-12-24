@@ -67,7 +67,7 @@ public class TankoubonModel {
         var tankoubons: ArrayList<Tankoubon> = ArrayList<Tankoubon>()
 
         for (data in daoData) {
-            tankoubons.add(Tankoubon(data.tankoubon_id, data.name, data.summary, data.tags, data.archives))
+            tankoubons.add(Tankoubon(data.tankoubon_id, data.name, data.summary, "", data.archives))
         }
 
         return tankoubons.toArray()
@@ -94,7 +94,7 @@ public class TankoubonModel {
     }
 
     private static func buildTankoubonFromData(data: TankoubonData): Tankoubon {
-        let tankoubon = Tankoubon(data.tankoubon_id, data.name, data.summary, data.tags, data.archives)
+        let tankoubon = Tankoubon(data.tankoubon_id, data.name, data.summary, "", data.archives)
         let (archiveCount, totalPages) = TankoubonDao.getTankoubonArchiveStats(data.tankoubon_id)
         tankoubon.archive_count = archiveCount
         tankoubon.pagecount = totalPages

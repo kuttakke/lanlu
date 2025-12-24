@@ -16,7 +16,6 @@ public class TankoubonData {
     public var tankoubon_id: String = ""
     public var name: String = ""
     public var summary: String = ""
-    public var tags: String = ""
     public var created_at: String = ""
     public var updated_at: String = ""
     public var archives: Array<String> = Array<String>()  // Array of archive arcids
@@ -53,7 +52,7 @@ public class TankoubonDao {
                 var tankoubons: ArrayList<TankoubonData> = ArrayList<TankoubonData>()
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT id, tankoubon_id, name, summary, tags, created_at, updated_at FROM tankoubons ORDER BY id")
+                        "SELECT id, tankoubon_id, name, summary, created_at, updated_at FROM tankoubons ORDER BY id")
                     try {
                         let rs = stmt.query()
                         try {
@@ -63,9 +62,8 @@ public class TankoubonDao {
                                 tankoubon.tankoubon_id = rs.getOrNull<String>(1) ?? ""
                                 tankoubon.name = rs.getOrNull<String>(2) ?? ""
                                 tankoubon.summary = rs.getOrNull<String>(3) ?? ""
-                                tankoubon.tags = rs.getOrNull<String>(4) ?? ""
-                                tankoubon.created_at = rs.getOrNull<String>(5) ?? ""
-                                tankoubon.updated_at = rs.getOrNull<String>(6) ?? ""
+                                tankoubon.created_at = rs.getOrNull<String>(4) ?? ""
+                                tankoubon.updated_at = rs.getOrNull<String>(5) ?? ""
                                 tankoubon.archives = getArchivesInTankoubon(tankoubon.tankoubon_id)
                                 tankoubons.add(tankoubon)
                             }
@@ -97,7 +95,7 @@ public class TankoubonDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT id, tankoubon_id, name, summary, tags, created_at, updated_at FROM tankoubons WHERE tankoubon_id = ?")
+                        "SELECT id, tankoubon_id, name, summary, created_at, updated_at FROM tankoubons WHERE tankoubon_id = ?")
                     try {
                         stmt.set(0, tankoubonId)
                         let rs = stmt.query()
@@ -108,9 +106,8 @@ public class TankoubonDao {
                                 tankoubon.tankoubon_id = rs.getOrNull<String>(1) ?? ""
                                 tankoubon.name = rs.getOrNull<String>(2) ?? ""
                                 tankoubon.summary = rs.getOrNull<String>(3) ?? ""
-                                tankoubon.tags = rs.getOrNull<String>(4) ?? ""
-                                tankoubon.created_at = rs.getOrNull<String>(5) ?? ""
-                                tankoubon.updated_at = rs.getOrNull<String>(6) ?? ""
+                                tankoubon.created_at = rs.getOrNull<String>(4) ?? ""
+                                tankoubon.updated_at = rs.getOrNull<String>(5) ?? ""
                                 tankoubon.archives = getArchivesInTankoubon(tankoubonId)
                                 return Some(tankoubon)
                             }
@@ -465,7 +462,6 @@ public class TankoubonDao {
                             t.tankoubon_id,
                             t.name,
                             t.summary,
-                            t.tags,
                             COALESCE(SUM(a.pagecount), 0)::INT as total_pagecount,
                             COUNT(a.id)::INT as archive_count,
                             COALESCE(MAX(uas.updated_at)::TEXT, '') as last_read_time,
@@ -476,13 +472,12 @@ public class TankoubonDao {
                         JOIN archives a ON a.id = ta.archive_id
                         LEFT JOIN user_archive_status uas ON uas.archive_id = a.id AND uas.user_id = ?
                         WHERE t.tankoubon_id = ?
-                        GROUP BY t.id, t.tankoubon_id, t.name, t.summary, t.tags
+                        GROUP BY t.id, t.tankoubon_id, t.name, t.summary
                     """)
                     try {
                         stmt.set(0, userId)
                         stmt.set(1, tankoubonId)
                         var dataOpt: Option<TankoubonAggregatedData> = None
-                        var tankoubonTags = ""
 
                         let rs = stmt.query()
                         try {
@@ -491,12 +486,11 @@ public class TankoubonDao {
                                 data.tankoubon_id = rs.getOrNull<String>(0) ?? ""
                                 data.name = rs.getOrNull<String>(1) ?? ""
                                 data.summary = rs.getOrNull<String>(2) ?? ""
-                                tankoubonTags = rs.getOrNull<String>(3) ?? ""
-                                data.pagecount = rs.getOrNull<Int32>(4) ?? 0
-                                data.archive_count = rs.getOrNull<Int32>(5) ?? 0
-                                data.last_read_time = rs.getOrNull<String>(6) ?? ""
-                                data.progress = rs.getOrNull<Int32>(7) ?? 0
-                                data.isnew = rs.getOrNull<Bool>(8) ?? true
+                                data.pagecount = rs.getOrNull<Int32>(3) ?? 0
+                                data.archive_count = rs.getOrNull<Int32>(4) ?? 0
+                                data.last_read_time = rs.getOrNull<String>(5) ?? ""
+                                data.progress = rs.getOrNull<Int32>(6) ?? 0
+                                data.isnew = rs.getOrNull<Bool>(7) ?? true
                                 dataOpt = Some(data)
                             }
                         } finally {
@@ -506,6 +500,7 @@ public class TankoubonDao {
                         // 注意：必须先关闭 ResultSet，再在同一连接上执行后续查询，否则会触发 conn busy
                         match (dataOpt) {
                             case Some(data) =>
+                                let tankoubonTags = getTankoubonTagsForTankoubon(conn, tankoubonId)
                                 let archiveTags = getArchiveTagsForTankoubon(conn, tankoubonId)
                                 data.tags = mergeTags(tankoubonTags, archiveTags)
                                 return Some(data)
@@ -571,6 +566,50 @@ public class TankoubonDao {
             }
         } catch (_: Exception) {}
         return 0
+    }
+
+    /**
+     * 获取Tankoubon自身的标签（从tankoubon_tags关联表）
+     */
+    private static func getTankoubonTagsForTankoubon(conn: Connection, tankoubonId: String): String {
+        try {
+            let stmt = conn.prepareStatement("""
+                SELECT CASE WHEN tg.namespace != '' AND tg.namespace IS NOT NULL
+                            THEN tg.namespace || ':' || tg.name
+                            ELSE tg.name
+                       END as tag_str
+                FROM tankoubon_tags tt
+                JOIN tankoubons t ON t.id = tt.tankoubon_id
+                JOIN tags tg ON tg.id = tt.tag_id
+                WHERE t.tankoubon_id = ?
+            """)
+            try {
+                stmt.set(0, tankoubonId)
+                let rs = stmt.query()
+                try {
+                    var allTags: ArrayList<String> = ArrayList<String>()
+                    while (rs.next()) {
+                        let tag = rs.getOrNull<String>(0) ?? ""
+                        if (tag != "") {
+                            allTags.add(tag)
+                        }
+                    }
+                    var combined = ""
+                    for (i in 0..allTags.size) {
+                        if (i > 0) {
+                            combined += ","
+                        }
+                        combined += allTags[i]
+                    }
+                    return combined
+                } finally {
+                    rs.close()
+                }
+            } finally {
+                stmt.close()
+            }
+        } catch (_: Exception) {}
+        return ""
     }
 
     /**
@@ -655,6 +694,71 @@ public class TankoubonDao {
             isFirst = false
         }
 
+        return result
+    }
+
+    /**
+     * 批量获取Tankoubon自身的标签（从tankoubon_tags关联表）
+     */
+    private static func getBatchTankoubonTagsForTankoubons(conn: Connection, tankoubonIds: Array<String>): HashMap<String, String> {
+        var result: HashMap<String, String> = HashMap<String, String>()
+        if (tankoubonIds.size == 0) {
+            return result
+        }
+
+        try {
+            var placeholders = ""
+            for (i in 0..tankoubonIds.size) {
+                if (i > 0) { placeholders += "," }
+                placeholders += "?"
+            }
+
+            let stmt = conn.prepareStatement("""
+                SELECT t.tankoubon_id,
+                       CASE WHEN tg.namespace != '' AND tg.namespace IS NOT NULL
+                            THEN tg.namespace || ':' || tg.name
+                            ELSE tg.name
+                       END as tag_str
+                FROM tankoubon_tags tt
+                JOIN tankoubons t ON t.id = tt.tankoubon_id
+                JOIN tags tg ON tg.id = tt.tag_id
+                WHERE t.tankoubon_id IN (${placeholders})
+            """)
+            try {
+                for (i in 0..tankoubonIds.size) {
+                    stmt.set(i, tankoubonIds[i])
+                }
+                let rs = stmt.query()
+                try {
+                    var tagsMap: HashMap<String, ArrayList<String>> = HashMap<String, ArrayList<String>>()
+                    while (rs.next()) {
+                        let tid = rs.getOrNull<String>(0) ?? ""
+                        let tag = rs.getOrNull<String>(1) ?? ""
+                        if (tid != "" && tag != "") {
+                            match (tagsMap.get(tid)) {
+                                case Some(list) => list.add(tag)
+                                case None =>
+                                    let list = ArrayList<String>()
+                                    list.add(tag)
+                                    tagsMap[tid] = list
+                            }
+                        }
+                    }
+                    for ((tid, tagsList) in tagsMap) {
+                        var combined = ""
+                        for (i in 0..tagsList.size) {
+                            if (i > 0) { combined += "," }
+                            combined += tagsList[i]
+                        }
+                        result[tid] = combined
+                    }
+                } finally {
+                    rs.close()
+                }
+            } finally {
+                stmt.close()
+            }
+        } catch (_: Exception) {}
         return result
     }
 
@@ -749,7 +853,6 @@ public class TankoubonDao {
                             t.tankoubon_id,
                             t.name,
                             t.summary,
-                            t.tags,
                             COALESCE(SUM(a.pagecount), 0)::INT as total_pagecount,
                             COUNT(a.id)::INT as archive_count,
                             COALESCE(MAX(uas.updated_at)::TEXT, '') as last_read_time,
@@ -760,7 +863,7 @@ public class TankoubonDao {
                         JOIN archives a ON a.id = ta.archive_id
                         LEFT JOIN user_archive_status uas ON uas.archive_id = a.id AND uas.user_id = ?
                         WHERE t.tankoubon_id IN (${placeholders})
-                        GROUP BY t.id, t.tankoubon_id, t.name, t.summary, t.tags
+                        GROUP BY t.id, t.tankoubon_id, t.name, t.summary
                     """)
                     try {
                         stmt.set(0, userId)
@@ -769,7 +872,7 @@ public class TankoubonDao {
                         }
 
                         // 临时存储，用于后续获取标签
-                        var tempData: HashMap<String, (TankoubonAggregatedData, String)> = HashMap<String, (TankoubonAggregatedData, String)>()
+                        var tempData: HashMap<String, TankoubonAggregatedData> = HashMap<String, TankoubonAggregatedData>()
 
                         let rs = stmt.query()
                         try {
@@ -778,22 +881,27 @@ public class TankoubonDao {
                                 data.tankoubon_id = rs.getOrNull<String>(0) ?? ""
                                 data.name = rs.getOrNull<String>(1) ?? ""
                                 data.summary = rs.getOrNull<String>(2) ?? ""
-                                let tankoubonTags = rs.getOrNull<String>(3) ?? ""
-                                data.pagecount = rs.getOrNull<Int32>(4) ?? 0
-                                data.archive_count = rs.getOrNull<Int32>(5) ?? 0
-                                data.last_read_time = rs.getOrNull<String>(6) ?? ""
-                                data.progress = rs.getOrNull<Int32>(7) ?? 0
-                                data.isnew = rs.getOrNull<Bool>(8) ?? true
-                                tempData[data.tankoubon_id] = (data, tankoubonTags)
+                                data.pagecount = rs.getOrNull<Int32>(3) ?? 0
+                                data.archive_count = rs.getOrNull<Int32>(4) ?? 0
+                                data.last_read_time = rs.getOrNull<String>(5) ?? ""
+                                data.progress = rs.getOrNull<Int32>(6) ?? 0
+                                data.isnew = rs.getOrNull<Bool>(7) ?? true
+                                tempData[data.tankoubon_id] = data
                             }
                         } finally {
                             rs.close()
                         }
 
-                        // 批量获取归档标签并合并
+                        // 批量获取 tankoubon 自身标签和归档标签并合并
+                        let tankoubonTagsMap = getBatchTankoubonTagsForTankoubons(conn, tankoubonIds)
                         let archiveTagsMap = getBatchArchiveTagsForTankoubons(conn, tankoubonIds)
-                        for ((tid, (data, tankoubonTags)) in tempData) {
+                        for ((tid, data) in tempData) {
+                            var tankoubonTags = ""
                             var archiveTags = ""
+                            match (tankoubonTagsMap.get(tid)) {
+                                case Some(tags) => tankoubonTags = tags
+                                case None => ()
+                            }
                             match (archiveTagsMap.get(tid)) {
                                 case Some(tags) => archiveTags = tags
                                 case None => ()

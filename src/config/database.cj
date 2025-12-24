@@ -466,9 +466,6 @@ public class DatabaseConfig {
                 try {
                     execUpdate(conn, "CREATE INDEX idx_tags_name ON tags (name)")
                 } catch (_: Exception) {}
-                try {
-                    execUpdate(conn, "CREATE INDEX idx_tags_translations ON tags USING GIN (translations)")
-                } catch (_: Exception) {}
                 logger.info("tags表创建成功")
             } else {
                 logger.info("tags表已存在，检查是否需要迁移到新结构")
@@ -506,9 +503,6 @@ public class DatabaseConfig {
                         } catch (_: Exception) {}
                         try {
                             execUpdate(conn, "CREATE INDEX idx_tags_name ON tags (name)")
-                        } catch (_: Exception) {}
-                        try {
-                            execUpdate(conn, "CREATE INDEX idx_tags_translations ON tags USING GIN (translations)")
                         } catch (_: Exception) {}
                         logger.info("tags表迁移成功")
                     } catch (e: Exception) {
@@ -700,7 +694,7 @@ public class DatabaseConfig {
                     CREATE TABLE smart_filters (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                         name VARCHAR(255) NOT NULL,
-                        name_en VARCHAR(255) DEFAULT '',
+                        translations JSONB NOT NULL DEFAULT '{}',
                         icon VARCHAR(64) DEFAULT '',
                         query TEXT DEFAULT '',
                         sort_by VARCHAR(64) DEFAULT '',
@@ -717,16 +711,16 @@ public class DatabaseConfig {
                 """)
                 // 插入默认的智能分类
                 execUpdate(conn, """
-                    INSERT INTO smart_filters (name, name_en, icon, newonly, sort_order_num)
-                    VALUES ('未读档案', 'Unread Archives', 'BookOpen', true, 1)
+                    INSERT INTO smart_filters (name, translations, icon, newonly, sort_order_num)
+                    VALUES ('未读档案', '{"en": {"text": "Unread Archives"}}', 'BookOpen', true, 1)
                 """)
                 execUpdate(conn, """
-                    INSERT INTO smart_filters (name, name_en, icon, untaggedonly, sort_order_num)
-                    VALUES ('无标签档案', 'Untagged Archives', 'Tag', true, 2)
+                    INSERT INTO smart_filters (name, translations, icon, untaggedonly, sort_order_num)
+                    VALUES ('无标签档案', '{"en": {"text": "Untagged Archives"}}', 'Tag', true, 2)
                 """)
                 execUpdate(conn, """
-                    INSERT INTO smart_filters (name, name_en, icon, date_from, sort_by, sort_order, sort_order_num)
-                    VALUES ('最近一周', 'Last Week', 'Calendar', '-7', 'date_added', 'desc', 3)
+                    INSERT INTO smart_filters (name, translations, icon, date_from, sort_by, sort_order, sort_order_num)
+                    VALUES ('最近一周', '{"en": {"text": "Last Week"}}', 'Calendar', '-7', 'date_added', 'desc', 3)
                 """)
                 logger.info("smart_filters表创建成功，已插入默认分类")
             } else {
@@ -799,7 +793,6 @@ public class DatabaseConfig {
                         tankoubon_id VARCHAR(255) NOT NULL UNIQUE,
                         name VARCHAR(1024) NOT NULL,
                         summary TEXT DEFAULT '',
-                        tags TEXT DEFAULT '',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
@@ -929,6 +922,28 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
+            }
+
+            // tankoubon_tags 表（tankoubon 与 tag 的关联表）
+            if (!tableExists(conn, "tankoubon_tags")) {
+                logger.info("tankoubon_tags表不存在，创建新的tankoubon_tags表")
+                execUpdate(conn, """
+                    CREATE TABLE tankoubon_tags (
+                        tankoubon_id INTEGER NOT NULL,
+                        tag_id INTEGER NOT NULL,
+                        PRIMARY KEY (tankoubon_id, tag_id),
+                        FOREIGN KEY (tankoubon_id) REFERENCES tankoubons(id) ON DELETE CASCADE,
+                        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+                    )
+                """)
+                // 创建索引
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_tankoubon_tags_tankoubon_id ON tankoubon_tags (tankoubon_id)")
+                } catch (_: Exception) {}
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_tankoubon_tags_tag_id ON tankoubon_tags (tag_id)")
+                } catch (_: Exception) {}
+                logger.info("tankoubon_tags表创建成功")
             }
 
             // user_tankoubon_favorites 表（用户收藏的合集）- 必须在tankoubons表之后创建

@@ -12,8 +12,8 @@ import stdx.log.*
  */
 public class SmartFilterData {
     public var id: Int64 = 0
-    public var name: String = ""           // 分类名称
-    public var name_en: String = ""        // 英文名称
+    public var name: String = ""           // 分类名称（默认名称）
+    public var translations: String = "{}" // 多语言翻译 (JSONB)
     public var icon: String = ""           // 图标名称 (lucide-react 图标)
     public var query: String = ""          // 搜索关键词
     public var sort_by: String = ""        // 排序字段
@@ -43,7 +43,7 @@ public class SmartFilterDao {
                 var filters: ArrayList<SmartFilterData> = ArrayList<SmartFilterData>()
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT id, name, name_en, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled, created_at, updated_at FROM smart_filters WHERE enabled = true ORDER BY sort_order_num ASC, id ASC")
+                        "SELECT id, name, translations, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled, created_at, updated_at FROM smart_filters WHERE enabled = true ORDER BY sort_order_num ASC, id ASC")
                     try {
                         let rs = stmt.query()
                         try {
@@ -80,7 +80,7 @@ public class SmartFilterDao {
                 var filters: ArrayList<SmartFilterData> = ArrayList<SmartFilterData>()
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT id, name, name_en, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled, created_at, updated_at FROM smart_filters ORDER BY sort_order_num ASC, id ASC")
+                        "SELECT id, name, translations, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled, created_at, updated_at FROM smart_filters ORDER BY sort_order_num ASC, id ASC")
                     try {
                         let rs = stmt.query()
                         try {
@@ -116,7 +116,7 @@ public class SmartFilterDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "SELECT id, name, name_en, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled, created_at, updated_at FROM smart_filters WHERE id = ?")
+                        "SELECT id, name, translations, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled, created_at, updated_at FROM smart_filters WHERE id = ?")
                     try {
                         stmt.set(0, id)
                         let rs = stmt.query()
@@ -152,10 +152,10 @@ public class SmartFilterDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "INSERT INTO smart_filters (name, name_en, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")
+                        "INSERT INTO smart_filters (name, translations, icon, query, sort_by, sort_order, date_from, date_to, newonly, untaggedonly, sort_order_num, enabled) VALUES (?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")
                     try {
                         stmt.set(0, filter.name)
-                        stmt.set(1, filter.name_en)
+                        stmt.set(1, filter.translations)
                         stmt.set(2, filter.icon)
                         stmt.set(3, filter.query)
                         stmt.set(4, filter.sort_by)
@@ -200,10 +200,10 @@ public class SmartFilterDao {
             case Some(conn) =>
                 try {
                     let stmt = conn.prepareStatement(
-                        "UPDATE smart_filters SET name = ?, name_en = ?, icon = ?, query = ?, sort_by = ?, sort_order = ?, date_from = ?, date_to = ?, newonly = ?, untaggedonly = ?, sort_order_num = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                        "UPDATE smart_filters SET name = ?, translations = ?::jsonb, icon = ?, query = ?, sort_by = ?, sort_order = ?, date_from = ?, date_to = ?, newonly = ?, untaggedonly = ?, sort_order_num = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
                     try {
                         stmt.set(0, filter.name)
-                        stmt.set(1, filter.name_en)
+                        stmt.set(1, filter.translations)
                         stmt.set(2, filter.icon)
                         stmt.set(3, filter.query)
                         stmt.set(4, filter.sort_by)
@@ -328,7 +328,7 @@ public class SmartFilterDao {
         let filter = SmartFilterData()
         filter.id = rs.getOrNull<Int64>(0) ?? 0
         filter.name = rs.getOrNull<String>(1) ?? ""
-        filter.name_en = rs.getOrNull<String>(2) ?? ""
+        filter.translations = rs.getOrNull<String>(2) ?? "{}"
         filter.icon = rs.getOrNull<String>(3) ?? ""
         filter.query = rs.getOrNull<String>(4) ?? ""
         filter.sort_by = rs.getOrNull<String>(5) ?? ""

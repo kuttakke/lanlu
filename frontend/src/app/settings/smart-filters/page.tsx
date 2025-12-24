@@ -19,7 +19,7 @@ import { ICON_OPTIONS, SORT_BY_OPTIONS, getIconByValue } from '@/lib/constants';
 interface SmartFilter {
   id: number;
   name: string;
-  name_en: string;
+  translations: Record<string, { text?: string; intro?: string }>;
   icon: string;
   query: string;
   sort_by: string;
@@ -49,7 +49,7 @@ export default function SmartFiltersPage() {
 
   const [formData, setFormData] = useState<Partial<SmartFilter>>({
     name: '',
-    name_en: '',
+    translations: {},
     icon: 'Filter',
     query: '',
     sort_by: '',
@@ -88,7 +88,7 @@ export default function SmartFiltersPage() {
     setEditingFilter(null);
     setFormData({
       name: '',
-      name_en: '',
+      translations: {},
       icon: 'Filter',
       query: '',
       sort_by: '_default',
@@ -106,7 +106,7 @@ export default function SmartFiltersPage() {
     setEditingFilter(filter);
     setFormData({
       name: filter.name,
-      name_en: filter.name_en,
+      translations: filter.translations || {},
       icon: filter.icon || 'Filter',
       query: filter.query,
       sort_by: filter.sort_by || '_default',
@@ -356,7 +356,7 @@ export default function SmartFiltersPage() {
                   <div className="flex items-center gap-2 min-w-[120px]">
                     {getIconComponent(filter.icon)}
                     <span className="font-medium">
-                      {language === 'en' && filter.name_en ? filter.name_en : filter.name}
+                      {language !== 'zh' && filter.translations?.[language]?.text ? filter.translations[language].text : filter.name}
                     </span>
                   </div>
                   <div className="flex-1 text-sm text-muted-foreground truncate">
@@ -422,8 +422,14 @@ export default function SmartFiltersPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t('settings.smartFilterName')} (English)</label>
                 <Input
-                  value={formData.name_en || ''}
-                  onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+                  value={formData.translations?.en?.text || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    translations: {
+                      ...formData.translations,
+                      en: { ...formData.translations?.en, text: e.target.value }
+                    }
+                  })}
                   placeholder="English name"
                 />
               </div>

@@ -95,19 +95,8 @@ public class TagController {
         else if (tankoubonId.size > 0) {
             match (TankoubonDao.getTankoubonById(tankoubonId)) {
                 case Some(tankoubon) =>
-                    // 构建 tag 集合：合集自身标签 + 所有归档标签
+                    // 构建 tag 集合：所有归档标签（tankoubon 自身标签现在也通过关联表获取，但这里只需要归档标签）
                     let tagSet = HashSet<String>()
-
-                    // 添加合集自身的标签
-                    let tankoubonTags = tankoubon.tags.trimAscii()
-                    if (tankoubonTags.size > 0) {
-                        for (part in tankoubonTags.split(",")) {
-                            let t = part.trimAscii()
-                            if (t.size > 0) {
-                                tagSet.add(t)
-                            }
-                        }
-                    }
 
                     // 添加所有归档的标签
                     for (archiveArcid in tankoubon.archives) {

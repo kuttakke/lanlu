@@ -14,7 +14,7 @@ import { getApiUrl } from '@/lib/api';
 interface SmartFilter {
   id: number;
   name: string;
-  name_en: string;
+  translations: Record<string, { text?: string; intro?: string }>;
   icon: string;
   query: string;
   sort_by: string;
@@ -166,8 +166,8 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
   };
 
   const getFilterName = (filter: SmartFilter) => {
-    if (language === 'en' && filter.name_en) {
-      return filter.name_en;
+    if (language !== 'zh' && filter.translations?.[language]?.text) {
+      return filter.translations[language].text;
     }
     return filter.name;
   };
