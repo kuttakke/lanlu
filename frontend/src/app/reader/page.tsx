@@ -14,6 +14,16 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { logger } from '@/lib/logger';
 import {
+  useReadingMode,
+  useDoublePageMode,
+  useAutoPlayMode,
+  useAutoPlayInterval,
+  useSplitCoverMode,
+  useFullscreenMode,
+  useDoubleTapZoom,
+  useAutoHideEnabled,
+} from '@/hooks/use-reader-settings';
+import {
   ArrowLeft,
   Book,
   ArrowRight,
@@ -29,8 +39,6 @@ import {
   Eye
 } from 'lucide-react';
 import Link from 'next/link';
-
-type ReadingMode = 'single-ltr' | 'single-rtl' | 'single-ttb' | 'webtoon';
 
 // Memo化的图片组件，减少不必要的重渲染
 const MemoizedImage = memo(Image, (prevProps, nextProps) => {
@@ -106,83 +114,16 @@ function ReaderContent() {
     }
   }, [router]);
 
-  // 提取localStorage读取逻辑为自定义Hook
-  const useLocalStorageBoolean = (key: string, defaultValue: boolean): [boolean, (value: boolean) => void] => {
-    const [value, setValue] = useState<boolean>(() => {
-      if (typeof window !== 'undefined') {
-        try {
-          const saved = localStorage.getItem(key);
-          return saved === 'true';
-        } catch (e) {
-          logger.warn(`Failed to read ${key} from localStorage`, e, { key });
-        }
-      }
-      return defaultValue;
-    });
+  // 使用新的阅读设置hooks，统一管理所有localStorage逻辑
+  const [readingMode, toggleReadingMode] = useReadingMode();
+  const [doublePageMode, setDoublePageMode] = useDoublePageMode();
+  const [autoPlayMode, setAutoPlayMode] = useAutoPlayMode();
+  const [autoPlayInterval, setAutoPlayInterval] = useAutoPlayInterval();
+  const [splitCoverMode, setSplitCoverMode] = useSplitCoverMode();
+  const [isFullscreen, setIsFullscreen] = useFullscreenMode();
+  const [doubleTapZoom, setDoubleTapZoom] = useDoubleTapZoom();
+  const [autoHideEnabled, setAutoHideEnabled] = useAutoHideEnabled();
 
-    const setStoredValue = (newValue: boolean) => {
-      setValue(newValue);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(key, String(newValue));
-        } catch (e) {
-          logger.warn(`Failed to save ${key} to localStorage`, e, { key });
-        }
-      }
-    };
-
-    return [value, setStoredValue];
-  };
-
-  const useLocalStorageNumber = (key: string, defaultValue: number): [number, (value: number) => void] => {
-    const [value, setValue] = useState<number>(() => {
-      if (typeof window !== 'undefined') {
-        try {
-          const saved = localStorage.getItem(key);
-          return saved ? parseInt(saved, 10) : defaultValue;
-        } catch (e) {
-          logger.warn(`Failed to read ${key} from localStorage`, e, { key });
-        }
-      }
-      return defaultValue;
-    });
-
-    const setStoredValue = (newValue: number) => {
-      setValue(newValue);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(key, String(newValue));
-        } catch (e) {
-          logger.warn(`Failed to save ${key} to localStorage`, e, { key });
-        }
-      }
-    };
-
-    return [value, setStoredValue];
-  };
-
-  const [readingMode, setReadingMode] = useState<ReadingMode>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const savedMode = localStorage.getItem('reader-reading-mode');
-        if (savedMode && ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'].includes(savedMode)) {
-          return savedMode as ReadingMode;
-        }
-      } catch (e) {
-        logger.warn('Failed to read reading mode from localStorage', e, { key: 'reader-reading-mode' });
-      }
-    }
-    return 'single-ltr';
-  });
-
-  const [doublePageMode, setDoublePageMode] = useLocalStorageBoolean('reader-double-page-mode', false);
-  const [autoPlayMode, setAutoPlayMode] = useLocalStorageBoolean('reader-auto-play-mode', false);
-  const [autoPlayInterval, setAutoPlayInterval] = useLocalStorageNumber('reader-auto-play-interval', 3);
-  const [splitCoverMode, setSplitCoverMode] = useLocalStorageBoolean('reader-split-cover-mode', false);
-  const [isFullscreen, setIsFullscreen] = useLocalStorageBoolean('reader-fullscreen-mode', false);
-  const [doubleTapZoom, setDoubleTapZoom] = useLocalStorageBoolean('reader-double-tap-zoom', false);
-  const [autoHideEnabled, setAutoHideEnabled] = useLocalStorageBoolean('reader-auto-hide-enabled', false);
-  
   // 用于跟踪拆分封面模式的变化，避免无限循环
   const splitCoverModeRef = useRef(splitCoverMode);
 
@@ -802,22 +743,6 @@ function ReaderContent() {
     setTouchEnd(null);
     setLastTouchDistance(0);
   }, [touchStart, touchEnd, handleNextPage, handlePrevPage, readingMode]);
-
-  const toggleReadingMode = () => {
-    setReadingMode(prev => {
-      const modes: ReadingMode[] = ['single-ltr', 'single-rtl', 'single-ttb', 'webtoon'];
-      const currentIndex = modes.indexOf(prev);
-      const newMode = modes[(currentIndex + 1) % modes.length];
-      
-      // 如果切换到条漫模式，自动关闭双页模式
-      if (newMode === 'webtoon' && doublePageMode) {
-        setDoublePageMode(false);
-      }
-      
-      return newMode;
-    });
-    resetTransform();
-  };
 
   const getReadingModeIcon = () => {
     switch (readingMode) {
