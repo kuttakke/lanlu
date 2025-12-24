@@ -120,9 +120,17 @@ public class CheckDatabaseTaskRunner {
 
                 logger.debug("Checking file ${processed}/${checkedCount}", ("file", fullFilePath))
 
-                // 检查文件是否存在（支持软链接）
-                if (!fileExists(fullFilePath)) {
-                    logger.warn("File not found, will delete from database", ("file", fullFilePath), ("archive_id", archive.id.toString()))
+                // 根据archive_type检查文件或目录是否存在（支持软链接）
+                let pathExists = if (archive.archive_type == "folder") {
+                    // 文件夹类型：检查目录是否存在
+                    DirectoryScanner.isDirectory(fullFilePath)
+                } else {
+                    // 压缩包或PDF类型：检查文件是否存在
+                    fileExists(fullFilePath)
+                }
+
+                if (!pathExists) {
+                    logger.warn("Archive path not found, will delete from database", ("path", fullFilePath), ("archive_id", archive.id.toString()), ("type", archive.archive_type))
                     if (ArchiveDao.delete(archive.id)) {
                         deletedCount++
                         logger.info("Successfully deleted database record", ("id", archive.id.toString()), ("title", archive.title))
@@ -130,7 +138,7 @@ public class CheckDatabaseTaskRunner {
                         logger.error("Failed to delete database record", ("id", archive.id.toString()), ("title", archive.title))
                     }
                 } else {
-                    logger.debug("File exists, skipping", ("file", fullFilePath))
+                    logger.debug("Archive path exists, skipping", ("path", fullFilePath), ("type", archive.archive_type))
                 }
 
                 // 每处理100个文件输出一次进度

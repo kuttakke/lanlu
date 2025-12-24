@@ -421,7 +421,7 @@ public class ArchiveController {
         }
 
         // 检查归档是否存在
-        let archive = ArchiveModel.getArchiveById(id)
+        let archive = ArchiveDao.getArchiveById(id)
         if (archive.id.size == 0) {
             let errorResponse = "{\"operation\":\"get_file_list\",\"error\":\"Archive not found\",\"success\":0}"
             ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
@@ -440,8 +440,15 @@ public class ArchiveController {
         // 对于文件访问，需要解析软链接到实际路径
         let actualPath = FileUtils.resolvePath(fullArchivePath)
 
-        // 获取归档中的文件列表
-        let entries = ArchiveUtils.listArchiveEntries(actualPath)
+        // 根据archive_type获取文件列表
+        var entries = Array<String>()
+        if (archive.archive_type == "folder") {
+            // 文件夹类型：使用DirectoryScanner列出文件
+            entries = DirectoryScanner.listDirectory(actualPath)
+        } else {
+            // 压缩包类型：使用ArchiveUtils列出文件
+            entries = ArchiveUtils.listArchiveEntries(actualPath)
+        }
 
         // 过滤图片文件
         var pageFiles = ArrayList<String>()
@@ -643,7 +650,7 @@ public class ArchiveController {
     // GET /api/archives/{id}/page
     public static func getPage(ctx: JoyContext): Unit {
         let id = ctx.getParam("id").getOrThrow()
-        
+
         // 检查ID是否为空
         if (id.size == 0) {
             let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"No archive ID specified.\",\"success\":0}"
@@ -651,7 +658,7 @@ public class ArchiveController {
             ctx.json(errorResponse)
             return
         }
-        
+
         // 获取查询参数
         let pathParam = ctx.getQuery("path")
         match (pathParam) {
@@ -662,9 +669,9 @@ public class ArchiveController {
                     ctx.json(errorResponse)
                     return
                 }
-                
-                // 检查归档是否存在
-                let archive = ArchiveModel.getArchiveById(id)
+
+                // 检查归档是否存在（使用ArchiveDao以获取archive_type）
+                let archive = ArchiveDao.getArchiveById(id)
                 if (archive.id.size == 0) {
                     let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Archive not found\",\"success\":0}"
                     ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
@@ -680,16 +687,25 @@ public class ArchiveController {
                     "${archivePath}/${archive.filename}"
                 }
 
-                // 使用bsdtar直接提取文件到内存，不写入文件
                 try {
                     // 对于文件访问，需要解析软链接到实际路径
                     let actualPath = FileUtils.resolvePath(fullArchivePath)
-                    // 使用 bsdtar 的 -xO 选项直接输出到标准输出
-                    let (exitCode, stdout, stderr) = ArchiveUtils.extractArchiveEntryToStream(actualPath, path)
-                    
-                    if (exitCode == 0) {
+
+                    // 根据archive_type选择不同的读取方式
+                    if (archive.archive_type == "folder") {
+                        // 文件夹类型：直接读取文件
+                        let filePath = DirectoryScanner.joinPath(actualPath, path)
+                        if (!DirectoryScanner.fileExists(filePath)) {
+                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"File not found in folder\",\"success\":0}"
+                            ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
+                            ctx.json(errorResponse)
+                            return
+                        }
+
+                        let fileData = File.readFrom(Path(filePath))
+                        let contentSize = fileData.size
+
                         // 生成 ETag（基于归档ID、路径和内容大小）
-                        let contentSize = stdout.size
                         let etag = CacheUtils.generateETag("${id}-${path}-${contentSize}")
 
                         // 检查条件请求 - If-None-Match
@@ -705,15 +721,39 @@ public class ArchiveController {
                         let contentType = getContentTypeFromPath(path)
                         ctx.header("Content-Type", contentType)
                         ctx.status(HttpStatusCode.STATUS_OK)
-                        // 将UInt8数组转换为Byte数组
-                        let byteData = Array<Byte>(contentSize, { i => stdout[i] })
-                        // 直接返回二进制数据
-                        ctx.data(byteData)
+                        ctx.data(fileData)
                     } else {
-                        let error = String.fromUtf8(stderr)
-                        let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Failed to extract file: ${error}\",\"success\":0}"
-                        ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
-                        ctx.json(errorResponse)
+                        // 压缩包类型：使用 bsdtar 的 -xO 选项直接输出到标准输出
+                        let (exitCode, stdout, stderr) = ArchiveUtils.extractArchiveEntryToStream(actualPath, path)
+
+                        if (exitCode == 0) {
+                            // 生成 ETag（基于归档ID、路径和内容大小）
+                            let contentSize = stdout.size
+                            let etag = CacheUtils.generateETag("${id}-${path}-${contentSize}")
+
+                            // 检查条件请求 - If-None-Match
+                            if (CacheUtils.checkIfNoneMatch(ctx, etag)) {
+                                CacheUtils.sendNotModifiedDynamic(ctx, etag)
+                                return
+                            }
+
+                            // 设置缓存头
+                            CacheUtils.setDynamicCacheHeaders(ctx, etag)
+
+                            // 根据文件扩展名设置Content-Type
+                            let contentType = getContentTypeFromPath(path)
+                            ctx.header("Content-Type", contentType)
+                            ctx.status(HttpStatusCode.STATUS_OK)
+                            // 将UInt8数组转换为Byte数组
+                            let byteData = Array<Byte>(contentSize, { i => stdout[i] })
+                            // 直接返回二进制数据
+                            ctx.data(byteData)
+                        } else {
+                            let error = String.fromUtf8(stderr)
+                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Failed to extract file: ${error}\",\"success\":0}"
+                            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                            ctx.json(errorResponse)
+                        }
                     }
                 } catch (e: Exception) {
                     let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Exception extracting file: ${e.message}\",\"success\":0}"
