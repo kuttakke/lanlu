@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Switch } from '@/components/ui/switch';
@@ -257,11 +257,10 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Input
+            <SearchInput
               placeholder={t('search.keywordPlaceholder')}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onChange={setQuery}
             />
 
             {/* 日期范围 */}
