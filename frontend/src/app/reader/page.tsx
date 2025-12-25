@@ -86,6 +86,7 @@ function ReaderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams?.get('id') ?? null;
+  const pageParam = searchParams?.get('page');
   const { t } = useLanguage();
   
   const [pages, setPages] = useState<PageInfo[]>([]);
@@ -169,9 +170,22 @@ function ReaderContent() {
         const data = await ArchiveService.getFiles(id);
 
         // 计算初始页码
-        let initialPage = data.progress > 0 && data.progress < data.pages.length
-          ? data.progress - 1 // API使用1-based页码，转换为0-based
-          : 0;
+        let initialPage: number;
+
+        // URL的page参数优先级最高
+        if (pageParam) {
+          const urlPage = parseInt(pageParam, 10);
+          if (!isNaN(urlPage) && urlPage > 0 && urlPage <= data.pages.length) {
+            initialPage = urlPage - 1; // URL使用1-based，转换为0-based
+          } else {
+            initialPage = 0;
+          }
+        } else if (data.progress > 0 && data.progress < data.pages.length) {
+          // 没有URL参数时，使用保存的阅读进度
+          initialPage = data.progress - 1; // API使用1-based页码，转换为0-based
+        } else {
+          initialPage = 0;
+        }
         
         // 检查是否启用了拆分封面模式
         const doublePageModeFromStorage = typeof window !== 'undefined' 
@@ -230,7 +244,7 @@ function ReaderContent() {
     }
 
     fetchPages();
-  }, [id]);
+  }, [id, pageParam]);
 
   // 单独处理错误消息的翻译
   useEffect(() => {
