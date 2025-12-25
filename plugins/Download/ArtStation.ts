@@ -41,7 +41,7 @@ class ArtStationDownloadPlugin extends BasePlugin {
       type: "download",
       icon: "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='35' height='32' fill='none' viewBox='0 0 35 32'%3E%3Cpath fill='%2313AFF0' fill-rule='evenodd' d='M35 24.354c0-.704-.208-1.36-.565-1.91L22.937 2.525A3.54 3.54 0 0 0 19.813.652h-6.077l17.76 30.666 2.8-4.833c.553-.925.704-1.334.704-2.131m-35-.037 2.956 5.093h.001a3.54 3.54 0 0 0 3.157 1.938h19.624l-4.072-7.03zM10.832 5.621l7.938 13.701H2.893z' clip-rule='evenodd'/%3E%3C/svg%3E",
       namespace: "artstation",
-      author: "LANraragi",
+      author: "MiniMax M2.1",
       version: "1.0",
       description: "Downloads all artwork images from an ArtStation user profile to a folder",
       parameters: [
