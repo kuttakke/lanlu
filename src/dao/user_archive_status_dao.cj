@@ -192,18 +192,35 @@ public class UserArchiveStatusDao {
      * @return 最后阅读时间的Unix时间戳，如果没有记录返回 0
      */
     public static func getLastReadTime(userId: Int64, archiveId: Int64): Int64 {
-        match (getStatus(userId, archiveId)) {
-            case Some(row) =>
-                // 将 updatedAt 字符串转换为 Unix 时间戳
-                if (row.updatedAt.size > 0) {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("""
+                        SELECT COALESCE(CAST(EXTRACT(EPOCH FROM updated_at) AS BIGINT), 0)
+                        FROM user_archive_status
+                        WHERE user_id = ? AND archive_id = ?
+                    """)
                     try {
-                        let dt = DateTime.parse(row.updatedAt)
-                        return dt.toUnixTimeStamp().toSeconds()
-                    } catch (_: Exception) {
-                        return 0
+                        stmt.set(0, userId)
+                        stmt.set(1, archiveId)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                            return 0
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
                     }
+                } catch (_: Exception) {
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
                 }
-                return 0
             case None => return 0
         }
     }
@@ -335,7 +352,7 @@ public class UserArchiveStatusDao {
                     }
 
                     let sql = """
-                        SELECT archive_id, progress, updated_at
+                        SELECT archive_id, progress, COALESCE(CAST(EXTRACT(EPOCH FROM updated_at) AS BIGINT), 0) as unix_timestamp
                         FROM user_archive_status
                         WHERE user_id = ? AND archive_id IN (${inClause})
                     """
@@ -354,20 +371,9 @@ public class UserArchiveStatusDao {
                             while (rs.next()) {
                                 let archiveId = rs.getOrNull<Int64>(0) ?? 0
                                 let progress = rs.getOrNull<Int32>(1) ?? 0
-                                let updatedAt = rs.getOrNull<String>(2) ?? ""
+                                let timestamp = rs.getOrNull<Int64>(2) ?? 0
 
                                 progressMap[archiveId] = progress
-
-                                // 转换时间戳
-                                var timestamp: Int64 = 0
-                                if (updatedAt.size > 0) {
-                                    try {
-                                        let dt = DateTime.parse(updatedAt)
-                                        timestamp = dt.toUnixTimeStamp().toSeconds()
-                                    } catch (_: Exception) {
-                                        timestamp = 0
-                                    }
-                                }
                                 lastReadTimeMap[archiveId] = timestamp
                             }
                         } finally {
