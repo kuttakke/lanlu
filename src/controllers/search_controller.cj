@@ -110,11 +110,11 @@ public class SearchController {
                         }
                         archivesJson += "]"
 
-                        var tankFavoriteTime = ""
-                        match (tankFavoriteTimeMap.get(tid)) {
-                            case Some(time) => tankFavoriteTime = time
-                            case None => tankFavoriteTime = ""
-                        }
+                        var tankFavoriteTime = 0
+        match (tankFavoriteTimeMap.get(tid)) {
+            case Some(time) => tankFavoriteTime = time
+            case None => tankFavoriteTime = 0
+        }
 
                         // 翻译标签
                         let translatedTags = if (lang.size > 0) {
@@ -136,7 +136,7 @@ public class SearchController {
                         tanksJson += "\"isnew\":${agg.isnew},"
                         tanksJson += "\"archive_count\":${agg.archive_count},"
                         tanksJson += "\"isfavorite\":true,"
-                        tanksJson += "\"favoritetime\":\"${escapeJson(tankFavoriteTime)}\""
+                        tanksJson += "\"favoritetime\":${tankFavoriteTime}"
                         tanksJson += "}"
                     case None => ()
                 }
@@ -187,7 +187,7 @@ public class SearchController {
         // 批量获取用户的 isNew 状态、收藏状态和收藏时间
         var isNewMap = HashMap<Int64, Bool>()
         var isFavoriteMap = HashMap<Int64, Bool>()
-        var favoriteTimeMap = HashMap<Int64, String>()
+        var favoriteTimeMap = HashMap<Int64, Int64>()
         var progressMap = HashMap<Int64, Int32>()
         var lastReadTimeMap = HashMap<Int64, Int64>()
         if (userId > 0) {
@@ -289,13 +289,13 @@ public class SearchController {
                             case Some(status) => isTankFavorite = status
                             case None => isTankFavorite = false
                         }
-                        var tankFavoriteTime = ""
+                        var tankFavoriteTime = 0
                         match (tankFavoriteTimeMap.get(tankoubonId)) {
                             case Some(time) => tankFavoriteTime = time
-                            case None => tankFavoriteTime = ""
+                            case None => tankFavoriteTime = 0
                         }
                         archivesJson = archivesJson + "\"isfavorite\":${isTankFavorite},"
-                        archivesJson = archivesJson + "\"favoritetime\":\"${escapeJson(tankFavoriteTime)}\""
+                        archivesJson = archivesJson + "\"favoritetime\":${tankFavoriteTime}"
                         archivesJson += "}"
 
                         alreadyAddedTankoubons[tankoubonId] = true
@@ -323,7 +323,7 @@ public class SearchController {
             let internalId = archive.internalId
             var isNew = true  // 默认为新
             var isFavorite = false  // 默认未收藏
-            var favoriteTime = ""  // 收藏时间，默认为空
+            var favoriteTime: Int64 = 0  // 收藏时间，默认为0
             var progress: Int32 = 0  // 阅读进度，默认为0
             var lastReadTime: Int64 = 0  // 最后阅读时间，默认为0
             if (internalId > 0) {
@@ -337,7 +337,7 @@ public class SearchController {
                 }
                 match (favoriteTimeMap.get(internalId)) {
                     case Some(time) => favoriteTime = time
-                    case None => favoriteTime = ""
+                    case None => favoriteTime = 0
                 }
                 if (progressMap.contains(internalId)) {
                     match (progressMap.get(internalId)) {
@@ -367,7 +367,7 @@ public class SearchController {
             archivesJson = archivesJson + "\"filename\":\"${escapeJson(archive.filename)}\","
             archivesJson = archivesJson + "\"isnew\":${isNew},"
             archivesJson = archivesJson + "\"isfavorite\":${isFavorite},"
-            archivesJson = archivesJson + "\"favoritetime\":\"${escapeJson(favoriteTime)}\","
+            archivesJson = archivesJson + "\"favoritetime\":${favoriteTime},"
             archivesJson = archivesJson + "\"lastreadtime\":${lastReadTime},"
             archivesJson = archivesJson + "\"pagecount\":${archive.pagecount},"
             archivesJson = archivesJson + "\"progress\":${progress},"

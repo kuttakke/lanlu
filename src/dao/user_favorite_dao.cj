@@ -288,10 +288,10 @@ public class UserFavoriteDao {
 
     /**
      * 批量获取收藏时间
-     * 返回 Map<archiveId, favoriteTime>
+     * 返回 Map<archiveId, favoriteTime> (Unix时间戳)
      */
-    public static func getBatchFavoriteTime(userId: Int64, archiveIds: Array<Int64>): HashMap<Int64, String> {
-        let result = HashMap<Int64, String>()
+    public static func getBatchFavoriteTime(userId: Int64, archiveIds: Array<Int64>): HashMap<Int64, Int64> {
+        let result = HashMap<Int64, Int64>()
 
         if (archiveIds.size == 0 || userId <= 0) {
             return result
@@ -311,7 +311,7 @@ public class UserFavoriteDao {
                     }
 
                     let sql = """
-                        SELECT archive_id, created_at FROM user_favorites
+                        SELECT archive_id, COALESCE(CAST(EXTRACT(EPOCH FROM created_at) AS BIGINT), 0) as unix_timestamp FROM user_favorites
                         WHERE user_id = ? AND archive_id IN (${inClause})
                     """
 
@@ -328,9 +328,9 @@ public class UserFavoriteDao {
                         try {
                             while (rs.next()) {
                                 let archiveId = rs.getOrNull<Int64>(0) ?? 0
-                                let createdAt = rs.getOrNull<String>(1) ?? ""
+                                let unixTimestamp = rs.getOrNull<Int64>(1) ?? 0
                                 if (archiveId > 0) {
-                                    result[archiveId] = createdAt
+                                    result[archiveId] = unixTimestamp
                                 }
                             }
                         } finally {

@@ -322,10 +322,10 @@ public class UserTankoubonFavoriteDao {
 
     /**
      * 批量获取 Tankoubon 收藏时间
-     * 返回 Map<tankoubon_id, favoriteTime>
+     * 返回 Map<tankoubon_id, favoriteTime> (Unix时间戳)
      */
-    public static func getBatchFavoriteTime(userId: Int64, tankoubonIds: Array<String>): HashMap<String, String> {
-        let result = HashMap<String, String>()
+    public static func getBatchFavoriteTime(userId: Int64, tankoubonIds: Array<String>): HashMap<String, Int64> {
+        let result = HashMap<String, Int64>()
         if (userId <= 0 || tankoubonIds.size == 0) {
             return result
         }
@@ -343,7 +343,7 @@ public class UserTankoubonFavoriteDao {
                     }
 
                     let stmt = conn.prepareStatement("""
-                        SELECT t.tankoubon_id, utf.created_at
+                        SELECT t.tankoubon_id, COALESCE(CAST(EXTRACT(EPOCH FROM utf.created_at) AS BIGINT), 0) as unix_timestamp
                         FROM user_tankoubon_favorites utf
                         JOIN tankoubons t ON t.id = utf.tankoubon_id
                         WHERE utf.user_id = ? AND t.tankoubon_id IN (${inClause})
@@ -357,9 +357,9 @@ public class UserTankoubonFavoriteDao {
                         try {
                             while (rs.next()) {
                                 let tid = rs.getOrNull<String>(0) ?? ""
-                                let createdAt = rs.getOrNull<String>(1) ?? ""
+                                let unixTimestamp = rs.getOrNull<Int64>(1) ?? 0
                                 if (tid.size > 0) {
-                                    result[tid] = createdAt
+                                    result[tid] = unixTimestamp
                                 }
                             }
                         } finally {
