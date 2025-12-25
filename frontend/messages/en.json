@@ -446,9 +446,9 @@
     "readingHistoryDescription": "View your reading history",
     "plugins": "Plugins",
     "pluginsDescription": "Manage plugin enable/disable and configuration",
-    "tasks": "Tasks",
+    "tasks": "Task Records",
     "tasksDescription": "View and manage background tasks",
-    "cron": "Scheduled Tasks",
+    "cron": "Task Management",
     "cronDescription": "Manage scheduled tasks and startup tasks",
     "cronManagement": {
       "title": "Scheduled Task Management",

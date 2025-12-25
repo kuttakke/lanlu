@@ -452,9 +452,9 @@
     "readingHistoryDescription": "查看您的阅读历史记录",
     "plugins": "插件管理",
     "pluginsDescription": "管理系统插件的启用、禁用和配置",
-    "tasks": "任务管理",
+    "tasks": "任务记录",
     "tasksDescription": "查看并管理后台任务",
-    "cron": "定时任务",
+    "cron": "任务管理",
     "cronDescription": "管理定时任务和启动时触发的任务",
     "cronManagement": {
       "title": "定时任务管理",

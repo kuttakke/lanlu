@@ -18,16 +18,16 @@ type SettingsSection = {
 
 const baseSections: SettingsSection[] = [
   { id: 'overview', href: '/settings', icon: LayoutGrid, titleKey: 'settings.overview' },
-  { id: 'system', href: '/settings/system', icon: Server, titleKey: 'settings.system.title', requiresAdmin: true },
   { id: 'favorites', href: '/settings/favorites', icon: Heart, titleKey: 'settings.favorites' },
   { id: 'reading-history', href: '/settings/reading-history', icon: BookOpen, titleKey: 'settings.readingHistory' },
   { id: 'auth', href: '/settings/auth', icon: KeyRound, titleKey: 'settings.auth' },
   { id: 'users', href: '/settings/users', icon: Users, titleKey: 'settings.users', requiresAdmin: true },
-  { id: 'plugins', href: '/settings/plugins', icon: Package, titleKey: 'settings.plugins', requiresAdmin: true },
-  { id: 'tasks', href: '/settings/tasks', icon: ListTodo, titleKey: 'settings.tasks', requiresAdmin: true },
-  { id: 'cron', href: '/settings/cron', icon: Clock, titleKey: 'settings.cron', requiresAdmin: true },
+  { id: 'system', href: '/settings/system', icon: Server, titleKey: 'settings.system.title', requiresAdmin: true },
   { id: 'tags', href: '/settings/tags', icon: Tag, titleKey: 'settings.tags', requiresAdmin: true },
   { id: 'smart-filters', href: '/settings/smart-filters', icon: Filter, titleKey: 'settings.smartFilters', requiresAdmin: true },
+  { id: 'tasks', href: '/settings/tasks', icon: ListTodo, titleKey: 'settings.tasks', requiresAdmin: true },
+  { id: 'cron', href: '/settings/cron', icon: Clock, titleKey: 'settings.cron', requiresAdmin: true },
+  { id: 'plugins', href: '/settings/plugins', icon: Package, titleKey: 'settings.plugins', requiresAdmin: true },
 ];
 
 interface SettingsNavProps {
