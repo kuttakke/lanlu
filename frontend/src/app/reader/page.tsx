@@ -729,6 +729,40 @@ function ReaderContent() {
     };
   }, [handleKeyDown]);
 
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (e.target instanceof HTMLInputElement) return;
+    
+    const deltaX = e.deltaX;
+    const deltaY = e.deltaY;
+    
+    if (readingMode === 'single-rtl') {
+      if (deltaX > 0 || deltaY > 0) {
+        handlePrevPage();
+      } else if (deltaX < 0 || deltaY < 0) {
+        handleNextPage();
+      }
+    } else if (readingMode === 'single-ttb') {
+      if (deltaY > 0) {
+        handleNextPage();
+      } else if (deltaY < 0) {
+        handlePrevPage();
+      }
+    } else if (readingMode !== 'webtoon') {
+      if (deltaX > 0 || deltaY > 0) {
+        handleNextPage();
+      } else if (deltaX < 0 || deltaY < 0) {
+        handlePrevPage();
+      }
+    }
+  }, [handlePrevPage, handleNextPage, readingMode]);
+
+  useEffect(() => {
+    window.addEventListener('wheel', handleWheel);
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel]);
+
   // 计算两点距离
   const getDistance = (touch1: Touch, touch2: Touch) => {
     const dx = touch1.clientX - touch2.clientX;
