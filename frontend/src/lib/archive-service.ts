@@ -33,6 +33,12 @@ export interface MetadataPluginRunCallbacks {
   onUpdate?: (task: Task) => void;
 }
 
+// 页面信息接口（支持图片和视频）
+export interface PageInfo {
+  url: string;
+  type: 'image' | 'video';
+}
+
 export class ArchiveService {
   static async search(params: SearchParams): Promise<SearchResponse> {
     const response = await apiClient.get('/api/search', { params });
@@ -83,7 +89,7 @@ export class ArchiveService {
     await apiClient.put(`/api/archives/${id}/metadata?${params.toString()}`);
   }
 
-  static async getFiles(id: string): Promise<{ pages: string[]; progress: number }> {
+  static async getFiles(id: string): Promise<{ pages: PageInfo[]; progress: number }> {
     const response = await apiClient.get(`/api/archives/${id}/files`);
     return {
       pages: response.data.pages || [],

@@ -86,6 +86,23 @@ public class ArchiveUtils {
     }
 
     /**
+     * 检查文件是否为视频格式
+     */
+    public static func isVideoFile(filename: String): Bool {
+        return filename.endsWith(".mp4") || filename.endsWith(".webm") || filename.endsWith(".mkv") ||
+            filename.endsWith(".avi") || filename.endsWith(".mov") || filename.endsWith(".m4v") ||
+            filename.endsWith(".MP4") || filename.endsWith(".WEBM") || filename.endsWith(".MKV") ||
+            filename.endsWith(".AVI") || filename.endsWith(".MOV") || filename.endsWith(".M4V")
+    }
+
+    /**
+     * 检查文件是否为媒体文件（图片或视频）
+     */
+    public static func isMediaFile(filename: String): Bool {
+        return isImageFile(filename) || isVideoFile(filename)
+    }
+
+    /**
      * 获取文件扩展名（小写）
      */
     public static func getFileExtension(filePath: String): String {

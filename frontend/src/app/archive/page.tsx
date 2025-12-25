@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Image from 'next/image';
-import { ArchiveService } from '@/lib/archive-service';
+import { ArchiveService, PageInfo } from '@/lib/archive-service';
 import { ArchiveMetadata } from '@/types/archive';
 import { PluginService, type Plugin } from '@/lib/plugin-service';
 import { Button } from '@/components/ui/button';
@@ -74,8 +74,8 @@ function ArchiveDetailContent() {
   const [isNewStatusLoading, setIsNewStatusLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [archivePages, setArchivePages] = useState<string[]>([]);
-  const [displayPages, setDisplayPages] = useState<string[]>([]);
+  const [archivePages, setArchivePages] = useState<PageInfo[]>([]);
+  const [displayPages, setDisplayPages] = useState<PageInfo[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set());
   const [isFavorite, setIsFavorite] = useState(false);
@@ -822,7 +822,7 @@ function ArchiveDetailContent() {
 	                        {displayPages.map((page, index) => {
 	                          const actualPageIndex = index;
 	                          const isLoading = loadingImages.has(actualPageIndex);
-                          
+
                           return (
                             <Link
                               key={actualPageIndex}
@@ -835,25 +835,31 @@ function ArchiveDetailContent() {
                                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                                 </div>
                               )}
-                              
-                              {/* 页面图片 */}
+
+                              {/* 页面图片/视频 */}
                               <div className="relative w-full h-full">
-                                <Image
-                                  src={ArchiveService.getPageUrl(metadata.arcid, page)}
-                                  alt={t('archive.previewPage').replace('{current}', String(actualPageIndex + 1)).replace('{total}', String(archivePages.length))}
-                                  fill
-                                  className={`object-contain transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-                                  onLoadingComplete={() => handleImageLoadEnd(actualPageIndex)}
-                                  onError={() => handleImageError(actualPageIndex)}
-                                  draggable={false}
-                                />
+                                {page.type === 'video' ? (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                                    <Play className="w-12 h-12 text-muted-foreground" />
+                                  </div>
+                                ) : (
+                                  <Image
+                                    src={page.url}
+                                    alt={t('archive.previewPage').replace('{current}', String(actualPageIndex + 1)).replace('{total}', String(archivePages.length))}
+                                    fill
+                                    className={`object-contain transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+                                    onLoadingComplete={() => handleImageLoadEnd(actualPageIndex)}
+                                    onError={() => handleImageError(actualPageIndex)}
+                                    draggable={false}
+                                  />
+                                )}
                               </div>
-                              
+
                               {/* 页码标签 */}
                               <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs py-1 text-center">
-                                {actualPageIndex + 1}
+                                {actualPageIndex + 1}{page.type === 'video' ? ' 🎬' : ''}
                               </div>
-                              
+
                               {/* 悬停提示 */}
                               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white bg-opacity-90 text-gray-800 px-2 py-1 rounded text-xs font-medium">

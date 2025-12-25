@@ -459,25 +459,25 @@ public class ArchiveController {
             entries = ArchiveUtils.listArchiveEntries(actualPath)
         }
 
-        // 过滤图片文件
+        // 过滤媒体文件（图片和视频）
         var pageFiles = ArrayList<String>()
         var totalEntries = 0
-        var imageEntries = 0
+        var mediaEntries = 0
         for (entry in entries) {
             totalEntries += 1
-            if (ArchiveUtils.isImageFile(entry)) {
+            if (ArchiveUtils.isMediaFile(entry)) {
                 pageFiles.add(entry)
-                imageEntries += 1
+                mediaEntries += 1
             }
         }
 
         // 如果不需要只返回图片文件，获取所有文件
         if (!imagesOnly) {
             // 这里可以添加获取所有文件的逻辑
-            // 目前保持只返回图片文件
+            // 目前保持只返回媒体文件
         }
 
-        // 构建页面URL列表
+        // 构建页面URL列表（包含类型信息）
         var pagesJson = "["
         for (i in 0..pageFiles.size) {
             if (i > 0) {
@@ -487,7 +487,13 @@ public class ArchiveController {
             let form = Form()
             form.set("path", pageFiles[i])
             let pageUrl = "/api/archives/${id}/page?${form.toEncodeString()}"
-            pagesJson = pagesJson + "\"${pageUrl}\""
+            // 判断文件类型
+            let fileType = if (ArchiveUtils.isVideoFile(pageFiles[i])) {
+                "video"
+            } else {
+                "image"
+            }
+            pagesJson = pagesJson + "{\"url\":\"${pageUrl}\",\"type\":\"${fileType}\"}"
         }
         pagesJson = pagesJson + "]"
 
@@ -830,16 +836,29 @@ public class ArchiveController {
      * 根据文件路径获取Content-Type
      */
     private static func getContentTypeFromPath(filePath: String): String {
-        if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+        let lowerPath = filePath.toAsciiLower()
+        // 图片类型
+        if (lowerPath.endsWith(".jpg") || lowerPath.endsWith(".jpeg")) {
             return "image/jpeg"
-        } else if (filePath.endsWith(".png")) {
+        } else if (lowerPath.endsWith(".png")) {
             return "image/png"
-        } else if (filePath.endsWith(".gif")) {
+        } else if (lowerPath.endsWith(".gif")) {
             return "image/gif"
-        } else if (filePath.endsWith(".bmp")) {
+        } else if (lowerPath.endsWith(".bmp")) {
             return "image/bmp"
-        } else if (filePath.endsWith(".webp")) {
+        } else if (lowerPath.endsWith(".webp")) {
             return "image/webp"
+        // 视频类型
+        } else if (lowerPath.endsWith(".mp4") || lowerPath.endsWith(".m4v")) {
+            return "video/mp4"
+        } else if (lowerPath.endsWith(".webm")) {
+            return "video/webm"
+        } else if (lowerPath.endsWith(".mkv")) {
+            return "video/x-matroska"
+        } else if (lowerPath.endsWith(".avi")) {
+            return "video/x-msvideo"
+        } else if (lowerPath.endsWith(".mov")) {
+            return "video/quicktime"
         } else {
             return "application/octet-stream"
         }

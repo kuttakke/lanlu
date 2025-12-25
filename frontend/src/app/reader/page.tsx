@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, Suspense, useRef, memo } from 'react';
 import Image from 'next/image';
-import { ArchiveService } from '@/lib/archive-service';
+import { ArchiveService, PageInfo } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -52,13 +52,43 @@ const MemoizedImage = memo(Image, (prevProps, nextProps) => {
 
 MemoizedImage.displayName = 'MemoizedImage';
 
+// Memo化的视频组件
+const MemoizedVideo = memo(function MemoizedVideo({
+  src,
+  className,
+  style,
+  onLoadedData,
+  onError,
+}: {
+  src: string;
+  className?: string;
+  style?: React.CSSProperties;
+  onLoadedData?: () => void;
+  onError?: () => void;
+}) {
+  return (
+    <video
+      src={src}
+      controls
+      playsInline
+      preload="metadata"
+      className={className}
+      style={style}
+      onLoadedData={onLoadedData}
+      onError={onError}
+    />
+  );
+});
+
+MemoizedVideo.displayName = 'MemoizedVideo';
+
 function ReaderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams?.get('id') ?? null;
   const { t } = useLanguage();
   
-  const [pages, setPages] = useState<string[]>([]);
+  const [pages, setPages] = useState<PageInfo[]>([]);
   const [cachedPages, setCachedPages] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -1369,73 +1399,115 @@ function ReaderContent() {
                 <div className="relative w-full h-full flex">
                   {/* 当前页 */}
                   <div className={`relative ${doublePageMode && !(splitCoverMode && currentPage === 0) ? 'flex-1' : 'w-full'} h-full min-w-0`}>
-                    <MemoizedImage
-                      key={`page-${currentPage}`}
-                      src={cachedPages[currentPage] || pages[currentPage]}
-                      alt={t('reader.pageAlt').replace('{page}', String(currentPage + 1))}
-                      fill
-                      className={`
-                        ${doublePageMode && !(splitCoverMode && currentPage === 0) ? 'object-cover' : 'object-contain'} select-none touch-none
-                        w-full h-full
-                        transition-opacity duration-300 ease-in-out
-                        ${doublePageMode ? 'max-h-full' : ''}
-                      `}
-                      style={{
-                        maxHeight: '100%',
-                        height: '100%',
-                        opacity: loadedImages.has(currentPage) ? 1 : 0.3,
-                        transform: doublePageMode ? 'none' : `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-                        transition: doublePageMode ? 'none' : 'transform 0.1s ease-out',
-                        cursor: doublePageMode ? 'pointer' : (scale > 1 ? 'grab' : 'default')
-                      }}
-                      onLoadingComplete={() => {
-                        handleImageLoad(currentPage);
-                        // 图片加载完成后缓存它（优化：只在缓存中没有该图片时才缓存）
-                        if (!cachedPages[currentPage]) {
-                          cacheImage(pages[currentPage], currentPage);
-                        }
-                      }}
-                      onError={() => handleImageError(currentPage)}
-                      onDoubleClick={(e) => handleDoubleClick(e)}
-                      onDragStart={handleImageDragStart}
-                      draggable={false}
-                    />
+                    {pages[currentPage]?.type === 'video' ? (
+                      <MemoizedVideo
+                        key={`page-${currentPage}`}
+                        src={pages[currentPage].url}
+                        className={`
+                          ${doublePageMode && !(splitCoverMode && currentPage === 0) ? 'object-cover' : 'object-contain'} select-none touch-none
+                          w-full h-full
+                          transition-opacity duration-300 ease-in-out
+                          ${doublePageMode ? 'max-h-full' : ''}
+                        `}
+                        style={{
+                          maxHeight: '100%',
+                          height: '100%',
+                          opacity: loadedImages.has(currentPage) ? 1 : 0.3,
+                          transform: doublePageMode ? 'none' : `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                          transition: doublePageMode ? 'none' : 'transform 0.1s ease-out',
+                        }}
+                        onLoadedData={() => handleImageLoad(currentPage)}
+                        onError={() => handleImageError(currentPage)}
+                      />
+                    ) : (
+                      <MemoizedImage
+                        key={`page-${currentPage}`}
+                        src={cachedPages[currentPage] || pages[currentPage]?.url}
+                        alt={t('reader.pageAlt').replace('{page}', String(currentPage + 1))}
+                        fill
+                        className={`
+                          ${doublePageMode && !(splitCoverMode && currentPage === 0) ? 'object-cover' : 'object-contain'} select-none touch-none
+                          w-full h-full
+                          transition-opacity duration-300 ease-in-out
+                          ${doublePageMode ? 'max-h-full' : ''}
+                        `}
+                        style={{
+                          maxHeight: '100%',
+                          height: '100%',
+                          opacity: loadedImages.has(currentPage) ? 1 : 0.3,
+                          transform: doublePageMode ? 'none' : `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                          transition: doublePageMode ? 'none' : 'transform 0.1s ease-out',
+                          cursor: doublePageMode ? 'pointer' : (scale > 1 ? 'grab' : 'default')
+                        }}
+                        onLoadingComplete={() => {
+                          handleImageLoad(currentPage);
+                          // 图片加载完成后缓存它（优化：只在缓存中没有该图片时才缓存）
+                          if (!cachedPages[currentPage] && pages[currentPage]) {
+                            cacheImage(pages[currentPage].url, currentPage);
+                          }
+                        }}
+                        onError={() => handleImageError(currentPage)}
+                        onDoubleClick={(e) => handleDoubleClick(e)}
+                        onDragStart={handleImageDragStart}
+                        draggable={false}
+                      />
+                    )}
                   </div>
 
                   {/* 下一页（仅在双页模式下且不是拆分封面模式的封面时显示） */}
                   {doublePageMode && !(splitCoverMode && currentPage === 0) && currentPage + 1 < pages.length && (
                     <div className="relative flex-1 h-full min-w-0">
-                      <MemoizedImage
-                        key={`page-${currentPage + 1}`}
-                        src={cachedPages[currentPage + 1] || pages[currentPage + 1]}
-                        alt={t('reader.pageAlt').replace('{page}', String(currentPage + 2))}
-                        fill
-                        className={`
-                          object-cover select-none touch-none
-                          w-full h-full
-                          transition-opacity duration-300 ease-in-out
-                          max-h-full
-                        `}
-                        style={{
-                          maxHeight: '100%',
-                          height: '100%',
-                          opacity: loadedImages.has(currentPage + 1) ? 1 : 0.3,
-                          transform: 'none',
-                          transition: 'none',
-                          cursor: 'pointer'
-                        }}
-                        onLoadingComplete={() => {
-                          handleImageLoad(currentPage + 1);
-                          // 图片加载完成后缓存它
-                          if (!cachedPages[currentPage + 1]) {
-                            cacheImage(pages[currentPage + 1], currentPage + 1);
-                          }
-                        }}
-                        onError={() => handleImageError(currentPage + 1)}
-                        onDoubleClick={(e) => handleDoubleClick(e)}
-                        onDragStart={handleImageDragStart}
-                        draggable={false}
-                      />
+                      {pages[currentPage + 1]?.type === 'video' ? (
+                        <MemoizedVideo
+                          key={`page-${currentPage + 1}`}
+                          src={pages[currentPage + 1].url}
+                          className={`
+                            object-cover select-none touch-none
+                            w-full h-full
+                            transition-opacity duration-300 ease-in-out
+                            max-h-full
+                          `}
+                          style={{
+                            maxHeight: '100%',
+                            height: '100%',
+                            opacity: loadedImages.has(currentPage + 1) ? 1 : 0.3,
+                          }}
+                          onLoadedData={() => handleImageLoad(currentPage + 1)}
+                          onError={() => handleImageError(currentPage + 1)}
+                        />
+                      ) : (
+                        <MemoizedImage
+                          key={`page-${currentPage + 1}`}
+                          src={cachedPages[currentPage + 1] || pages[currentPage + 1]?.url}
+                          alt={t('reader.pageAlt').replace('{page}', String(currentPage + 2))}
+                          fill
+                          className={`
+                            object-cover select-none touch-none
+                            w-full h-full
+                            transition-opacity duration-300 ease-in-out
+                            max-h-full
+                          `}
+                          style={{
+                            maxHeight: '100%',
+                            height: '100%',
+                            opacity: loadedImages.has(currentPage + 1) ? 1 : 0.3,
+                            transform: 'none',
+                            transition: 'none',
+                            cursor: 'pointer'
+                          }}
+                          onLoadingComplete={() => {
+                            handleImageLoad(currentPage + 1);
+                            // 图片加载完成后缓存它
+                            if (!cachedPages[currentPage + 1] && pages[currentPage + 1]) {
+                              cacheImage(pages[currentPage + 1].url, currentPage + 1);
+                            }
+                          }}
+                          onError={() => handleImageError(currentPage + 1)}
+                          onDoubleClick={(e) => handleDoubleClick(e)}
+                          onDragStart={handleImageDragStart}
+                          draggable={false}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -1550,35 +1622,54 @@ function ReaderContent() {
                           }}
                         >
                           <div className="relative w-full h-full flex justify-center">
-                            <MemoizedImage
-                              key={`page-${actualIndex}`}
-                              src={cachedPages[actualIndex] || page}
-                              alt={t('reader.pageAlt').replace('{page}', String(actualIndex + 1))}
-                              fill
-                              className="object-contain select-none"
-                              style={{
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                width: 'auto',
-                                height: 'auto',
-                                display: 'block',
-                                margin: '0 auto',
-                                opacity: loadedImages.has(actualIndex) ? 1 : 0.3,
-                                transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-                                transition: 'transform 0.1s ease-out',
-                                cursor: scale > 1 ? 'grab' : 'default'
-                              }}
-                              onLoadingComplete={() => {
-                                handleImageLoad(actualIndex);
-                                if (!cachedPages[actualIndex]) {
-                                  cacheImage(page, actualIndex);
-                                }
-                              }}
-                              onError={() => handleImageError(actualIndex)}
-                              onDoubleClick={(e) => handleDoubleClick(e)}
-                              onDragStart={handleImageDragStart}
-                              draggable={false}
-                            />
+                            {page.type === 'video' ? (
+                              <MemoizedVideo
+                                key={`page-${actualIndex}`}
+                                src={page.url}
+                                className="object-contain select-none"
+                                style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  width: 'auto',
+                                  height: 'auto',
+                                  display: 'block',
+                                  margin: '0 auto',
+                                  opacity: loadedImages.has(actualIndex) ? 1 : 0.3,
+                                }}
+                                onLoadedData={() => handleImageLoad(actualIndex)}
+                                onError={() => handleImageError(actualIndex)}
+                              />
+                            ) : (
+                              <MemoizedImage
+                                key={`page-${actualIndex}`}
+                                src={cachedPages[actualIndex] || page.url}
+                                alt={t('reader.pageAlt').replace('{page}', String(actualIndex + 1))}
+                                fill
+                                className="object-contain select-none"
+                                style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  width: 'auto',
+                                  height: 'auto',
+                                  display: 'block',
+                                  margin: '0 auto',
+                                  opacity: loadedImages.has(actualIndex) ? 1 : 0.3,
+                                  transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                                  transition: 'transform 0.1s ease-out',
+                                  cursor: scale > 1 ? 'grab' : 'default'
+                                }}
+                                onLoadingComplete={() => {
+                                  handleImageLoad(actualIndex);
+                                  if (!cachedPages[actualIndex]) {
+                                    cacheImage(page.url, actualIndex);
+                                  }
+                                }}
+                                onError={() => handleImageError(actualIndex)}
+                                onDoubleClick={(e) => handleDoubleClick(e)}
+                                onDragStart={handleImageDragStart}
+                                draggable={false}
+                              />
+                            )}
                           </div>
                         </div>
                       </div>
