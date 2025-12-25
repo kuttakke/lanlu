@@ -9,6 +9,7 @@ import lrr4cj.dao.*
 import lrr4cj.services.*
 import lrr4cj.config.*
 import lrr4cj.middleware.*
+import lrr4cj.archivehandler.*
 import std.time.*
 import std.fs.*
 import std.convert.*
@@ -441,23 +442,9 @@ public class ArchiveController {
         // 对于文件访问，需要解析软链接到实际路径
         let actualPath = FileUtils.resolvePath(fullArchivePath)
 
-        // 根据archive_type获取文件列表
-        var entries = Array<String>()
-        if (archive.archive_type == "folder") {
-            // 文件夹类型：使用DirectoryScanner列出文件
-            entries = DirectoryScanner.listDirectory(actualPath)
-        } else if (archive.archive_type == "pdf") {
-            // PDF类型：生成页面列表（page_1.jpg, page_2.jpg, ...）
-            let pageCount = archive.pagecount
-            var pageList = ArrayList<String>()
-            for (i in 1..pageCount + 1) {
-                pageList.add("page_${i}.jpg")
-            }
-            entries = pageList.toArray()
-        } else {
-            // 压缩包类型：使用ArchiveUtils列出文件
-            entries = ArchiveUtils.listArchiveEntries(actualPath)
-        }
+        // 使用 Handler 获取文件列表
+        let handler = ArchiveHandlerFactory.getInstance().getHandlerByType(archive.archive_type)
+        let entries = handler.listEntries(actualPath)
 
         // 过滤媒体文件（图片和视频）
         var pageFiles = ArrayList<String>()
@@ -708,117 +695,35 @@ public class ArchiveController {
                     // 对于文件访问，需要解析软链接到实际路径
                     let actualPath = FileUtils.resolvePath(fullArchivePath)
 
-                    // 根据archive_type选择不同的读取方式
-                    if (archive.archive_type == "folder") {
-                        // 文件夹类型：直接读取文件
-                        let filePath = DirectoryScanner.joinPath(actualPath, path)
-                        if (!DirectoryScanner.fileExists(filePath)) {
-                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"File not found in folder\",\"success\":0}"
-                            ctx.status(HttpStatusCode.STATUS_NOT_FOUND)
-                            ctx.json(errorResponse)
-                            return
-                        }
+                    // 使用 Handler 提取文件内容
+                    let handler = ArchiveHandlerFactory.getInstance().getHandlerByType(archive.archive_type)
+                    let (exitCode, data, error) = handler.extractEntryToStream(actualPath, path)
 
-                        let fileData = File.readFrom(Path(filePath))
-                        let contentSize = fileData.size
-
-                        // 生成 ETag（基于归档ID、路径和内容大小）
+                    if (exitCode == 0) {
+                        let contentSize = data.size
                         let etag = CacheUtils.generateETag("${id}-${path}-${contentSize}")
 
-                        // 检查条件请求 - If-None-Match
                         if (CacheUtils.checkIfNoneMatch(ctx, etag)) {
                             CacheUtils.sendNotModifiedDynamic(ctx, etag)
                             return
                         }
 
-                        // 设置缓存头
                         CacheUtils.setDynamicCacheHeaders(ctx, etag)
-
-                        // 根据文件扩展名设置Content-Type
                         let contentType = getContentTypeFromPath(path)
                         ctx.header("Content-Type", contentType)
                         ctx.status(HttpStatusCode.STATUS_OK)
-                        ctx.data(fileData)
-                    } else if (archive.archive_type == "pdf") {
-                        // PDF类型：提取指定页面
-                        // 从路径中提取页码（格式：page_1.jpg）
-                        let pageNumber = extractPageNumberFromPath(path)
-                        if (pageNumber < 1) {
-                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Invalid page number in path\",\"success\":0}"
-                            ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
-                            ctx.json(errorResponse)
-                            return
-                        }
-
-                        // 使用临时文件方式提取页面（避免stdout阻塞）
-                        let cachePath = SystemSettingsService.getPath("CACHE_PATH")
-                        let tempOutputPath = "${cachePath}/temp_pdf_${id}_${pageNumber}.jpg"
-
-                        let success = ArchiveUtils.extractPdfPage(actualPath, pageNumber, tempOutputPath)
-
-                        if (success) {
-                            // 读取临时文件
-                            let fileData = File.readFrom(Path(tempOutputPath))
-                            let contentSize = fileData.size
-
-                            // 删除临时文件
-                            try {
-                                remove(Path(tempOutputPath))
-                            } catch (_: Exception) {}
-
-                            // 生成 ETag（基于归档ID、页码和内容大小）
-                            let etag = CacheUtils.generateETag("${id}-${pageNumber}-${contentSize}")
-
-                            // 检查条件请求 - If-None-Match
-                            if (CacheUtils.checkIfNoneMatch(ctx, etag)) {
-                                CacheUtils.sendNotModifiedDynamic(ctx, etag)
-                                return
-                            }
-
-                            // 设置缓存头
-                            CacheUtils.setDynamicCacheHeaders(ctx, etag)
-
-                            // 设置Content-Type为JPEG
-                            ctx.header("Content-Type", "image/jpeg")
-                            ctx.status(HttpStatusCode.STATUS_OK)
-                            ctx.data(fileData)
-                        } else {
-                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Failed to extract PDF page\",\"success\":0}"
-                            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
-                            ctx.json(errorResponse)
-                        }
+                        let byteData = Array<Byte>(contentSize, { i => data[i] })
+                        ctx.data(byteData)
                     } else {
-                        // 压缩包类型：使用 bsdtar 的 -xO 选项直接输出到标准输出
-                        let (exitCode, stdout, stderr) = ArchiveUtils.extractArchiveEntryToStream(actualPath, path)
-
-                        if (exitCode == 0) {
-                            // 生成 ETag（基于归档ID、路径和内容大小）
-                            let contentSize = stdout.size
-                            let etag = CacheUtils.generateETag("${id}-${path}-${contentSize}")
-
-                            // 检查条件请求 - If-None-Match
-                            if (CacheUtils.checkIfNoneMatch(ctx, etag)) {
-                                CacheUtils.sendNotModifiedDynamic(ctx, etag)
-                                return
-                            }
-
-                            // 设置缓存头
-                            CacheUtils.setDynamicCacheHeaders(ctx, etag)
-
-                            // 根据文件扩展名设置Content-Type
-                            let contentType = getContentTypeFromPath(path)
-                            ctx.header("Content-Type", contentType)
-                            ctx.status(HttpStatusCode.STATUS_OK)
-                            // 将UInt8数组转换为Byte数组
-                            let byteData = Array<Byte>(contentSize, { i => stdout[i] })
-                            // 直接返回二进制数据
-                            ctx.data(byteData)
-                        } else {
-                            let error = String.fromUtf8(stderr)
-                            let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Failed to extract file: ${error}\",\"success\":0}"
-                            ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
-                            ctx.json(errorResponse)
+                        var errorStr = ""
+                        try {
+                            errorStr = String.fromUtf8(error)
+                        } catch (_: Exception) {
+                            errorStr = "Failed to extract file"
                         }
+                        let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"${errorStr}\",\"success\":0}"
+                        ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                        ctx.json(errorResponse)
                     }
                 } catch (e: Exception) {
                     let errorResponse = "{\"operation\":\"serve_page\",\"error\":\"Exception extracting file: ${e.message}\",\"success\":0}"

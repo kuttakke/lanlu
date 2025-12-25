@@ -7,6 +7,7 @@ import std.sync.*
 import lrr4cj.models.*
 import lrr4cj.utils.*
 import lrr4cj.dao.*
+import lrr4cj.archivehandler.*
 
 /**
  * 单个档案扫描任务：处理归档文件并入库
@@ -175,8 +176,8 @@ public class ScanArchiveTaskRunner {
                         logger.info("Thumbnail hash is empty, submitting thumbnail generation task for existing archive: ${archive.id}")
 
                         // 提交缩略图生成任务（异步）
-                        // 对于已存在的archive，自动检测类型
-                        let archiveType = detectArchiveTypeFromPath(filePath)
+                        // 使用 ArchiveHandlerFactory 自动检测类型
+                        let archiveType = ArchiveHandlerFactory.getInstance().detectType(filePath)
                         let taskSubmitted = submitThumbnailTask(filePath, archive.id, archiveType)
                         if (!taskSubmitted) {
                             logger.error("Failed to submit thumbnail generation task for archive: ${archive.id}")
@@ -193,39 +194,14 @@ public class ScanArchiveTaskRunner {
                     logger.debug("Archive not found in database, processing new file: ${filePath}")
             }
 
-            // 自动检测archive_type
-            let archiveType = detectArchiveTypeFromPath(filePath)
+            // 使用 ArchiveHandlerFactory 自动检测类型并获取处理器
+            let factory = ArchiveHandlerFactory.getInstance()
+            let handler = factory.getHandlerByPath(filePath)
+            let archiveType = handler.getType()
 
-            // 根据 archive_type 进行不同处理
-            var pageCount: Int32 = 0
-
-            if (archiveType == "folder") {
-                // 文件夹类型：直接遍历文件夹中的图片文件
-                pageCount = countImagesInFolder(filePath)
-                logger.info("Folder ${filePath} contains ${pageCount} images")
-            } else if (archiveType == "pdf") {
-                pageCount = ArchiveUtils.getPdfPageCount(filePath)
-                logger.info("PDF file: ${filePath}, page count: ${pageCount}")
-            } else if (archiveType == "archive") {
-                // 压缩包类型：使用现有逻辑
-                let entries = ArchiveUtils.listArchiveEntries(filePath)
-                for (entry in entries) {
-                    if (ArchiveUtils.isImageFile(entry)) {
-                        pageCount++
-                    }
-                }
-                logger.info("Archive ${filePath} contains ${pageCount} images")
-            } else {
-                // 未知类型，按压缩包处理
-                logger.warn("Unknown archive type: ${archiveType}, treating as archive")
-                let entries = ArchiveUtils.listArchiveEntries(filePath)
-                for (entry in entries) {
-                    if (ArchiveUtils.isImageFile(entry)) {
-                        pageCount++
-                    }
-                }
-                logger.info("Archive ${filePath} contains ${pageCount} images")
-            }
+            // 使用 Handler 获取媒体文件数量
+            let pageCount = handler.getMediaCount(filePath)
+            logger.info("Archive ${filePath} (type: ${archiveType}) contains ${pageCount} media files")
 
             let dbResult = addArchiveToDatabase(filePath, archiveBasePath)
             if (!dbResult.success) {
@@ -260,8 +236,8 @@ public class ScanArchiveTaskRunner {
 
             let relativePath = ArchiveUtils.calculateRelativePath(filePath, archiveBasePath)
 
-            // 自动检测archive_type
-            let archiveType = detectArchiveTypeFromPath(filePath)
+            // 使用 ArchiveHandlerFactory 自动检测类型
+            let archiveType = ArchiveHandlerFactory.getInstance().detectType(filePath)
 
             let success = ArchiveDao.insertArchive(archiveId, defaultTitle, fileName, fileSize, fileModTime, relativePath, archiveType)
             if (!success) {
@@ -322,48 +298,5 @@ public class ScanArchiveTaskRunner {
         escaped = escaped.replace("\r", "\\r")
         escaped = escaped.replace("\t", "\\t")
         return escaped
-    }
-
-    /**
-     * 统计文件夹中的图片数量
-     */
-    private static func countImagesInFolder(folderPath: String): Int32 {
-        try {
-            let entries = DirectoryScanner.listDirectory(folderPath)
-            var count: Int32 = 0
-            for (entryName in entries) {
-                if (ArchiveUtils.isImageFile(entryName)) {
-                    count++
-                }
-            }
-            return count
-        } catch (e: Exception) {
-            logger.error("Error counting images in folder", ("path", folderPath), ("error", e.message))
-            return 0
-        }
-    }
-
-    /**
-     * 根据文件路径自动检测归档类型
-     * 用于已存在的archive记录需要重新生成缩略图时
-     */
-    private static func detectArchiveTypeFromPath(filePath: String): String {
-        try {
-            // 检查是否为目录
-            if (DirectoryScanner.isDirectory(filePath)) {
-                return "folder"
-            }
-
-            // 检查文件扩展名
-            let ext = ArchiveUtils.getFileExtension(filePath).toAsciiLower()
-            if (ext == "pdf") {
-                return "pdf"
-            }
-
-            // 默认为压缩包
-            return "archive"
-        } catch (_: Exception) {
-            return "archive"
-        }
     }
 }

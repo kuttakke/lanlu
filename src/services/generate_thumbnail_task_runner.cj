@@ -10,6 +10,7 @@ import std.sync.*
 import lrr4cj.models.*
 import lrr4cj.utils.*
 import lrr4cj.dao.*
+import lrr4cj.archivehandler.*
 
 /**
  * 缩略图生成任务：为单个档案生成缩略图
@@ -102,17 +103,9 @@ public class GenerateThumbnailTaskRunner {
         let tempImagePath = FileUtils.joinPath(taskTempDir, "${archiveId}_temp.${ArchiveUtils.getFileExtension(firstImageEntry)}")
         TaskIO.appendLog(taskId, "Copying/Extracting image to: ${tempImagePath}")
 
-        // 根据类型复制或提取图片
-        let copySuccess = if (archiveType == "folder") {
-            // 文件夹类型：直接复制文件
-            copyImageFile(imageFilePath, tempImagePath)
-        } else if (archiveType == "pdf") {
-            // PDF类型：提取第一页
-            ArchiveUtils.extractPdfPage(actualArchivePath, 1, tempImagePath)
-        } else {
-            // 压缩包类型：从归档中提取
-            ArchiveUtils.extractArchiveEntry(actualArchivePath, firstImageEntry, tempImagePath)
-        }
+        // 使用 Handler 提取图片
+        let handler = ArchiveHandlerFactory.getInstance().getHandlerByType(archiveType)
+        let copySuccess = handler.extractEntryToFile(actualArchivePath, firstImageEntry, tempImagePath)
 
         if (!copySuccess) {
             let errorMsg = "Failed to copy/extract image from ${archiveType} archive"
@@ -320,124 +313,14 @@ public class GenerateThumbnailTaskRunner {
      * imageFilePath: 图片文件的完整路径（用于文件夹类型）
      */
     private static func getFirstImageForThumbnail(taskId: Int64, archivePath: String, archiveType: String, archiveId: String): (String, String) {
-        if (archiveType == "pdf") {
-            // PDF类型：直接返回第一页的占位符
-            TaskIO.appendLog(taskId, "PDF archive: will extract first page")
-            return ("page_1.jpg", "")
-        } else if (archiveType == "folder") {
-            // 文件夹类型：列出文件夹中的文件
-            TaskIO.appendLog(taskId, "Listing files in folder: ${archivePath}")
-            let entries = DirectoryScanner.listDirectory(archivePath)
-            TaskIO.appendLog(taskId, "Found ${entries.size} entries in folder")
-
-            // 先尝试在当前目录查找图片
-            for (entry in entries) {
-                let fullPath = DirectoryScanner.joinPath(archivePath, entry)
-                TaskIO.appendLog(taskId, "Checking entry: ${entry}, fullPath: ${fullPath}")
-
-                // 跳过目录
-                if (DirectoryScanner.isDirectory(fullPath)) {
-                    TaskIO.appendLog(taskId, "Entry ${entry} is a directory, skipping for now")
-                    continue
-                }
-
-                if (DirectoryScanner.fileExists(fullPath)) {
-                    let ext = DirectoryScanner.getFileExtension(fullPath)
-                    TaskIO.appendLog(taskId, "File ${entry} has extension: ${ext}")
-                    var isImageFile = false
-                    for (imgExt in ArchiveUtils.SUPPORTED_IMAGE_EXTENSIONS) {
-                        if (ext == imgExt) {
-                            isImageFile = true
-                            break
-                        }
-                    }
-                    if (isImageFile) {
-                        TaskIO.appendLog(taskId, "Found first image in folder: ${entry}")
-                        return (entry, fullPath)
-                    }
-                } else {
-                    TaskIO.appendLog(taskId, "File does not exist or is not regular: ${fullPath}")
-                }
-            }
-
-            // 如果当前目录没有图片，递归搜索子目录
-            TaskIO.appendLog(taskId, "No images found in root folder, searching subdirectories...")
-            for (entry in entries) {
-                let fullPath = DirectoryScanner.joinPath(archivePath, entry)
-                if (DirectoryScanner.isDirectory(fullPath)) {
-                    TaskIO.appendLog(taskId, "Searching subdirectory: ${entry}")
-                    let subEntries = DirectoryScanner.listDirectory(fullPath)
-                    for (subEntry in subEntries) {
-                        let subFullPath = DirectoryScanner.joinPath(fullPath, subEntry)
-                        if (DirectoryScanner.fileExists(subFullPath)) {
-                            let ext = DirectoryScanner.getFileExtension(subFullPath)
-                            var isImageFile = false
-                            for (imgExt in ArchiveUtils.SUPPORTED_IMAGE_EXTENSIONS) {
-                                if (ext == imgExt) {
-                                    isImageFile = true
-                                    break
-                                }
-                            }
-                            if (isImageFile) {
-                                TaskIO.appendLog(taskId, "Found first image in subfolder: ${subEntry}")
-                                return (subEntry, subFullPath)
-                            }
-                        }
-                    }
-                }
-            }
-
-            TaskIO.appendLog(taskId, "No images found in folder or subdirectories")
-            return ("", "")
+        TaskIO.appendLog(taskId, "Getting first image for ${archiveType} archive")
+        let handler = ArchiveHandlerFactory.getInstance().getHandlerByType(archiveType)
+        let (entryName, fullPath) = handler.getFirstImage(archivePath)
+        if (entryName.size > 0) {
+            TaskIO.appendLog(taskId, "Found first image: ${entryName}")
         } else {
-            // 压缩包类型：列出归档中的文件
-            TaskIO.appendLog(taskId, "Listing archive entries...")
-            let entries = ArchiveUtils.listArchiveEntries(archivePath)
-            TaskIO.appendLog(taskId, "Found ${entries.size} entries in archive")
-
-            for (entry in entries) {
-                let ext = ArchiveUtils.getFileExtension(entry)
-                var isImageFile = false
-                for (imgExt in ArchiveUtils.SUPPORTED_IMAGE_EXTENSIONS) {
-                    if (ext == imgExt) {
-                        isImageFile = true
-                        break
-                    }
-                }
-                if (isImageFile) {
-                    TaskIO.appendLog(taskId, "Found first image in archive: ${entry}")
-                    return (entry, "")
-                }
-            }
-            return ("", "")
+            TaskIO.appendLog(taskId, "No images found in archive")
         }
+        return (entryName, fullPath)
     }
-
-    /**
-     * 复制图片文件
-     */
-    private static func copyImageFile(sourcePath: String, destPath: String): Bool {
-        try {
-            let sourceFile = File(Path(sourcePath), Read)
-            let destFile = File(Path(destPath), Write)
-            try {
-                let bufferSize = 8192
-                let buffer = Array<UInt8>(bufferSize, {_ => 0})
-                var bytesRead: Int64 = sourceFile.read(buffer)
-                while (bytesRead > 0) {
-                    let slice = buffer[0..bytesRead]
-                    destFile.write(slice)
-                    bytesRead = sourceFile.read(buffer)
-                }
-                return true
-            } finally {
-                sourceFile.close()
-                destFile.close()
-            }
-        } catch (_: Exception) {
-            return false
-        }
-    }
-
-
 }
