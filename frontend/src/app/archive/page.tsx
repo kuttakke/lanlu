@@ -839,9 +839,22 @@ function ArchiveDetailContent() {
                               {/* 页面图片/视频 */}
                               <div className="relative w-full h-full">
                                 {page.type === 'video' ? (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                                    <Play className="w-12 h-12 text-muted-foreground" />
-                                  </div>
+                                  <video
+                                    src={page.url}
+                                    className="w-full h-full object-cover"
+                                    muted
+                                    loop
+                                    playsInline
+                                    onMouseEnter={(e) => {
+                                      const video = e.target as HTMLVideoElement;
+                                      video.play().catch(() => {});
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const video = e.target as HTMLVideoElement;
+                                      video.pause();
+                                      video.currentTime = 0;
+                                    }}
+                                  />
                                 ) : (
                                   <Image
                                     src={page.url}
