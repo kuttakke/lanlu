@@ -44,7 +44,8 @@ export function ArchiveCard({ archive, index = 0 }: ArchiveCardProps) {
     return allTags
       .filter(tag => {
         const strippedTag = stripNamespace(tag).toLowerCase();
-        return !strippedTag.includes('source');
+        const originalTag = tag.toLowerCase();
+        return !strippedTag.includes('source') && !originalTag.includes('source');
       })
       .slice(0, 8);
   }, [allTags]);
