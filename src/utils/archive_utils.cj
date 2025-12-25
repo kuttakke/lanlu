@@ -35,12 +35,14 @@ public class ArchiveConfig {
     public var cachePath: String
     public var thumbnailPath: String
     public var archiveType: String  // 归档类型：archive=压缩包，folder=文件夹，pdf=PDF
+    public var tags: String
 
-    public init(archivePath: String, cachePath: String, thumbnailPath: String, archiveType: String) {
+    public init(archivePath: String, cachePath: String, thumbnailPath: String, archiveType: String, tags: String) {
         this.archivePath = archivePath
         this.cachePath = cachePath
         this.thumbnailPath = thumbnailPath
         this.archiveType = archiveType
+        this.tags = tags
     }
 }
 

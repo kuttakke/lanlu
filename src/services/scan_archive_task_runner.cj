@@ -105,9 +105,10 @@ public class ScanArchiveTaskRunner {
         var cachePath = ""
         var thumbnailPath = ""
         var archiveType = "archive"  // 默认压缩包
+        var tags = ""
 
         if (trimmed.size == 0) {
-            return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType)
+            return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType, tags)
         }
 
         try {
@@ -149,11 +150,18 @@ public class ScanArchiveTaskRunner {
                             case _ => ()
                         }
                     }
+                    if (fields.contains("tags")) {
+                        let value = fields["tags"]
+                        match (value) {
+                            case s: JsonString => tags = s.getValue().trimAscii()
+                            case _ => ()
+                        }
+                    }
                 case _ => ()
             }
         } catch (_: Exception) {}
 
-        return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType)
+        return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType, tags)
     }
 
     private static func processArchiveInternal(filePath: String, config: ArchiveConfig): ProcessResultData {
@@ -211,6 +219,16 @@ public class ScanArchiveTaskRunner {
             let pageUpdateResult = ArchiveDao.updatePageCount(dbResult.archiveId, pageCount)
             if (!pageUpdateResult) {
                 logger.error("Failed to update page count for archive: ${dbResult.archiveId}")
+            }
+
+            // 保存 tags（如果有）
+            if (config.tags.size > 0) {
+                let tagOk = TagDao.updateArchiveTags(dbResult.archiveId, config.tags)
+                if (!tagOk) {
+                    logger.error("Failed to update tags for archive", ("archive_id", dbResult.archiveId))
+                } else {
+                    logger.info("Successfully updated tags for archive", ("archive_id", dbResult.archiveId), ("tags", config.tags))
+                }
             }
 
             // 提交缩略图生成任务（异步）
