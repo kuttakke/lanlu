@@ -66,7 +66,7 @@ public class ScheduledTaskDao {
                     }
 
                     if (!tableExists) {
-                        logger.info("scheduled_tasks表不存在，创建新表")
+                        logger.debug("scheduled_tasks表不存在，创建新表")
                         let createTableSql = """
                             CREATE TABLE scheduled_tasks (
                                 id BIGSERIAL PRIMARY KEY,
@@ -97,12 +97,12 @@ public class ScheduledTaskDao {
                         let stmt = conn.prepareStatement(createTableSql)
                         stmt.update()
                         stmt.close()
-                        logger.info("scheduled_tasks表创建成功")
+                        logger.debug("scheduled_tasks表创建成功")
 
                         // 创建索引
                         createIndexes(conn)
                     } else {
-                        logger.info("scheduled_tasks表已存在，跳过创建")
+                        logger.debug("scheduled_tasks表已存在，跳过创建")
                     }
                     return true
                 } catch (e: Exception) {
@@ -134,7 +134,7 @@ public class ScheduledTaskDao {
                 let stmt = conn.prepareStatement(sql)
                 stmt.update()
                 stmt.close()
-                logger.info("索引创建成功", ("index", name))
+                logger.debug("索引创建成功", ("index", name))
             } catch (e: Exception) {
                 logger.warn("创建索引失败", ("index", name), ("error", e.message))
             }
@@ -192,7 +192,7 @@ public class ScheduledTaskDao {
                         try {
                             if (rs.next()) {
                                 data.id = rs.getOrNull<Int64>(0) ?? 0
-                                logger.info("创建定时任务成功", ("id", data.id.toString()), ("name", data.name))
+                                logger.debug("创建定时任务成功", ("id", data.id.toString()), ("name", data.name))
                                 return true
                             } else {
                                 logger.error("获取自增ID失败")
@@ -481,7 +481,7 @@ public class ScheduledTaskDao {
                         stmt.set(10, data.id)
 
                         stmt.update()
-                        logger.info("更新定时任务成功", ("id", data.id))
+                        logger.debug("更新定时任务成功", ("id", data.id))
                         return true
                     } finally {
                         stmt.close()
@@ -515,7 +515,7 @@ public class ScheduledTaskDao {
                     try {
                         stmt.set(0, id)
                         stmt.update()
-                        logger.info("删除定时任务成功", ("id", id))
+                        logger.debug("删除定时任务成功", ("id", id))
                         return true
                     } finally {
                         stmt.close()
@@ -553,7 +553,7 @@ public class ScheduledTaskDao {
                         stmt.set(0, enabled)
                         stmt.set(1, id)
                         stmt.update()
-                        logger.info("更新定时任务启用状态", ("id", id), ("enabled", enabled.toString()))
+                        logger.debug("更新定时任务启用状态", ("id", id), ("enabled", enabled.toString()))
                         return true
                     } finally {
                         stmt.close()
@@ -610,7 +610,7 @@ public class ScheduledTaskDao {
                         stmt.set(4, id)
 
                         stmt.update()
-                        logger.info("更新定时任务执行结果", ("id", id), ("success", success.toString()))
+                        logger.debug("更新定时任务执行结果", ("id", id), ("success", success.toString()))
                         return true
                     } finally {
                         stmt.close()
@@ -653,7 +653,7 @@ public class ScheduledTaskDao {
                         stmt.set(1, id)
 
                         stmt.update()
-                        logger.info("更新下次执行时间", ("id", id), ("next_run_at", nextRunAt))
+                        logger.debug("更新下次执行时间", ("id", id), ("next_run_at", nextRunAt))
                         return true
                     } finally {
                         stmt.close()

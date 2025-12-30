@@ -28,7 +28,7 @@ public class DirectoryScanner {
         var result: Array<String> = Array<String>()
 
         try {
-            logger.info("=== findArchiveFiles: Starting scan of ${dirPath} ===")
+            logger.debug("=== findArchiveFiles: Starting scan of ${dirPath} ===")
 
             if (!directoryExists(dirPath)) {
                 logger.error("Directory does not exist: ${dirPath}")
@@ -36,7 +36,7 @@ public class DirectoryScanner {
             }
 
             let entries = listDirectory(dirPath)
-            logger.info("Scanning directory ${dirPath}, found ${entries.size.toString()} entries")
+            logger.debug("Scanning directory ${dirPath}, found ${entries.size.toString()} entries")
 
             if (entries.size == 0) {
                 logger.warn("Directory ${dirPath} is empty")
@@ -47,27 +47,27 @@ public class DirectoryScanner {
 
                 // 记录处理的每个条目（每10个输出一次）
                 if (result.size % 10 == 0) {
-                    logger.info("Processing entry ${entry}, current archive count: ${result.size.toString()}")
+                    logger.debug("Processing entry ${entry}, current archive count: ${result.size.toString()}")
                 }
 
                 if (directoryExists(fullPath)) {
-                    logger.info("Entry ${entry} is a directory, checking if it contains images...")
+                    logger.debug("Entry ${entry} is a directory, checking if it contains images...")
                     // 检查目录是否包含图片文件（可能是folder类型的archive）
                     if (directoryContainsImages(fullPath)) {
-                        logger.info("Directory ${entry} contains images, treating as folder archive: ${fullPath}")
+                        logger.debug("Directory ${entry} contains images, treating as folder archive: ${fullPath}")
                         result = addFileToArray(result, fullPath)
                     }
 
                     // 递归处理子目录
-                    logger.info("Recursing into subdirectory: ${entry}")
+                    logger.debug("Recursing into subdirectory: ${entry}")
                     let subFiles = findArchiveFiles(fullPath)
                     result = combineArrays(result, subFiles)
 
                     if (subFiles.size > 0) {
-                        logger.info("Completed scanning subdirectory: ${entry}, found ${subFiles.size.toString()} archives")
+                        logger.debug("Completed scanning subdirectory: ${entry}, found ${subFiles.size.toString()} archives")
                     }
                 } else if (fileExists(fullPath)) {
-                    logger.info("Entry ${entry} is a file, checking extension...")
+                    logger.debug("Entry ${entry} is a file, checking extension...")
                     // 检查文件扩展名
                     let ext = getFileExtension(fullPath)
 
@@ -80,7 +80,7 @@ public class DirectoryScanner {
                     }
 
                     if (isSupported) {
-                        logger.info("Found supported archive: ${fullPath} (ext: ${ext})")
+                        logger.debug("Found supported archive: ${fullPath} (ext: ${ext})")
                         result = addFileToArray(result, fullPath)
                     } else {
                         logger.debug("Skipping unsupported file: ${fullPath} (ext: ${ext})")
@@ -90,7 +90,7 @@ public class DirectoryScanner {
                 }
             }
 
-            logger.info("=== Completed scanning directory ${dirPath}, total archives: ${result.size.toString()} ===")
+            logger.debug("=== Completed scanning directory ${dirPath}, total archives: ${result.size.toString()} ===")
         } catch (e: Exception) {
             logger.error("Error scanning directory ${dirPath}: ${e.message}")
         }
@@ -201,7 +201,7 @@ public class DirectoryScanner {
             let dirPath = Path(path)
             var files = Array<String>()
 
-            logger.info("listDirectory: Checking path ${path}")
+            logger.debug("listDirectory: Checking path ${path}")
 
             if (exists(dirPath)) {
                 let fileInfo = FileInfo(dirPath)
@@ -210,18 +210,18 @@ public class DirectoryScanner {
 
                 if (fileInfo.isDirectory()) {
                     isDirectory = true
-                    logger.info("listDirectory: ${path} is a regular directory")
+                    logger.debug("listDirectory: ${path} is a regular directory")
                 } else if (fileInfo.isSymbolicLink()) {
                     isSymlink = true
-                    logger.info("listDirectory: ${path} is a symbolic link")
+                    logger.debug("listDirectory: ${path} is a symbolic link")
 
                     try {
                         let targetPath = SymbolicLink.readFrom(path, recursive: false)
-                        logger.info("listDirectory: Symlink ${path} points to ${targetPath.toString()}")
+                        logger.debug("listDirectory: Symlink ${path} points to ${targetPath.toString()}")
                         if (exists(targetPath)) {
                             let targetFileInfo = FileInfo(targetPath)
                             isDirectory = targetFileInfo.isDirectory()
-                            logger.info("listDirectory: Symlink target is ${if (isDirectory) {"directory"} else {"NOT a directory"}}")
+                            logger.debug("listDirectory: Symlink target is ${if (isDirectory) {"directory"} else {"NOT a directory"}}")
                         }
                     } catch (_: FSException) {
                         isDirectory = false
@@ -235,20 +235,20 @@ public class DirectoryScanner {
                     let targetPath: String
                     if (isSymlink) {
                         targetPath = SymbolicLink.readFrom(path, recursive: false).toString()
-                        logger.info("listDirectory: Using symlink target path for listing: ${targetPath}")
+                        logger.debug("listDirectory: Using symlink target path for listing: ${targetPath}")
                     } else {
                         targetPath = path
                     }
 
                     let entries = Directory.readFrom(Path(targetPath))
-                    logger.info("listDirectory: Found ${entries.size} entries in ${targetPath}")
+                    logger.debug("listDirectory: Found ${entries.size} entries in ${targetPath}")
 
                     for (entry in entries) {
                         if (entry.isRegular() || entry.isDirectory() || entry.isSymbolicLink()) {
                             files = addFileToArray(files, entry.name.toString())
                         }
                     }
-                    logger.info("listDirectory: Returning ${files.size} files/dirs/symlinks")
+                    logger.debug("listDirectory: Returning ${files.size} files/dirs/symlinks")
                     return files
                 } else {
                     logger.warn("listDirectory: ${path} is not a directory, returning empty array")

@@ -36,7 +36,7 @@ public class UserDao {
                     checkStmt.close()
 
                     if (!tableExists) {
-                        logger.info("users表不存在，创建新表")
+                        logger.debug("users表不存在，创建新表")
                         let sql = """
                             CREATE TABLE users (
                                 id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -50,9 +50,9 @@ public class UserDao {
                         let stmt = conn.prepareStatement(sql)
                         stmt.update()
                         stmt.close()
-                        logger.info("users表创建成功")
+                        logger.debug("users表创建成功")
                     } else {
-                        logger.info("users表已存在，检查并添加缺失的列")
+                        logger.debug("users表已存在，检查并添加缺失的列")
                         // 检查 is_admin 列是否存在
                         let checkColumnStmt = conn.prepareStatement("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_admin'")
                         let columnRs = checkColumnStmt.query()
@@ -65,16 +65,16 @@ public class UserDao {
                         checkColumnStmt.close()
 
                         if (!columnExists) {
-                            logger.info("添加 is_admin 列")
+                            logger.debug("添加 is_admin 列")
                             let alterStmt = conn.prepareStatement("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE")
                             alterStmt.update()
                             alterStmt.close()
-                            logger.info("is_admin 列添加成功")
+                            logger.debug("is_admin 列添加成功")
                         } else {
-                            logger.info("is_admin 列已存在，无需添加")
+                            logger.debug("is_admin 列已存在，无需添加")
                         }
                     }
-                    logger.info("users表结构检查完成")
+                    logger.debug("users表结构检查完成")
                     return true
                 } catch (e: Exception) {
                     logger.error("创建 users 表失败", ("error", e.message))
@@ -242,14 +242,14 @@ public class UserDao {
 
     private static func checkUserTableIsEmpty(conn: Connection, logger: Logger): Bool {
         try {
-            logger.info("开始查询用户表记录数量")
+            logger.debug("开始查询用户表记录数量")
             let stmt = conn.prepareStatement("SELECT COUNT(*) FROM users")
             try {
                 let rs = stmt.query()
                 try {
                     if (rs.next()) {
                         let count = rs.getOrNull<Int64>(0) ?? 0
-                        logger.info("用户表记录数量: ${count}")
+                        logger.debug("用户表记录数量: ${count}")
                         return count == 0
                     } else {
                         logger.warn("查询用户表记录数量失败，无法获取结果")

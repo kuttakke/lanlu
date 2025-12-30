@@ -53,19 +53,19 @@ public class CheckDatabaseTaskRunner {
         try {
             let logger = getLogger("check_database")
 
-            logger.info("Fetching all archives from database...")
+            logger.debug("Fetching all archives from database...")
             let archives = ArchiveDao.getAllArchives()
-            logger.info("Retrieved ${archives.size} archives from database")
+            logger.debug("Retrieved ${archives.size} archives from database")
 
             var deletedCount: Int64 = 0
             let checkedCount = archives.size
 
             if (archives.size == 0) {
-                logger.info("No archives found in database, nothing to check")
+                logger.debug("No archives found in database, nothing to check")
                 return CheckResultData(true, 0, 0, "")
             }
 
-            logger.info("Starting file existence check for ${checkedCount} archives")
+            logger.debug("Starting file existence check for ${checkedCount} archives")
 
             var processed = 0
             for (archive in archives) {
@@ -108,7 +108,7 @@ public class CheckDatabaseTaskRunner {
                     logger.warn("Archive path not found, will delete from database", ("path", fullFilePath), ("archive_id", archive.id.toString()), ("type", archive.archive_type))
                     if (ArchiveDao.delete(archive.id)) {
                         deletedCount++
-                        logger.info("Successfully deleted database record", ("id", archive.id.toString()), ("title", archive.title))
+                        logger.debug("Successfully deleted database record", ("id", archive.id.toString()), ("title", archive.title))
                     } else {
                         logger.error("Failed to delete database record", ("id", archive.id.toString()), ("title", archive.title))
                     }
@@ -118,12 +118,12 @@ public class CheckDatabaseTaskRunner {
 
                 // 每处理100个文件输出一次进度
                 if (processed % 100 == 0 || processed == checkedCount) {
-                    logger.info("Progress: ${processed}/${checkedCount} files checked, ${deletedCount} deletions so far")
+                    logger.debug("Progress: ${processed}/${checkedCount} files checked, ${deletedCount} deletions so far")
                 }
             }
 
             if (deletedCount > 0) {
-                logger.info("Database check completed with deletions", ("deleted_count", deletedCount.toString()), ("checked_count", checkedCount.toString()))
+                logger.debug("Database check completed with deletions", ("deleted_count", deletedCount.toString()), ("checked_count", checkedCount.toString()))
             } else {
                 logger.debug("Database check completed successfully - all ${checkedCount} files exist", ("checked_count", checkedCount.toString()))
             }

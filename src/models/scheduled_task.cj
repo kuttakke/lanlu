@@ -289,7 +289,7 @@ public class ScheduledTaskModel {
      */
     public static func getWithPagination(page: Int32, pageSize: Int32): ScheduledTaskPageResult {
         let logger = getLogger("scheduled_task_model")
-        logger.info("分页获取定时任务列表", [("page", page.toString()), ("pageSize", pageSize.toString())])
+        logger.debug("分页获取定时任务列表", [("page", page.toString()), ("pageSize", pageSize.toString())])
 
         let total = ScheduledTaskDao.getCount()
         let offset = (page - 1) * pageSize
@@ -297,7 +297,7 @@ public class ScheduledTaskModel {
         let tasks = convertDataArrayToTasks(dataArray)
 
         let result = ScheduledTaskPageResult(tasks, total, page, pageSize)
-        logger.info("分页查询完成", [("total", total.toString()), ("returned", tasks.size.toString())])
+        logger.debug("分页查询完成", [("total", total.toString()), ("returned", tasks.size.toString())])
 
         return result
     }

@@ -59,15 +59,15 @@ public class TaskDao {
                     }
 
                     if (!tableExists) {
-                        logger.info("tasks表不存在，创建新的tasks表")
+                        logger.debug("tasks表不存在，创建新的tasks表")
                         let createTableSql = "CREATE TABLE tasks (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, task_type VARCHAR(50) NOT NULL DEFAULT 'generic', status VARCHAR(50) NOT NULL DEFAULT 'pending', progress INTEGER NOT NULL DEFAULT 0, message TEXT, plugin_namespace VARCHAR(255), parameters TEXT, result TEXT, priority INTEGER NOT NULL DEFAULT 50, group_id VARCHAR(255), timeout_at TIMESTAMP, trigger_source VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, started_at TIMESTAMP, completed_at TIMESTAMP)"
 
                         let stmt = conn.prepareStatement(createTableSql)
                         stmt.update()
                         stmt.close()
-                        logger.info("tasks表创建成功")
+                        logger.debug("tasks表创建成功")
                     } else {
-                        logger.info("tasks表已存在，跳过创建")
+                        logger.debug("tasks表已存在，跳过创建")
                     }
                     return true
                 } catch (e: Exception) {
@@ -596,7 +596,7 @@ public class TaskDao {
                     pstmt.set(1, id)
 
                     pstmt.update()
-                    logger.info("更新任务参数", ("id", id.toString()), ("parameters", parameters))
+                    logger.debug("更新任务参数", ("id", id.toString()), ("parameters", parameters))
 
                     try {
                         pstmt.close()
@@ -718,7 +718,7 @@ public class TaskDao {
                     try {
                         let updateResult = stmt.update()
                         let rowCount = updateResult.rowCount
-                        logger.info("恢复孤儿任务完成", [("count", rowCount.toString())])
+                        logger.debug("恢复孤儿任务完成", [("count", rowCount.toString())])
                         return rowCount
                     } finally {
                         try {
@@ -992,7 +992,7 @@ public class TaskDao {
 
                         let updateResult = stmt.update()
                         let rowCount = updateResult.rowCount
-                        logger.info("批量更新任务状态", ("group_id", groupId), ("count", rowCount.toString()))
+                        logger.debug("批量更新任务状态", ("group_id", groupId), ("count", rowCount.toString()))
                         return rowCount
                     } finally {
                         try {

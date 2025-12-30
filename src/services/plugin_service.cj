@@ -231,7 +231,7 @@ public class PluginService {
         var discoveredPlugins: Array<PluginData> = []
         let logger = getLogger("plugin_service")
 
-        logger.info("开始动态插件发现扫描")
+        logger.debug("开始动态插件发现扫描")
 
         try {
             let pluginDir = pluginPath
@@ -253,7 +253,7 @@ public class PluginService {
                 let typePath = pathJoin(pluginPath, pluginType)
                 let typeDir = Path(typePath)
 
-                logger.info("扫描插件类型目录", ("type", pluginType), ("path", typePath))
+                logger.debug("扫描插件类型目录", ("type", pluginType), ("path", typePath))
 
                 if (exists(typeDir)) {
                     let entries = DirectoryScanner.listDirectory(typePath)
@@ -263,7 +263,7 @@ public class PluginService {
                         if (entry.endsWith(".ts")) {
                             let pluginFile = pathJoin(typePath, entry)
 
-                            logger.info("发现TypeScript插件文件: ${entry}, full_path: ${pluginFile}")
+                            logger.debug("发现TypeScript插件文件: ${entry}, full_path: ${pluginFile}")
 
                             let pluginData = createDenoPluginFromFile(pluginFile, pluginType)
                             if (pluginData.namespace.size > 0) {
@@ -278,7 +278,7 @@ public class PluginService {
                 }
             }
 
-            logger.info("插件扫描完成: total_found: ${discoveredPlugins.size.toString()}")
+            logger.debug("插件扫描完成: total_found: ${discoveredPlugins.size.toString()}")
         } catch (e: Exception) {
             logger.error("插件扫描过程中发生异常")
         }
@@ -714,7 +714,7 @@ public class PluginService {
 
         if (exitCode == 0) {
             let output = String.fromUtf8(stdout)
-            logger.info("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
+            logger.debug("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
 
             // 解析输出结果
             var resultData = HashMap<String, String>()
@@ -819,7 +819,7 @@ public class PluginService {
 
         if (exitCode == 0) {
             let output = String.fromUtf8(stdout)
-            logger.info("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
+            logger.debug("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
 
             // 解析输出结果
             var resultData = HashMap<String, String>()
@@ -844,7 +844,7 @@ public class PluginService {
         let logger = getLogger("plugin_service")
         let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
 
-        logger.info("开始执行下载插件: ${plugin.namespace}")
+        logger.debug("开始执行下载插件: ${plugin.namespace}")
 
         // 获取插件文件路径
         let pluginFile = "./data/plugins/${plugin.namespace}/Download.ts"
@@ -913,7 +913,7 @@ public class PluginService {
 
         if (exitCode == 0) {
             let output = String.fromUtf8(stdout)
-            logger.info("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
+            logger.debug("插件执行成功: ${plugin.namespace}, execution_time: ${executionTime}")
 
             // 解析输出结果
             var resultData = HashMap<String, String>()

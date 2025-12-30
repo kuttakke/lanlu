@@ -46,7 +46,7 @@ public class PluginsController {
             }
             result += "]"
 
-            logger.info("获取插件列表", [("count", plugins.size.toString())])
+            logger.debug("获取插件列表", [("count", plugins.size.toString())])
             ctx.json(result)
         } catch (e: Exception) {
             logger.error("获取插件列表失败")
@@ -76,7 +76,7 @@ public class PluginsController {
             }
             result += "]"
 
-            logger.info("按类型获取插件", [("type", pluginType), ("count", plugins.size.toString())])
+            logger.debug("按类型获取插件", [("type", pluginType), ("count", plugins.size.toString())])
             ctx.json(result)
         } catch (e: Exception) {
             logger.error("按类型获取插件失败")
@@ -103,7 +103,7 @@ public class PluginsController {
             return
         }
 
-        logger.info("获取插件详情", [("namespace", namespace)])
+        logger.debug("获取插件详情", [("namespace", namespace)])
         ctx.json(pluginToJson(plugin))
     }
 
@@ -130,7 +130,7 @@ public class PluginsController {
         // 返回插件的parameters数组，直接构建正确的JSON响应
         var response = "{\"success\": true, \"data\": {\"has_schema\": ${plugin.has_schema.toString()}, \"parameters\": ${plugin.parameters}}}"
 
-        logger.info("获取插件配置", [("namespace", namespace), ("has_schema", plugin.has_schema.toString())])
+        logger.debug("获取插件配置", [("namespace", namespace), ("has_schema", plugin.has_schema.toString())])
         ctx.json(response)
     }
 
@@ -177,7 +177,7 @@ public class PluginsController {
         let success = PluginDao.update(plugin)
 
         if (success) {
-            logger.info("更新插件配置成功", ("namespace", namespace))
+            logger.debug("更新插件配置成功", ("namespace", namespace))
             var response = HashMap<String, String>()
             response["success"] = "true"
             response["message"] = "Plugin configuration updated successfully"
@@ -218,7 +218,7 @@ public class PluginsController {
         let success = PluginDao.setEnabled(namespace, enabled)
 
         if (success) {
-            logger.info("设置插件状态成功", [("namespace", namespace), ("enabled", enabled.toString())])
+            logger.debug("设置插件状态成功", [("namespace", namespace), ("enabled", enabled.toString())])
             ResponseView.successJson(ctx, "Plugin enabled status updated successfully")
         } else {
             logger.error("设置插件状态失败")
@@ -237,28 +237,28 @@ public class PluginsController {
         let discoveredPlugins = pluginService.discoverPlugins()
         var registeredCount = 0
 
-        logger.info("插件发现完成", ("discovered", discoveredPlugins.size.toString()))
+        logger.debug("插件发现完成", ("discovered", discoveredPlugins.size.toString()))
 
         for (plugin in discoveredPlugins) {
-            logger.info("检查插件", ("namespace", plugin.namespace), ("name", plugin.name))
+            logger.debug("检查插件", ("namespace", plugin.namespace), ("name", plugin.name))
 
             let exists = PluginDao.exists(plugin.namespace)
-            logger.info("插件存在性检查", ("namespace", plugin.namespace), ("exists", exists.toString()))
+            logger.debug("插件存在性检查", ("namespace", plugin.namespace), ("exists", exists.toString()))
 
             if (!exists) {
-                logger.info("尝试创建新插件", ("namespace", plugin.namespace))
+                logger.debug("尝试创建新插件", ("namespace", plugin.namespace))
                 let created = PluginDao.create(plugin)
-                logger.info("插件创建结果", [("namespace", plugin.namespace), ("created", created.toString())])
+                logger.debug("插件创建结果", [("namespace", plugin.namespace), ("created", created.toString())])
 
                 if (created) {
                     registeredCount++
-                    logger.info("注册新插件", [("namespace", plugin.namespace), ("name", plugin.name), ("has_schema", plugin.has_schema.toString())])
+                    logger.debug("注册新插件", [("namespace", plugin.namespace), ("name", plugin.name), ("has_schema", plugin.has_schema.toString())])
                 } else {
                     logger.error("插件创建失败", ("namespace", plugin.namespace))
                 }
             } else {
                 // 插件已存在，检查是否需要更新Schema字段
-                logger.info("插件已存在，检查是否需要更新Schema", ("namespace", plugin.namespace))
+                logger.debug("插件已存在，检查是否需要更新Schema", ("namespace", plugin.namespace))
                 let existingPlugin = PluginDao.getPluginByNamespace(plugin.namespace)
 
                 if (existingPlugin.namespace.size > 0) {
@@ -278,7 +278,7 @@ public class PluginsController {
                     existingPlugin.has_schema = plugin.has_schema
 
                     let updated = PluginDao.update(existingPlugin)
-                    logger.info("更新现有插件Schema", [("namespace", plugin.namespace), ("updated", updated.toString()), ("has_schema", plugin.has_schema.toString())])
+                    logger.debug("更新现有插件Schema", [("namespace", plugin.namespace), ("updated", updated.toString()), ("has_schema", plugin.has_schema.toString())])
 
                     if (updated) {
                         registeredCount++
@@ -295,7 +295,7 @@ public class PluginsController {
         response["discovered"] = discoveredPlugins.size.toString()
         response["registered"] = registeredCount.toString()
 
-        logger.info("插件发现完成", [("discovered", discoveredPlugins.size.toString()), ("registered", registeredCount.toString())])
+        logger.debug("插件发现完成", [("discovered", discoveredPlugins.size.toString()), ("registered", registeredCount.toString())])
         ctx.json(buildJsonResponse(response))
     }
 

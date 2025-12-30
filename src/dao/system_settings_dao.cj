@@ -56,7 +56,7 @@ public class SystemSettingsDao {
                     }
 
                     if (!tableExists) {
-                        logger.info("system_settings表不存在，创建新表")
+                        logger.debug("system_settings表不存在，创建新表")
                         let createTableSql = """
                             CREATE TABLE system_settings (
                                 id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -88,7 +88,7 @@ public class SystemSettingsDao {
                                 // 忽略索引创建错误
                             }
                         }
-                        logger.info("system_settings表创建成功")
+                        logger.debug("system_settings表创建成功")
                     }
                     return true
                 } catch (e: Exception) {

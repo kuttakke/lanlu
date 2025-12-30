@@ -78,11 +78,11 @@ public class GenerateThumbnailTaskRunner {
     private static func generateThumbnail(taskId: Int64, archivePath: String, archiveId: String, archiveType: String): ProcessResultData {
         let logger = getLogger("generate_thumbnail")
         TaskIO.appendLog(taskId, "Starting thumbnail generation for archive: ${archivePath} (type: ${archiveType})")
-        logger.info("Starting thumbnail generation for archive: ${archivePath} (type: ${archiveType})")
+        logger.debug("Starting thumbnail generation for archive: ${archivePath} (type: ${archiveType})")
 
         let actualArchivePath = FileUtils.resolvePath(archivePath)
         TaskIO.appendLog(taskId, "Resolved archive path: ${actualArchivePath}")
-        logger.info("Resolved archive path: ${actualArchivePath}")
+        logger.debug("Resolved archive path: ${actualArchivePath}")
 
         // 使用任务ID创建独立的临时目录
         let taskTempDir = FileUtils.joinPath(cachePath.toString(), "task/${taskId}")
@@ -198,7 +198,7 @@ public class GenerateThumbnailTaskRunner {
 
         // 将thumbhash存储到数据库
         TaskIO.appendLog(taskId, "Saving thumbhash to database for archive: ${archiveId}")
-        logger.info("Saving thumbhash to database for archive: ${archiveId}")
+        logger.debug("Saving thumbhash to database for archive: ${archiveId}")
         let dbSuccess = ArchiveDao.updateThumbHash(archiveId, thumbHash)
         if (!dbSuccess) {
             let errorMsg = "Failed to save thumbhash to database for archive: ${archiveId}"
@@ -208,7 +208,7 @@ public class GenerateThumbnailTaskRunner {
         }
 
         TaskIO.appendLog(taskId, "Thumbhash saved to database successfully")
-        logger.info("Successfully generated thumbnail for archive: ${archiveId}, thumbhash: ${thumbHash}")
+        logger.debug("Successfully generated thumbnail for archive: ${archiveId}, thumbhash: ${thumbHash}")
         TaskIO.appendLog(taskId, "Successfully generated thumbnail for archive: ${archiveId}, thumbhash: ${thumbHash}")
         return ProcessResultData(true, thumbnailFilePath, thumbHash)
     }

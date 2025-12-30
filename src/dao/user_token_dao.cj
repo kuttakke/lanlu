@@ -51,7 +51,7 @@ public class UserTokenDao {
                     checkStmt.close()
 
                     if (!tableExists) {
-                        logger.info("user_tokens表不存在，创建新表")
+                        logger.debug("user_tokens表不存在，创建新表")
                         let sql = """
                             CREATE TABLE user_tokens (
                                 id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -74,12 +74,12 @@ public class UserTokenDao {
                         idxStmt.update()
                         idxStmt.close()
                     } else {
-                        logger.info("user_tokens表已存在，跳过创建")
+                        logger.debug("user_tokens表已存在，跳过创建")
                     }
 
                     // 如果表已存在，检查并添加缺失的列
                     if (tableExists) {
-                        logger.info("检查并添加缺失的列")
+                        logger.debug("检查并添加缺失的列")
                         // 检查 token_type 列是否存在
                         let checkColumnStmt = conn.prepareStatement("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'user_tokens' AND column_name = 'token_type'")
                         let columnRs = checkColumnStmt.query()
@@ -92,7 +92,7 @@ public class UserTokenDao {
                         checkColumnStmt.close()
 
                         if (!columnExists) {
-                            logger.info("添加 token_type 列")
+                            logger.debug("添加 token_type 列")
                             let alterStmt = conn.prepareStatement("ALTER TABLE user_tokens ADD COLUMN token_type VARCHAR(16) NOT NULL DEFAULT 'session'")
                             alterStmt.update()
                             alterStmt.close()

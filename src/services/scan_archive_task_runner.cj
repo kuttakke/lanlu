@@ -188,14 +188,14 @@ public class ScanArchiveTaskRunner {
 
             match (existingArchive) {
                 case Some(archive) =>
-                    logger.info("Archive already exists in database: ${filePath}")
+                    logger.debug("Archive already exists in database: ${filePath}")
 
                     if (archive.relative_path.size == 0) {
-                        logger.info("Archive has empty relative_path, updating: ${archive.id}")
+                        logger.debug("Archive has empty relative_path, updating: ${archive.id}")
                     }
 
                     if (archive.thumbhash.size == 0) {
-                        logger.info("Thumbnail hash is empty, submitting thumbnail generation task for existing archive: ${archive.id}")
+                        logger.debug("Thumbnail hash is empty, submitting thumbnail generation task for existing archive: ${archive.id}")
 
                         // 提交缩略图生成任务（异步）
                         // 使用 ArchiveHandlerFactory 自动检测类型
@@ -223,7 +223,7 @@ public class ScanArchiveTaskRunner {
 
             // 使用 Handler 获取媒体文件数量
             let pageCount = handler.getMediaCount(filePath)
-            logger.info("Archive ${filePath} (type: ${archiveType}) contains ${pageCount} media files")
+            logger.debug("Archive ${filePath} (type: ${archiveType}) contains ${pageCount} media files")
 
             let dbResult = addArchiveToDatabase(filePath, archiveBasePath, config.categoryId)
             if (!dbResult.success) {
@@ -241,7 +241,7 @@ public class ScanArchiveTaskRunner {
                 if (!tagOk) {
                     logger.error("Failed to update tags for archive", ("archive_id", dbResult.archiveId))
                 } else {
-                    logger.info("Successfully updated tags for archive", ("archive_id", dbResult.archiveId), ("tags", config.tags))
+                    logger.debug("Successfully updated tags for archive", ("archive_id", dbResult.archiveId), ("tags", config.tags))
                 }
             }
 
@@ -305,7 +305,7 @@ public class ScanArchiveTaskRunner {
 
             if (task.id > 0) {
                 TaskPoolService.getInstance().notifyTaskAvailable()
-                logger.info("Submitted thumbnail generation task", ("archive_id", archiveId), ("task_id", task.id.toString()))
+                logger.debug("Submitted thumbnail generation task", ("archive_id", archiveId), ("task_id", task.id.toString()))
                 return true
             } else {
                 logger.error("Failed to submit thumbnail generation task", ("archive_id", archiveId))

@@ -57,7 +57,7 @@ public class CronService {
         runningMutex.lock()
         if (isRunning) {
             runningMutex.unlock()
-            logger.info("CronService already running")
+            logger.debug("CronService already running")
             return true
         }
         isRunning = true
@@ -103,7 +103,7 @@ public class CronService {
         isRunning = false
         runningMutex.unlock()
 
-        logger.info("CronService stopped")
+        logger.debug("CronService stopped")
         return true
     }
 
@@ -122,7 +122,7 @@ public class CronService {
      */
     private func runScheduleLoop(): Unit {
         let logger = getLogger("cron_service")
-        logger.info("Schedule loop started with dynamic interval optimization")
+        logger.debug("Schedule loop started with dynamic interval optimization")
 
         // 初始加载任务缓存
         refreshTaskCache()
@@ -149,7 +149,7 @@ public class CronService {
             }
         }
 
-        logger.info("Schedule loop stopped")
+        logger.debug("Schedule loop stopped")
     }
 
     /**
@@ -429,7 +429,7 @@ public class CronService {
 
         match (ScheduledTaskModel.getById(scheduledTaskId)) {
             case Some(task) =>
-                logger.info("Manually triggering scheduled task", ("id", scheduledTaskId.toString()), ("name", task.name))
+                logger.debug("Manually triggering scheduled task", ("id", scheduledTaskId.toString()), ("name", task.name))
                 let success = triggerTask(task)
                 if (success) {
                     ScheduledTaskModel.updateRunResult(scheduledTaskId, true, "")
@@ -577,11 +577,11 @@ public class CronService {
 
         // 检查是否已有定时任务
         if (ScheduledTaskDao.getCount() > 0) {
-            logger.info("Scheduled tasks already exist, skipping default task creation")
+            logger.debug("Scheduled tasks already exist, skipping default task creation")
             return
         }
 
-        logger.info("Creating default scheduled tasks")
+        logger.debug("Creating default scheduled tasks")
 
         // 定时扫描所有分类（每6小时）- 已禁用，改用分类系统手动触发扫描
         let scanTask = createScheduledTask(
@@ -610,7 +610,7 @@ public class CronService {
         )
         match (dbCheckTask) {
             case Some(t) =>
-                logger.info("Created default check_database task", ("id", t.id.toString()))
+                logger.debug("Created default check_database task", ("id", t.id.toString()))
             case None =>
                 logger.error("Failed to create default check_database task")
         }
@@ -641,18 +641,18 @@ public class CronService {
         let logger = getLogger("cron_service")
 
         // 在创建启动任务之前，先清理孤儿任务
-        logger.info("Cleaning up orphaned tasks before creating startup tasks")
+        logger.debug("Cleaning up orphaned tasks before creating startup tasks")
         let recoveredCount = TaskDao.recoverOrphanedTasks()
         if (recoveredCount > 0) {
-            logger.info("Recovered orphaned tasks", ("count", recoveredCount.toString()))
+            logger.debug("Recovered orphaned tasks", ("count", recoveredCount.toString()))
         }
 
         // 检查是否启用初始插件扫描
         let enableInitialPluginScan = SystemSettingsService.getBoolean("ENABLE_INITIAL_PLUGIN_SCAN")
         if (enableInitialPluginScan) {
-            logger.info("ENABLE_INITIAL_PLUGIN_SCAN is enabled, triggering plugin scan")
+            logger.debug("ENABLE_INITIAL_PLUGIN_SCAN is enabled, triggering plugin scan")
             let pluginTaskId = triggerPluginScan(priority: 50, triggerSource: "startup")
-            logger.info("Triggered startup scan_plugins task", ("task_id", pluginTaskId.toString()))
+            logger.debug("Triggered startup scan_plugins task", ("task_id", pluginTaskId.toString()))
         } else {
             logger.debug("ENABLE_INITIAL_PLUGIN_SCAN is disabled, skipping initial plugin scan")
         }
@@ -660,13 +660,13 @@ public class CronService {
         // 检查是否启用初始扫描（改用分类系统）
         let enableInitialScan = SystemSettingsService.getBoolean("ENABLE_INITIAL_SCAN")
         if (enableInitialScan) {
-            logger.info("ENABLE_INITIAL_SCAN is enabled, triggering scan_all_categories task")
+            logger.debug("ENABLE_INITIAL_SCAN is enabled, triggering scan_all_categories task")
             let params = "{}"
             let task = TaskModel.createTaskWithOptions("启动时扫描所有分类", "scan_all_categories", params, 30, "", "startup")
             TaskPoolService.getInstance().notifyTaskAvailable()
-            logger.info("Triggered startup scan_all_categories task", ("task_id", task.id.toString()))
+            logger.debug("Triggered startup scan_all_categories task", ("task_id", task.id.toString()))
         } else {
-            logger.info("ENABLE_INITIAL_SCAN is disabled, skipping initial directory scan")
+            logger.debug("ENABLE_INITIAL_SCAN is disabled, skipping initial directory scan")
         }
 
         // 检查是否启用初始数据库检查
@@ -676,7 +676,7 @@ public class CronService {
             let dbCheckTaskId = triggerDatabaseCheck(priority: 50, triggerSource: "startup")
             logger.debug("Triggered startup check_database task", ("task_id", dbCheckTaskId.toString()))
         } else {
-            logger.info("ENABLE_INITIAL_DB_CHECK is disabled, skipping initial database check")
+            logger.debug("ENABLE_INITIAL_DB_CHECK is disabled, skipping initial database check")
         }
     }
 
@@ -724,7 +724,7 @@ public class CronService {
         let task = TaskModel.createTaskWithOptions("插件扫描", "scan_plugins", params, priority, "", source)
         TaskPoolService.getInstance().notifyTaskAvailable()
         let logger = getLogger("cron_service")
-        logger.info("Enqueued scan_plugins task", ("task_id", task.id.toString()))
+        logger.debug("Enqueued scan_plugins task", ("task_id", task.id.toString()))
         return task.id
     }
 

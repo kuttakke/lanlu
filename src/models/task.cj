@@ -155,7 +155,7 @@ public class TaskModel {
      */
     public static func initialize(): Bool {
         let logger = getLogger("task_model")
-        logger.info("初始化Task任务数据库表")
+        logger.debug("初始化Task任务数据库表")
 
         let tableCreated = TaskDao.createTable()
         if (!tableCreated) {
@@ -231,7 +231,7 @@ public class TaskModel {
      */
     public static func getTaskById(id: Int64): Task {
         let logger = getLogger("task_model")
-        logger.info("根据ID获取任务", [("id", id.toString())])
+        logger.debug("根据ID获取任务", [("id", id.toString())])
         let data = TaskDao.getTaskDataById(id)
         let task = convertToTask(data)
 
@@ -307,7 +307,7 @@ public class TaskModel {
         let success = TaskDao.createTaskData(data)
         if (success) {
             task.id = data.id  // 设置数据库返回的自增ID
-            logger.info("创建任务成功", [("id", data.id.toString()), ("name", name)])
+            logger.debug("创建任务成功", [("id", data.id.toString()), ("name", name)])
         } else {
             logger.error("创建任务失败", ("name", name))
         }
@@ -359,7 +359,7 @@ public class TaskModel {
         let logger = getLogger("task_model")
         let success = TaskDao.updateTaskStatus(id, "running", "任务已启动", 0)
         if (success) {
-            logger.info("启动任务成功", ("id", id.toString()))
+            logger.debug("启动任务成功", ("id", id.toString()))
         } else {
             logger.error("启动任务失败", ("id", id.toString()))
         }
@@ -373,7 +373,7 @@ public class TaskModel {
         let logger = getLogger("task_model")
         let success = TaskDao.updateTaskStatus(id, "stopped", "任务已停止", 0)
         if (success) {
-            logger.info("停止任务成功", ("id", id.toString()))
+            logger.debug("停止任务成功", ("id", id.toString()))
         } else {
             logger.error("停止任务失败", ("id", id.toString()))
         }
@@ -387,7 +387,7 @@ public class TaskModel {
         let logger = getLogger("task_model")
         let success = TaskDao.deleteTask(id)
         if (success) {
-            logger.info("删除任务成功", ("id", id.toString()))
+            logger.debug("删除任务成功", ("id", id.toString()))
         } else {
             logger.error("删除任务失败", ("id", id.toString()))
         }
@@ -401,7 +401,7 @@ public class TaskModel {
         let logger = getLogger("task_model")
         let success = TaskDao.updateTaskStatus(id, "running", message, progress)
         if (success) {
-            logger.info("更新任务进度", [("id", id.toString()), ("progress", progress.toString())])
+            logger.debug("更新任务进度", [("id", id.toString()), ("progress", progress.toString())])
         } else {
             logger.error("更新任务进度失败", ("id", id.toString()), ("progress", progress.toString()))
         }
@@ -451,7 +451,7 @@ public class TaskModel {
 
         let success = TaskDao.updateTaskData(data)
         if (success) {
-            logger.info("任务失败标记成功", ("id", id.toString()), ("error", errorMessage))
+            logger.debug("任务失败标记成功", ("id", id.toString()), ("error", errorMessage))
         } else {
             logger.error("任务失败标记失败", ("id", id))
         }

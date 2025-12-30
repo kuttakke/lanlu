@@ -302,7 +302,7 @@ public class ArchiveUtils {
                 return Array<String>()
             }
 
-            logger.info("Attempting to list archive entries: ${archivePath}")
+            logger.debug("Attempting to list archive entries: ${archivePath}")
 
             // 使用 bsdtar 的 -tf 选项列出文件
             let process = launch("bsdtar", "-tf", archivePath, stdOut: ProcessRedirect.Pipe,
@@ -311,10 +311,6 @@ public class ArchiveUtils {
             // 读取 stdout
             let reader = StringReader<InputStream>(process.stdOutPipe)
             let output = reader.readToEnd()
-
-            // 打印原始输出内容
-            println("Raw output from bsdtar:")
-            println(output)
 
             // 将输出按行分割，去除空行和空白字符
             let lines = output.split('\n')
@@ -327,7 +323,7 @@ public class ArchiveUtils {
                 }
             }
 
-            logger.info("Found ${entries.size} entries in archive (UTF-8)")
+            logger.debug("Found ${entries.size} entries in archive (UTF-8)")
             return entries.toArray()
         } catch (e: Exception) {
             logger.error("Exception listing archive entries: ${e.message}")
@@ -386,7 +382,7 @@ public class ArchiveUtils {
             let result = process.waitOutput()
 
             if (result[0] == 0) {
-                logger.info("Successfully extracted entry", ("archive_path", archivePath), ("entry_name", entryName),
+                logger.debug("Successfully extracted entry", ("archive_path", archivePath), ("entry_name", entryName),
                     ("output_size", result[1].size.toString()))
             } else {
                 // 安全地转换错误信息（stderr 通常是文本）
@@ -419,7 +415,7 @@ public class ArchiveUtils {
                 return false
             }
 
-            logger.info("Extracting entry", ("archive_path", archivePath), ("entry_name", entryName),
+            logger.debug("Extracting entry", ("archive_path", archivePath), ("entry_name", entryName),
                 ("entry_length", entryName.size.toString()), ("output_path", outputPath))
 
             // 使用 extractArchiveEntryToStream 提取文件到内存流
@@ -444,7 +440,7 @@ public class ArchiveUtils {
                 file.write(stdout)
                 file.close()
 
-                logger.info("Successfully extracted entry", ("archive_path", archivePath), ("entry", entryName),
+                logger.debug("Successfully extracted entry", ("archive_path", archivePath), ("entry", entryName),
                     ("output_path", outputPath), ("size", stdout.size.toString()))
                 return true
             } else {
@@ -561,7 +557,7 @@ public class ArchiveUtils {
      */
     public static func getPdfPageCount(pdfPath: String): Int32 {
         try {
-            logger.info("Getting PDF page count", ("pdf_path", pdfPath))
+            logger.debug("Getting PDF page count", ("pdf_path", pdfPath))
             let process = launch("gs", "-q", "-dNOSAFER", "-sDEVICE=nullpage", "-c", "(${pdfPath}) (r) file runpdfbegin pdfpagecount = quit", stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
             let (exitCode, stdout, stderr) = process.waitOutput()
 
@@ -573,7 +569,7 @@ public class ArchiveUtils {
                 } catch (_: Exception) {
                     0i32
                 }
-                logger.info("PDF page count", ("pdf_path", pdfPath), ("page_count", pageCount.toString()))
+                logger.debug("PDF page count", ("pdf_path", pdfPath), ("page_count", pageCount.toString()))
                 return pageCount
             } else {
                 let error = String.fromUtf8(stderr)
@@ -596,7 +592,7 @@ public class ArchiveUtils {
      */
     public static func extractPdfPage(pdfPath: String, pageNumber: Int32, outputPath: String): Bool {
         try {
-            logger.info("Extracting PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("output_path", outputPath))
+            logger.debug("Extracting PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()), ("output_path", outputPath))
 
             // 确保输出目录存在
             let outputDir = getParentDirectory(outputPath)
@@ -608,7 +604,7 @@ public class ArchiveUtils {
             let (exitCode, _, stderr) = process.waitOutput()
 
             if (exitCode == 0) {
-                logger.info("Successfully extracted PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()))
+                logger.debug("Successfully extracted PDF page", ("pdf_path", pdfPath), ("page", pageNumber.toString()))
                 return true
             } else {
                 let error = String.fromUtf8(stderr)

@@ -64,7 +64,7 @@ public class TaskPoolService {
         runningMutex.unlock()
 
         let logger = getLogger("taskpool")
-        logger.info("TaskPool starting", ("max_workers", maxWorkers.toString()))
+        logger.debug("TaskPool starting", ("max_workers", maxWorkers.toString()))
 
         // 注意：孤儿任务清理现在由 ShinobuService 在创建启动任务之前处理
         // 这里不需要重复清理，避免时序问题
@@ -96,7 +96,7 @@ public class TaskPoolService {
         let logger = getLogger("taskpool")
         let oldMaxWorkers = maxWorkers
         loadMaxWorkersConfig()
-        logger.info("TaskPool max workers config reloaded", ("old_max_workers", oldMaxWorkers.toString()), ("new_max_workers", maxWorkers.toString()))
+        logger.debug("TaskPool max workers config reloaded", ("old_max_workers", oldMaxWorkers.toString()), ("new_max_workers", maxWorkers.toString()))
     }
 
     /**

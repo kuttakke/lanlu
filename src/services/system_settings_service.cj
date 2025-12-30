@@ -21,7 +21,7 @@ public class SystemSettingsService {
      */
     public static func initializeFromEnv(): Bool {
         let logger = getLogger("system_settings_service")
-        logger.info("开始初始化系统设置")
+        logger.debug("开始初始化系统设置")
 
         // 创建设置表
         if (!SystemSettingsDao.createTable()) {
@@ -45,7 +45,7 @@ public class SystemSettingsService {
         for (setting in defaultSettings) {
             if (!existingSettingsMap.contains(setting.key)) {
                 missingSettings.add(setting)
-                logger.info("发现缺失的设置项", ("key", setting.key), ("default_value", setting.value))
+                logger.debug("发现缺失的设置项", ("key", setting.key), ("default_value", setting.value))
             } else {
                 // 检查description格式是否正确（是否同时包含en和zh）
                 let existingSetting = existingSettingsMap[setting.key]
@@ -60,21 +60,21 @@ public class SystemSettingsService {
         // 如果有缺失的设置项，进行批量插入
         if (missingSettings.size > 0) {
             let missingArray = missingSettings.toArray()
-            logger.info("补充 ${missingArray.size.toString()} 个缺失的设置项")
+            logger.debug("补充 ${missingArray.size.toString()} 个缺失的设置项")
             let success = SystemSettingsDao.upsertSettings(missingArray)
             if (!success) {
                 logger.error("补充缺失设置项失败")
                 return false
             }
-            logger.info("补充缺失设置项成功")
+            logger.debug("补充缺失设置项成功")
         } else {
-            logger.info("所有设置项已存在，无需补充")
+            logger.debug("所有设置项已存在，无需补充")
         }
 
         // 如果有需要更新的设置项，进行批量更新
         if (updateSettings.size > 0) {
             let updateArray = updateSettings.toArray()
-            logger.info("更新 ${updateArray.size.toString()} 个设置项的description格式")
+            logger.debug("更新 ${updateArray.size.toString()} 个设置项的description格式")
             let success = SystemSettingsDao.upsertSettings(updateArray)
             if (!success) {
                 logger.error("更新description格式失败")
@@ -82,7 +82,7 @@ public class SystemSettingsService {
             }
             logger.debug("更新description格式成功")
         } else {
-            logger.info("所有设置项的description格式正确，无需更新")
+            logger.debug("所有设置项的description格式正确，无需更新")
         }
 
         // 重新加载缓存
@@ -131,7 +131,7 @@ public class SystemSettingsService {
 
         // 返回设置数组
         let settingsArray = settings.toArray()
-        logger.info("获取到 ${settingsArray.size.toString()} 个默认系统设置")
+        logger.debug("获取到 ${settingsArray.size.toString()} 个默认系统设置")
         return settingsArray
     }
 

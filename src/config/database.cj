@@ -49,8 +49,8 @@ public class DatabaseConfig {
      */
     public static func getConnectionString(): String {
         let logger = getLogger("database")
-        logger.info("Using database connection string from DB_STRING")
-        logger.info("DB type: ${dbType}")
+        logger.debug("Using database connection string from DB_STRING")
+        logger.debug("DB type: ${dbType}")
         return dbString
     }
 
@@ -90,15 +90,15 @@ public class DatabaseConfig {
      */
     public static func initializeDatabase(): Bool {
         let logger = getLogger("database")
-        logger.info("开始初始化数据库")
+        logger.debug("开始初始化数据库")
 
         let connOpt = createConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
-                    logger.info("数据库连接成功，跳过测试查询直接创建表")
+                    logger.debug("数据库连接成功，跳过测试查询直接创建表")
 
-                    logger.info("开始创建或更新插件表")
+                    logger.debug("开始创建或更新插件表")
                     // 检查插件表是否存在
                     let checkTable = conn.prepareStatement("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'plugins')")
                     let rs = checkTable.query()
@@ -110,33 +110,33 @@ public class DatabaseConfig {
                     checkTable.close()
 
                     if (!tableExists) {
-                        logger.info("插件表不存在，创建新的插件表")
+                        logger.debug("插件表不存在，创建新的插件表")
                         // 创建基础表结构，不使用SERIAL
                         let createPluginsTable = "CREATE TABLE plugins (id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name VARCHAR(255) NOT NULL, version VARCHAR(50) NOT NULL)"
 
-                        logger.info("准备执行插件表创建语句")
+                        logger.debug("准备执行插件表创建语句")
                         let stmt = conn.prepareStatement(createPluginsTable)
                         stmt.update()
                         stmt.close()
-                        logger.info("插件表创建成功")
+                        logger.debug("插件表创建成功")
                     } else {
-                        logger.info("插件表已存在，跳过创建")
+                        logger.debug("插件表已存在，跳过创建")
                     }
 
                     // 检查并添加缺失的列
-                    logger.info("检查并添加缺失的列")
+                    logger.debug("检查并添加缺失的列")
 
                     // 检查 namespace 列
                     try {
                         let checkNamespace = conn.prepareStatement("SELECT column_name FROM information_schema.columns WHERE table_name = 'plugins' AND column_name = 'namespace'")
                         let rsNamespace = checkNamespace.query()
                         if (!rsNamespace.next()) {
-                            logger.info("添加 namespace 列")
-                            let addNamespace = conn.prepareStatement("ALTER TABLE plugins ADD COLUMN namespace VARCHAR(100) NOT NULL DEFAULT ''")
-                            addNamespace.update()
-                            addNamespace.close()
-                            logger.info("namespace 列添加成功")
-                        }
+                                logger.debug("添加 namespace 列")
+                                let addNamespace = conn.prepareStatement("ALTER TABLE plugins ADD COLUMN namespace VARCHAR(100) NOT NULL DEFAULT ''")
+                                addNamespace.update()
+                                addNamespace.close()
+                                logger.debug("namespace 列添加成功")
+                            }
                         rsNamespace.close()
                         checkNamespace.close()
                     } catch (e: Exception) {
@@ -167,11 +167,11 @@ public class DatabaseConfig {
                             let checkColumn = conn.prepareStatement("SELECT column_name FROM information_schema.columns WHERE table_name = 'plugins' AND column_name = '${column}'")
                             let rs = checkColumn.query()
                             if (!rs.next()) {
-                                logger.info("添加 ${column} 列")
+                                logger.debug("添加 ${column} 列")
                                 let addColumn = conn.prepareStatement("ALTER TABLE plugins ADD COLUMN ${column} ${definition}")
                                 addColumn.update()
                                 addColumn.close()
-                                logger.info("${column} 列添加成功")
+                                logger.debug("${column} 列添加成功")
                             }
                             rs.close()
                             checkColumn.close()
@@ -181,11 +181,11 @@ public class DatabaseConfig {
                     }
 
                     // 约束修复已完成，跳过约束修改逻辑以避免启动时阻塞
-                    logger.info("约束配置检查跳过 - 假设约束已正确配置为namespace唯一键")
+                    logger.debug("约束配置检查跳过 - 假设约束已正确配置为namespace唯一键")
 
-                    logger.info("插件表结构更新完成")
+                    logger.debug("插件表结构更新完成")
 
-                    logger.info("开始创建或更新归档/标签相关表与视图")
+                    logger.debug("开始创建或更新归档/标签相关表与视图")
                     let archiveOk = initializeArchiveSchema(conn)
                     if (!archiveOk) {
                         logger.error("归档/标签相关表与视图初始化失败")
@@ -325,9 +325,9 @@ public class DatabaseConfig {
     private static func initializeArchiveSchema(conn: Connection): Bool {
         let logger = getLogger("database")
         try {
-            // 先确保 users 表存在（user_favorites 和 user_archive_status 依赖它）
+            // users 表
             if (!tableExists(conn, "users")) {
-                logger.info("users表不存在，创建新的users表")
+                logger.debug("users表不存在，创建新的users表")
                 execUpdate(conn, """
                     CREATE TABLE users (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -339,24 +339,24 @@ public class DatabaseConfig {
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
-                logger.info("users表创建成功")
+                logger.debug("users表创建成功")
             } else {
-                logger.info("users表已存在，检查并补全缺失列")
+                logger.debug("users表已存在，检查并补全缺失列")
                 // 检查 password_salt 列是否存在
                 if (!columnExists(conn, "users", "password_salt")) {
-                    logger.info("users表缺少列 password_salt，添加中")
+                    logger.debug("users表缺少列 password_salt，添加中")
                     execUpdate(conn, "ALTER TABLE users ADD COLUMN password_salt VARCHAR(64) NOT NULL DEFAULT ''")
                 }
                 // 检查 updated_at 列是否存在
                 if (!columnExists(conn, "users", "updated_at")) {
-                    logger.info("users表缺少列 updated_at，添加中")
+                    logger.debug("users表缺少列 updated_at，添加中")
                     execUpdate(conn, "ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
                 }
             }
 
             // categories 表（必须在 archives 表之前创建，因为 archives 依赖它）
             if (!tableExists(conn, "categories")) {
-                logger.info("categories表不存在，创建新的categories表")
+                logger.debug("categories表不存在，创建新的categories表")
                 execUpdate(conn, """
                     CREATE TABLE categories (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -381,18 +381,18 @@ public class DatabaseConfig {
                 try {
                     execUpdate(conn, "CREATE INDEX idx_categories_sort_order ON categories (sort_order)")
                 } catch (_: Exception) {}
-                logger.info("categories表创建成功")
+                logger.debug("categories表创建成功")
             } else {
-                logger.info("categories表已存在，检查是否需要迁移到新结构")
+                logger.debug("categories表已存在，检查是否需要迁移到新结构")
                 // 检查是否是旧结构（有 search 列但没有 scan_path 列）
                 let hasOldStructure = columnExists(conn, "categories", "search") && !columnExists(conn, "categories", "scan_path")
                 if (hasOldStructure) {
-                    logger.info("检测到旧的categories表结构，需要重建")
+                    logger.debug("检测到旧的categories表结构，需要重建")
                     try {
                         // 先删除依赖的 archive_categories 表（如果存在）
                         if (tableExists(conn, "archive_categories")) {
                             execUpdate(conn, "DROP TABLE archive_categories")
-                            logger.info("已删除旧的archive_categories表")
+                            logger.debug("已删除旧的archive_categories表")
                         }
                         // 删除旧 categories 表
                         execUpdate(conn, "DROP TABLE categories")
@@ -418,9 +418,9 @@ public class DatabaseConfig {
                             execUpdate(conn, "CREATE INDEX idx_categories_enabled ON categories (enabled)")
                         } catch (_: Exception) {}
                         try {
-                            execUpdate(conn, "CREATE INDEX idx_categories_sort_order ON categories (sort_order)")
-                        } catch (_: Exception) {}
-                        logger.info("categories表重建成功")
+                    execUpdate(conn, "CREATE INDEX idx_categories_sort_order ON categories (sort_order)")
+                } catch (_: Exception) {}
+                logger.debug("categories表重建成功")
                     } catch (e: Exception) {
                         logger.error("categories表重建失败: ${e.toString()}")
                     }
@@ -429,14 +429,14 @@ public class DatabaseConfig {
 
             // 删除旧的 archive_categories 表（如果存在）
             if (tableExists(conn, "archive_categories")) {
-                logger.info("检测到旧的archive_categories表，正在删除")
+                logger.debug("检测到旧的archive_categories表，正在删除")
                 execUpdate(conn, "DROP TABLE archive_categories")
-                logger.info("archive_categories表已删除")
+                logger.debug("archive_categories表已删除")
             }
 
             // archives 表
             if (!tableExists(conn, "archives")) {
-                logger.info("archives表不存在，创建新的archives表")
+                logger.debug("archives表不存在，创建新的archives表")
                 execUpdate(conn, """
                     CREATE TABLE archives (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -459,9 +459,9 @@ public class DatabaseConfig {
                 try {
                     execUpdate(conn, "CREATE INDEX idx_archives_category_id ON archives (category_id)")
                 } catch (_: Exception) {}
-                logger.info("archives表创建成功")
+                logger.debug("archives表创建成功")
             } else {
-                logger.info("archives表已存在，检查并补全缺失列")
+                logger.debug("archives表已存在，检查并补全缺失列")
                 let columnsToAdd = [
                     ("arcid", "VARCHAR(255) NOT NULL"),
                     ("title", "VARCHAR(1024) DEFAULT ''"),
@@ -479,17 +479,17 @@ public class DatabaseConfig {
 
                 for ((column, definition) in columnsToAdd) {
                     if (!columnExists(conn, "archives", column)) {
-                        logger.info("archives表缺少列 ${column}，添加中")
+                        logger.debug("archives表缺少列 ${column}，添加中")
                         execUpdate(conn, "ALTER TABLE archives ADD COLUMN ${column} ${definition}")
                     }
                 }
 
                 // 移除旧的 isnew 列（如果存在）
                 if (columnExists(conn, "archives", "isnew")) {
-                    logger.info("archives表存在旧的isnew列，准备移除")
+                    logger.debug("archives表存在旧的isnew列，准备移除")
                     try {
                         execUpdate(conn, "ALTER TABLE archives DROP COLUMN isnew")
-                        logger.info("archives表的isnew列已成功移除")
+                        logger.debug("archives表的isnew列已成功移除")
                     } catch (e: Exception) {
                         logger.warn("移除archives表的isnew列失败: ${e.toString()}")
                     }
@@ -497,10 +497,10 @@ public class DatabaseConfig {
 
                 // 移除旧的 last_read_time 列（如果存在）- 数据已迁移到 user_archive_status
                 if (columnExists(conn, "archives", "last_read_time")) {
-                    logger.info("archives表存在旧的last_read_time列，准备移除（数据已迁移到user_archive_status）")
+                    logger.debug("archives表存在旧的last_read_time列，准备移除（数据已迁移到user_archive_status）")
                     try {
                         execUpdate(conn, "ALTER TABLE archives DROP COLUMN last_read_time")
-                        logger.info("archives表的last_read_time列已成功移除")
+                        logger.debug("archives表的last_read_time列已成功移除")
                     } catch (e: Exception) {
                         logger.warn("移除archives表的last_read_time列失败: ${e.toString()}")
                     }
@@ -508,10 +508,10 @@ public class DatabaseConfig {
 
                 // 移除旧的 progress 列（如果存在）- 数据已迁移到 user_archive_status
                 if (columnExists(conn, "archives", "progress")) {
-                    logger.info("archives表存在旧的progress列，准备移除（数据已迁移到user_archive_status）")
+                    logger.debug("archives表存在旧的progress列，准备移除（数据已迁移到user_archive_status）")
                     try {
                         execUpdate(conn, "ALTER TABLE archives DROP COLUMN progress")
-                        logger.info("archives表的progress列已成功移除")
+                        logger.debug("archives表的progress列已成功移除")
                     } catch (e: Exception) {
                         logger.warn("移除archives表的progress列失败: ${e.toString()}")
                     }
@@ -547,7 +547,7 @@ public class DatabaseConfig {
 
             // tags 表（新结构：namespace + name + translations JSONB）
             if (!tableExists(conn, "tags")) {
-                logger.info("tags表不存在，创建新的tags表")
+                logger.debug("tags表不存在，创建新的tags表")
                 execUpdate(conn, """
                     CREATE TABLE tags (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -567,13 +567,13 @@ public class DatabaseConfig {
                 try {
                     execUpdate(conn, "CREATE INDEX idx_tags_name ON tags (name)")
                 } catch (_: Exception) {}
-                logger.info("tags表创建成功")
+                logger.debug("tags表创建成功")
             } else {
-                logger.info("tags表已存在，检查是否需要迁移到新结构")
+                logger.debug("tags表已存在，检查是否需要迁移到新结构")
                 // 检查是否是旧结构（有 value 列但没有 translations 列）
                 let hasOldStructure = columnExists(conn, "tags", "value") && !columnExists(conn, "tags", "translations")
                 if (hasOldStructure) {
-                    logger.info("检测到旧的tags表结构，需要迁移")
+                    logger.debug("检测到旧的tags表结构，需要迁移")
                     // 删除旧表，创建新表
                     try {
                         // 先删除依赖的视图
@@ -605,13 +605,13 @@ public class DatabaseConfig {
                         try {
                             execUpdate(conn, "CREATE INDEX idx_tags_name ON tags (name)")
                         } catch (_: Exception) {}
-                        logger.info("tags表迁移成功")
+                        logger.debug("tags表迁移成功")
                     } catch (e: Exception) {
                         logger.error("tags表迁移失败: ${e.toString()}")
                     }
                 } else if (!columnExists(conn, "tags", "translations")) {
                     // 新结构但缺少某些列
-                    logger.info("tags表结构不完整，添加缺失列")
+                    logger.debug("tags表结构不完整，添加缺失列")
                     try {
                         execUpdate(conn, "ALTER TABLE tags ADD COLUMN translations JSONB NOT NULL DEFAULT '{}'")
                     } catch (_: Exception) {}
@@ -623,14 +623,14 @@ public class DatabaseConfig {
 
             // 删除旧的 tag_i18n 表（如果存在）
             if (tableExists(conn, "tag_i18n")) {
-                logger.info("检测到旧的tag_i18n表，正在删除（数据已合并到tags表）")
+                logger.debug("检测到旧的tag_i18n表，正在删除（数据已合并到tags表）")
                 execUpdate(conn, "DROP TABLE tag_i18n")
-                logger.info("tag_i18n表已删除")
+                logger.debug("tag_i18n表已删除")
             }
 
             // user_archive_status 表（用户级别的归档状态）
             if (!tableExists(conn, "user_archive_status")) {
-                logger.info("user_archive_status表不存在，创建新的user_archive_status表")
+                logger.debug("user_archive_status表不存在，创建新的user_archive_status表")
                 execUpdate(conn, """
                     CREATE TABLE user_archive_status (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -665,27 +665,27 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
-                logger.info("user_archive_status表创建成功")
+                logger.debug("user_archive_status表创建成功")
             } else {
-                logger.info("user_archive_status表已存在，检查并补全索引")
+                logger.debug("user_archive_status表已存在，检查并补全索引")
                 // 检查并添加 progress 字段
                 try {
                     if (!columnExists(conn, "user_archive_status", "progress")) {
                         execUpdate(conn, "ALTER TABLE user_archive_status ADD COLUMN progress INTEGER DEFAULT 0")
-                        logger.info("已为 user_archive_status 表添加 progress 字段")
+                        logger.debug("已为 user_archive_status 表添加 progress 字段")
                     }
                     // 为 progress 字段创建索引
                     let indexSql = "CREATE INDEX idx_user_archive_status_progress ON user_archive_status (progress)"
                     try {
                         if (!indexExists(conn, "idx_user_archive_status_progress")) {
                             execUpdate(conn, indexSql)
-                            logger.info("已为 user_archive_status.progress 创建索引")
+                            logger.debug("已为 user_archive_status.progress 创建索引")
                         }
                     } catch (_: Exception) {
                         execUpdate(conn, indexSql)
                     }
                 } catch (_: Exception) {
-                    logger.info("检查/添加 progress 字段时出错，可能已存在")
+                    logger.debug("检查/添加 progress 字段时出错，可能已存在")
                 }
                 try {
                     let createSql = "CREATE INDEX idx_user_archive_status_user_id ON user_archive_status (user_id)"
@@ -711,7 +711,7 @@ public class DatabaseConfig {
 
             // user_favorites 表（用户收藏）
             if (!tableExists(conn, "user_favorites")) {
-                logger.info("user_favorites表不存在，创建新的user_favorites表")
+                logger.debug("user_favorites表不存在，创建新的user_favorites表")
                 execUpdate(conn, """
                     CREATE TABLE user_favorites (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -753,9 +753,9 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
-                logger.info("user_favorites表创建成功")
+                logger.debug("user_favorites表创建成功")
             } else {
-                logger.info("user_favorites表已存在，检查并补全索引")
+                logger.debug("user_favorites表已存在，检查并补全索引")
                 try {
                     let createSql = "CREATE INDEX idx_user_favorites_user_id ON user_favorites (user_id)"
                     try {
@@ -790,7 +790,7 @@ public class DatabaseConfig {
 
             // smart_filters 表（智能分类/快速筛选）
             if (!tableExists(conn, "smart_filters")) {
-                logger.info("smart_filters表不存在，创建新的smart_filters表")
+                logger.debug("smart_filters表不存在，创建新的smart_filters表")
                 execUpdate(conn, """
                     CREATE TABLE smart_filters (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -823,14 +823,14 @@ public class DatabaseConfig {
                     INSERT INTO smart_filters (name, translations, icon, date_from, sort_by, sort_order, sort_order_num)
                     VALUES ('最近一周', '{"en": {"text": "Last Week"}}', 'Calendar', '-7', 'date_added', 'desc', 3)
                 """)
-                logger.info("smart_filters表创建成功，已插入默认分类")
+                logger.debug("smart_filters表创建成功，已插入默认分类")
             } else {
-                logger.info("smart_filters表已存在")
+                logger.debug("smart_filters表已存在")
             }
 
             // archive_tags 表（archives.id <-> tags.id）
             if (!tableExists(conn, "archive_tags")) {
-                logger.info("archive_tags表不存在，创建新的archive_tags表")
+                logger.debug("archive_tags表不存在，创建新的archive_tags表")
                 execUpdate(conn, """
                     CREATE TABLE archive_tags (
                         archive_id INTEGER NOT NULL,
@@ -860,9 +860,9 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
-                logger.info("archive_tags表创建成功")
+                logger.debug("archive_tags表创建成功")
             } else {
-                logger.info("archive_tags表已存在，检查并补全索引")
+                logger.debug("archive_tags表已存在，检查并补全索引")
                 try {
                     let createSql = "CREATE INDEX idx_archive_tags_archive_id ON archive_tags (archive_id)"
                     try {
@@ -887,7 +887,7 @@ public class DatabaseConfig {
 
             // tankoubons 表
             if (!tableExists(conn, "tankoubons")) {
-                logger.info("tankoubons表不存在，创建新的tankoubons表")
+                logger.debug("tankoubons表不存在，创建新的tankoubons表")
                 execUpdate(conn, """
                     CREATE TABLE tankoubons (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -919,9 +919,9 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
-                logger.info("tankoubons表创建成功")
+                logger.debug("tankoubons表创建成功")
             } else {
-                logger.info("tankoubons表已存在，检查并补全索引")
+                logger.debug("tankoubons表已存在，检查并补全索引")
                 try {
                     let createSql = "CREATE INDEX idx_tankoubons_tankoubon_id ON tankoubons (tankoubon_id)"
                     try {
@@ -946,7 +946,7 @@ public class DatabaseConfig {
 
             // tankoubon_archives 表（junction table）
             if (!tableExists(conn, "tankoubon_archives")) {
-                logger.info("tankoubon_archives表不存在，创建新的tankoubon_archives表")
+                logger.debug("tankoubon_archives表不存在，创建新的tankoubon_archives表")
                 execUpdate(conn, """
                     CREATE TABLE tankoubon_archives (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -990,9 +990,9 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
-                logger.info("tankoubon_archives表创建成功")
+                logger.debug("tankoubon_archives表创建成功")
             } else {
-                logger.info("tankoubon_archives表已存在，检查并补全索引")
+                logger.debug("tankoubon_archives表已存在，检查并补全索引")
                 try {
                     let createSql = "CREATE INDEX idx_tankoubon_archives_tankoubon_id ON tankoubon_archives (tankoubon_id)"
                     try {
@@ -1027,7 +1027,7 @@ public class DatabaseConfig {
 
             // tankoubon_tags 表（tankoubon 与 tag 的关联表）
             if (!tableExists(conn, "tankoubon_tags")) {
-                logger.info("tankoubon_tags表不存在，创建新的tankoubon_tags表")
+                logger.debug("tankoubon_tags表不存在，创建新的tankoubon_tags表")
                 execUpdate(conn, """
                     CREATE TABLE tankoubon_tags (
                         tankoubon_id INTEGER NOT NULL,
@@ -1044,12 +1044,12 @@ public class DatabaseConfig {
                 try {
                     execUpdate(conn, "CREATE INDEX idx_tankoubon_tags_tag_id ON tankoubon_tags (tag_id)")
                 } catch (_: Exception) {}
-                logger.info("tankoubon_tags表创建成功")
+                logger.debug("tankoubon_tags表创建成功")
             }
 
             // user_tankoubon_favorites 表（用户收藏的合集）- 必须在tankoubons表之后创建
             if (!tableExists(conn, "user_tankoubon_favorites")) {
-                logger.info("user_tankoubon_favorites表不存在，创建新的user_tankoubon_favorites表")
+                logger.debug("user_tankoubon_favorites表不存在，创建新的user_tankoubon_favorites表")
                 execUpdate(conn, """
                     CREATE TABLE user_tankoubon_favorites (
                         id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -1091,9 +1091,9 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
-                logger.info("user_tankoubon_favorites表创建成功")
+                logger.debug("user_tankoubon_favorites表创建成功")
             } else {
-                logger.info("user_tankoubon_favorites表已存在，检查并补全索引")
+                logger.debug("user_tankoubon_favorites表已存在，检查并补全索引")
                 try {
                     let createSql = "CREATE INDEX idx_user_tankoubon_favorites_user_id ON user_tankoubon_favorites (user_id)"
                     try {
@@ -1128,10 +1128,10 @@ public class DatabaseConfig {
 
             // archives_with_tags 视图
             if (viewExists(conn, "archives_with_tags")) {
-                logger.info("archives_with_tags视图已存在，重建以确保结构正确")
+                logger.debug("archives_with_tags视图已存在，重建以确保结构正确")
                 execUpdate(conn, "DROP VIEW archives_with_tags")
             } else {
-                logger.info("archives_with_tags视图不存在，创建新视图")
+                logger.debug("archives_with_tags视图不存在，创建新视图")
             }
 
             execUpdate(conn, """
@@ -1164,7 +1164,7 @@ public class DatabaseConfig {
                     a.pagecount, a.archive_type, a.category_id
             """)
 
-            logger.info("归档/标签相关表与视图初始化完成")
+            logger.debug("归档/标签相关表与视图初始化完成")
             return true
         } catch (e: Exception) {
             logger.error("初始化归档/标签相关表与视图失败: ${e.toString()}")
