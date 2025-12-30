@@ -165,8 +165,10 @@ public class TaskPoolService {
                 MetadataPluginTaskRunner.run(task.id, task.parameters)
             case "tag_import" =>
                 TagI18nImportTaskRunner.run(task.id, task.parameters)
-            case "scan_directory" =>
-                ScanDirectoryTaskRunner.run(task.id, task.parameters)
+            case "scan_all_categories" =>
+                ScanAllCategoriesTaskRunner.run(task.id, task.parameters)
+            case "scan_single_category" =>
+                ScanSingleCategoryTaskRunner.run(task.id, task.parameters)
             case "scan_archive" =>
                 ScanArchiveTaskRunner.run(task.id, task.parameters)
             case "generate_thumbnail" =>

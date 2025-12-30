@@ -354,6 +354,86 @@ public class DatabaseConfig {
                 }
             }
 
+            // categories 表（必须在 archives 表之前创建，因为 archives 依赖它）
+            if (!tableExists(conn, "categories")) {
+                logger.info("categories表不存在，创建新的categories表")
+                execUpdate(conn, """
+                    CREATE TABLE categories (
+                        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                        catid VARCHAR(255) NOT NULL UNIQUE,
+                        name VARCHAR(255) NOT NULL,
+                        scan_path TEXT NOT NULL,
+                        description TEXT DEFAULT '',
+                        icon VARCHAR(64) DEFAULT '',
+                        sort_order INTEGER DEFAULT 0,
+                        enabled BOOLEAN DEFAULT true,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                // 创建索引
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_categories_catid ON categories (catid)")
+                } catch (_: Exception) {}
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_categories_enabled ON categories (enabled)")
+                } catch (_: Exception) {}
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_categories_sort_order ON categories (sort_order)")
+                } catch (_: Exception) {}
+                logger.info("categories表创建成功")
+            } else {
+                logger.info("categories表已存在，检查是否需要迁移到新结构")
+                // 检查是否是旧结构（有 search 列但没有 scan_path 列）
+                let hasOldStructure = columnExists(conn, "categories", "search") && !columnExists(conn, "categories", "scan_path")
+                if (hasOldStructure) {
+                    logger.info("检测到旧的categories表结构，需要重建")
+                    try {
+                        // 先删除依赖的 archive_categories 表（如果存在）
+                        if (tableExists(conn, "archive_categories")) {
+                            execUpdate(conn, "DROP TABLE archive_categories")
+                            logger.info("已删除旧的archive_categories表")
+                        }
+                        // 删除旧 categories 表
+                        execUpdate(conn, "DROP TABLE categories")
+                        // 创建新 categories 表
+                        execUpdate(conn, """
+                            CREATE TABLE categories (
+                                id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                                catid VARCHAR(255) NOT NULL UNIQUE,
+                                name VARCHAR(255) NOT NULL,
+                                scan_path TEXT NOT NULL,
+                                description TEXT DEFAULT '',
+                                icon VARCHAR(64) DEFAULT '',
+                                sort_order INTEGER DEFAULT 0,
+                                enabled BOOLEAN DEFAULT true,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            )
+                        """)
+                        try {
+                            execUpdate(conn, "CREATE INDEX idx_categories_catid ON categories (catid)")
+                        } catch (_: Exception) {}
+                        try {
+                            execUpdate(conn, "CREATE INDEX idx_categories_enabled ON categories (enabled)")
+                        } catch (_: Exception) {}
+                        try {
+                            execUpdate(conn, "CREATE INDEX idx_categories_sort_order ON categories (sort_order)")
+                        } catch (_: Exception) {}
+                        logger.info("categories表重建成功")
+                    } catch (e: Exception) {
+                        logger.error("categories表重建失败: ${e.toString()}")
+                    }
+                }
+            }
+
+            // 删除旧的 archive_categories 表（如果存在）
+            if (tableExists(conn, "archive_categories")) {
+                logger.info("检测到旧的archive_categories表，正在删除")
+                execUpdate(conn, "DROP TABLE archive_categories")
+                logger.info("archive_categories表已删除")
+            }
+
             // archives 表
             if (!tableExists(conn, "archives")) {
                 logger.info("archives表不存在，创建新的archives表")
@@ -370,9 +450,15 @@ public class DatabaseConfig {
                         relative_path TEXT DEFAULT '',
                         file_size BIGINT DEFAULT 0,
                         pagecount INTEGER DEFAULT 0,
-                        archive_type VARCHAR(20) DEFAULT 'archive'
+                        archive_type VARCHAR(20) DEFAULT 'archive',
+                        category_id INTEGER NOT NULL,
+                        FOREIGN KEY (category_id) REFERENCES categories(id)
                     )
                 """)
+                // 创建 category_id 索引
+                try {
+                    execUpdate(conn, "CREATE INDEX idx_archives_category_id ON archives (category_id)")
+                } catch (_: Exception) {}
                 logger.info("archives表创建成功")
             } else {
                 logger.info("archives表已存在，检查并补全缺失列")
@@ -387,7 +473,8 @@ public class DatabaseConfig {
                     ("relative_path", "TEXT DEFAULT ''"),
                     ("file_size", "BIGINT DEFAULT 0"),
                     ("pagecount", "INTEGER DEFAULT 0"),
-                    ("archive_type", "VARCHAR(20) DEFAULT 'archive'")
+                    ("archive_type", "VARCHAR(20) DEFAULT 'archive'"),
+                    ("category_id", "INTEGER NOT NULL")
                 ]
 
                 for ((column, definition) in columnsToAdd) {
@@ -444,6 +531,18 @@ public class DatabaseConfig {
                 } catch (e: Exception) {
                     logger.warn("创建archives.arcid唯一索引失败（可忽略）: ${e.toString()}")
                 }
+
+                // category_id 索引（如果不存在）
+                try {
+                    let createSql = "CREATE INDEX idx_archives_category_id ON archives (category_id)"
+                    try {
+                        if (!indexExists(conn, "idx_archives_category_id")) {
+                            execUpdate(conn, createSql)
+                        }
+                    } catch (_: Exception) {
+                        execUpdate(conn, createSql)
+                    }
+                } catch (_: Exception) {}
             }
 
             // tags 表（新结构：namespace + name + translations JSONB）
@@ -1050,6 +1149,7 @@ public class DatabaseConfig {
                     a.file_size,
                     a.pagecount,
                     a.archive_type,
+                    a.category_id,
                     COALESCE(string_agg(
                         CASE WHEN t.namespace != '' AND t.namespace IS NOT NULL
                              THEN t.namespace || ':' || t.name
@@ -1061,7 +1161,7 @@ public class DatabaseConfig {
                 GROUP BY
                     a.id, a.arcid, a.filename, a.title, a.summary, a.thumbhash,
                     a.created_at, a.updated_at, a.relative_path, a.file_size,
-                    a.pagecount, a.archive_type
+                    a.pagecount, a.archive_type, a.category_id
             """)
 
             logger.info("归档/标签相关表与视图初始化完成")
@@ -1103,13 +1203,6 @@ public class DatabaseConfig {
      */
     public static func getThumbnailPath(): String {
         return readConfigWithDefault("THUMBNAIL_PATH", "./data/thumb")
-    }
-
-    /**
-     * 读取归档路径
-     */
-    public static func getArchivePath(): String {
-        return readConfigWithDefault("ARCHIVE_PATH", "./data/archive")
     }
 
     /**

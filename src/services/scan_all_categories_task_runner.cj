@@ -1,0 +1,97 @@
+package lrr4cj.services
+
+import std.collection.*
+import stdx.log.*
+import lrr4cj.dao.*
+import lrr4cj.models.*
+import lrr4cj.utils.*
+
+/**
+ * 扫描所有分类任务运行器
+ * 负责列出所有启用的分类并为每个分类创建扫描任务
+ */
+public class ScanAllCategoriesTaskRunner {
+
+    public static func run(taskId: Int64, parameters: String): Unit {
+        let logger = getLogger("scan_all_categories")
+        TaskIO.appendLog(taskId, "scan_all_categories task started")
+        TaskIO.appendLog(taskId, "Task parameters: ${parameters}")
+
+        try {
+            TaskModel.updateTaskProgress(taskId, 10, "获取启用的分类列表...")
+            let categories = CategoryDao.getEnabledCategories()
+
+            if (categories.size == 0) {
+                let summary = "{\"success\":1,\"created\":0,\"total\":0,\"message\":\"No enabled categories found\"}"
+                TaskIO.appendLog(taskId, "No enabled categories found")
+                TaskModel.updateTaskProgress(taskId, 100, "No enabled categories found")
+                TaskModel.completeTask(taskId, summary)
+                TaskIO.writeOutput(taskId, summary)
+                return
+            }
+
+            TaskIO.appendLog(taskId, "Found ${categories.size} enabled categories")
+            TaskModel.updateTaskProgress(taskId, 20, "准备创建分类扫描任务...")
+
+            var created = 0
+            var errors = ArrayList<String>()
+            let groupId = "scan_all_categories:${taskId}"
+
+            // 为每个分类创建 scan_single_category 任务
+            for (cat in categories) {
+                let taskIdStr = enqueueSingleCategoryScan(cat, groupId)
+                if (taskIdStr > 0) {
+                    created++
+                    TaskIO.appendLog(taskId, "Created scan_single_category task for category: ${cat.name} (task_id: ${taskIdStr})")
+                } else {
+                    let error = "Failed to create task for category: ${cat.name}"
+                    errors.add(error)
+                    TaskIO.appendLog(taskId, "ERROR: ${error}")
+                }
+            }
+
+            let summary = "{\"success\":1,\"created\":${created},\"total\":${categories.size},\"errors\":${errors.size}}"
+            TaskIO.appendLog(taskId, "Task creation completed: created=${created}, total=${categories.size}, errors=${errors.size}")
+            TaskModel.updateTaskProgress(taskId, 100, "Created ${created} scan_single_category tasks")
+            TaskModel.completeTask(taskId, summary)
+            TaskIO.writeOutput(taskId, summary)
+            TaskIO.appendLog(taskId, "scan_all_categories task completed")
+        } catch (e: Exception) {
+            let errorMsg = "Unexpected error: ${e.message}"
+            logger.error(errorMsg, ("exception", e.message), ("stack", e.toString()))
+            TaskIO.appendLog(taskId, "FATAL ERROR: ${errorMsg}")
+            TaskModel.failTask(taskId, errorMsg)
+            TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(errorMsg)}\"}")
+        }
+    }
+
+    private static func enqueueSingleCategoryScan(category: CategoryData, groupId: String): Int64 {
+        let params = "{\"category_id\":\"${escapeJson(category.catid)}\"}"
+        let triggerSource = "scan_all_categories"
+        let childTask = TaskModel.createTaskWithOptions(
+            "扫描分类: ${category.name}",
+            "scan_single_category",
+            params,
+            30,
+            groupId,
+            triggerSource
+        )
+        if (childTask.id > 0) {
+            TaskPoolService.getInstance().notifyTaskAvailable()
+            return childTask.id
+        }
+        return 0
+    }
+
+    private static func escapeJson(s: String): String {
+        var escaped = s
+        escaped = escaped.replace("\\", "\\\\")
+        escaped = escaped.replace("\"", "\\\"")
+        escaped = escaped.replace("\b", "\\b")
+        escaped = escaped.replace("\f", "\\f")
+        escaped = escaped.replace("\n", "\\n")
+        escaped = escaped.replace("\r", "\\r")
+        escaped = escaped.replace("\t", "\\t")
+        return escaped
+    }
+}

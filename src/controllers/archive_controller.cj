@@ -33,6 +33,20 @@ public class ArchiveController {
         return escaped
     }
 
+    /**
+     * 获取档案的基础路径（从分类获取）
+     */
+    private static func getArchiveBasePath(arcid: String): String {
+        let categoryId = ArchiveDao.getArchiveCategoryId(arcid)
+        if (categoryId > 0) {
+            match (CategoryDao.getCategoryByInternalId(categoryId)) {
+                case Some(cat) => return cat.scanPath
+                case None => ()
+            }
+        }
+        return ""
+    }
+
     // GET /api/archives
     public static func getArchives(ctx: JoyContext): Unit {
         // 从数据库获取档案列表
@@ -431,8 +445,13 @@ public class ArchiveController {
             return
         }
 
-        // 构建归档文件完整路径
-        let archivePath = SystemSettingsService.getPath("ARCHIVE_PATH")
+        // 构建归档文件完整路径（从分类获取基础路径）
+        let archivePath = getArchiveBasePath(archive.id)
+        if (archivePath.size == 0) {
+            ctx.status(500)
+            ctx.json("{\"success\":0,\"error\":\"Category not found for archive\"}")
+            return
+        }
         let fullArchivePath = if (archive.relative_path.size > 0) {
             "${archivePath}/${archive.relative_path}/${archive.filename}"
         } else {
@@ -585,17 +604,18 @@ public class ArchiveController {
 
                 // 删除原始档案文件
                 try {
-                    let archivePath = SystemSettingsService.getPath("ARCHIVE_PATH")
-                    let fullArchivePath = if (archive.relative_path.size > 0) {
-                        "${archivePath}/${archive.relative_path}/${archive.filename}"
-                    } else {
-                        "${archivePath}/${archive.filename}"
+                    let archivePath = getArchiveBasePath(archive.id)
+                    if (archivePath.size > 0) {
+                        let fullArchivePath = if (archive.relative_path.size > 0) {
+                            "${archivePath}/${archive.relative_path}/${archive.filename}"
+                        } else {
+                            "${archivePath}/${archive.filename}"
+                        }
+                        remove(Path(fullArchivePath))
+                        getLogger("archive_controller").info("Deleted archive file", ("path", fullArchivePath), ("arcid", id))
                     }
-                    remove(Path(fullArchivePath))
-                    getLogger("archive_controller").info("Deleted archive file", ("path", fullArchivePath), ("arcid", id))
                 } catch (e: Exception) {
                     getLogger("archive_controller").warn("Failed to delete archive file", ("arcid", id), ("error", e.message))
-                    // 档案文件删除失败不影响主要流程，只记录警告
                 }
 
                 if (deleteSuccess) {
@@ -630,15 +650,20 @@ public class ArchiveController {
             ctx.json(errorResponse)
             return
         }
-        
-        // 构建归档文件完整路径
-        let archivePath = SystemSettingsService.getPath("ARCHIVE_PATH")
+
+        // 构建归档文件完整路径（从分类获取基础路径）
+        let archivePath = getArchiveBasePath(archive.id)
+        if (archivePath.size == 0) {
+            ctx.status(500)
+            ctx.json("{\"success\":0,\"error\":\"Category not found for archive\"}")
+            return
+        }
         let fullArchivePath = if (archive.relative_path.size > 0) {
             "${archivePath}/${archive.relative_path}/${archive.filename}"
         } else {
             "${archivePath}/${archive.filename}"
         }
-        
+
         // 检查文件是否存在并读取文件内容
         try {
             // 对于文件访问，需要解析软链接到实际路径
@@ -698,8 +723,13 @@ public class ArchiveController {
                     return
                 }
 
-                // 构建归档文件完整路径
-                let archivePath = SystemSettingsService.getPath("ARCHIVE_PATH")
+                // 构建归档文件完整路径（从分类获取基础路径）
+                let archivePath = getArchiveBasePath(archive.id)
+                if (archivePath.size == 0) {
+                    ctx.status(500)
+                    ctx.json("{\"success\":0,\"error\":\"Category not found for archive\"}")
+                    return
+                }
                 let fullArchivePath = if (archive.relative_path.size > 0) {
                     "${archivePath}/${archive.relative_path}/${archive.filename}"
                 } else {

@@ -11,48 +11,13 @@ import lrr4cj.dao.*
  * 数据库一致性检查任务：检查数据库记录与实际文件的匹配情况，清理孤儿记录
  */
 public class CheckDatabaseTaskRunner {
-    // 归档路径配置
-    private static var archivePath: Path = Path("")
-    private static var initialized: Bool = false
-    private static let initMutex: Mutex = Mutex()
-
-    // 私有初始化方法（懒加载）
-    private static func ensureInitialized(): Unit {
-        initMutex.lock()
-        if (!initialized) {
-            try {
-                // 从数据库读取配置
-                let archivePathStr = SystemSettingsService.getPath("ARCHIVE_PATH")
-
-                // 先确保目录存在，然后规范化路径
-                // 注意：canonicalize() 要求路径存在，否则会失败
-                let tempPath = Path(archivePathStr)
-                FileUtils.ensureDirectoryExists(tempPath)
-                archivePath = canonicalize(archivePathStr)
-
-                initialized = true
-            } catch (e: Exception) {
-                // 即使初始化失败，也设置为 true 避免死锁
-                initialized = true
-                throw e
-            }
-        }
-        initMutex.unlock()
-    }
 
     public static func run(taskId: Int64, _: String): Unit {
         let logger = getLogger("check_database_task")
         TaskIO.appendLog(taskId, "check_database task started")
 
         try {
-            // 先记录从配置获取的路径
-            let archivePathStr = SystemSettingsService.getPath("ARCHIVE_PATH")
-            TaskIO.appendLog(taskId, "Archive path from config: ${archivePathStr}")
-
-            // 确保配置已初始化
-            TaskIO.appendLog(taskId, "Initializing configuration...")
-            ensureInitialized()
-            TaskIO.appendLog(taskId, "Configuration initialized successfully, archivePath=${archivePath.toString()}")
+            TaskIO.appendLog(taskId, "Using category-based paths for file checking")
 
             TaskModel.updateTaskProgress(taskId, 10, "Starting database consistency check")
             TaskIO.appendLog(taskId, "Starting database consistency check...")
@@ -105,16 +70,26 @@ public class CheckDatabaseTaskRunner {
             var processed = 0
             for (archive in archives) {
                 processed++
-                // 正确构建完整路径：archivePath + relativePath + filename
-                let archiveBasePath = archivePath.toString()
-                let fullFilePath: String
+                // 从分类获取基础路径
+                let categoryId = archive.category_id
+                var archiveBasePath = ""
+                if (categoryId > 0) {
+                    match (CategoryDao.getCategoryByInternalId(categoryId)) {
+                        case Some(cat) => archiveBasePath = cat.scanPath
+                        case None => ()
+                    }
+                }
 
+                if (archiveBasePath.size == 0) {
+                    logger.warn("Archive has no valid category", ("arcid", archive.id))
+                    continue
+                }
+
+                let fullFilePath: String
                 if (archive.relative_path.size > 0 && archive.relative_path != "") {
-                    // 如果有相对路径，构建：archivePath/relativePath/filename
                     let dirPath = joinPath(archiveBasePath, archive.relative_path)
                     fullFilePath = joinPath(dirPath, archive.filename)
                 } else {
-                    // 如果没有相对路径，构建：archivePath/filename
                     fullFilePath = joinPath(archiveBasePath, archive.filename)
                 }
 

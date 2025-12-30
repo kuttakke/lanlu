@@ -25,6 +25,7 @@ public class ArchiveData {
     public var file_size: Int64 = 0
     public var pagecount: Int32 = 0
     public var archive_type: String = "archive"  // 归档类型：archive=压缩包，folder=文件夹，pdf=PDF
+    public var category_id: Int64 = 0  // 分类ID
     public var tags: String = ""
     // last_read_time 和 progress 不再存储在 archives 表中，而是从 user_archive_status 表获取
     // 这些字段仅用于 API 响应，由 UserArchiveStatusDao 填充
@@ -659,13 +660,13 @@ public class ArchiveDao {
     /**
      * 插入归档记录 - 专门为 ShinobuService 提供的方法
      */
-    public static func insertArchive(archiveId: String, title: String, fileName: String, fileSize: Int64, _: Int64, filePath: String, archiveType: String): Bool {
+    public static func insertArchive(archiveId: String, title: String, fileName: String, fileSize: Int64, _: Int64, filePath: String, archiveType: String, categoryId: Int64): Bool {
         let connOpt = DatabaseConfig.createConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
                     // 使用数据库的默认值来处理时间戳，避免格式问题
-                    let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, pagecount, archive_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, pagecount, archive_type, category_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
                     let stmt = conn.prepareStatement(sql)
                     try {
@@ -678,6 +679,7 @@ public class ArchiveDao {
                         stmt.set(6, fileSize)
                         stmt.set(7, 0)  // pagecount
                         stmt.set(8, archiveType)
+                        stmt.set(9, categoryId)
                         stmt.update()
                     } finally {
                         stmt.close()
@@ -1125,4 +1127,67 @@ public class ArchiveDao {
         return ArchiveData()
     }
 
+    /**
+     * 获取档案的 category_id
+     */
+    public static func getArchiveCategoryId(arcid: String): Int64 {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("SELECT category_id FROM archives WHERE arcid = ?")
+                    try {
+                        stmt.set(0, arcid)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                return rs.getOrNull<Int64>(0) ?? 0
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                    return 0
+                } catch (e: Exception) {
+                    getLogger("archive_dao").error("获取档案分类ID失败", ("error", e.message))
+                    return 0
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("archive_dao").error("无法连接到数据库")
+                return 0
+        }
+    }
+
+    /**
+     * 更新档案的 category_id
+     */
+    public static func updateArchiveCategoryId(arcid: String, categoryId: Int64): Bool {
+        let connOpt = DatabaseConfig.createConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                try {
+                    let stmt = conn.prepareStatement("UPDATE archives SET category_id = ? WHERE arcid = ?")
+                    try {
+                        stmt.set(0, categoryId)
+                        stmt.set(1, arcid)
+                        let result = stmt.update()
+                        return result.rowCount > 0
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("archive_dao").error("更新档案分类ID失败", ("error", e.message))
+                    return false
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+            case None =>
+                getLogger("archive_dao").error("无法连接到数据库")
+                return false
+        }
+    }
 }

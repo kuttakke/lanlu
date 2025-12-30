@@ -314,8 +314,10 @@ export class CronService {
    */
   static getTaskTypeLabel(taskType: string): string {
     switch (taskType) {
-      case 'scan_directory':
-        return '目录扫描';
+      case 'scan_all_categories':
+        return '扫描所有分类';
+      case 'scan_single_category':
+        return '扫描分类';
       case 'check_database':
         return '数据库检查';
       case 'scan_plugins':
@@ -332,14 +334,18 @@ export class CronService {
    */
   static getTaskTypeColor(taskType: string): string {
     switch (taskType) {
-      case 'scan_directory':
+      case 'scan_all_categories':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'scan_single_category':
+        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+      case 'scan_archive':
+        return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
       case 'check_database':
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
       case 'scan_plugins':
         return 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200';
       case 'generate_thumbnail':
-        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
@@ -363,7 +369,8 @@ export class CronService {
    * 可用的任务类型
    */
   static readonly TASK_TYPES = [
-    { value: 'scan_directory', label: '目录扫描', description: '扫描档案目录，发现新文件' },
+    { value: 'scan_all_categories', label: '扫描所有分类', description: '扫描所有启用的分类，发现新文件' },
+    { value: 'scan_single_category', label: '扫描单个分类', description: '扫描指定分类的目录，发现新文件' },
     { value: 'check_database', label: '数据库检查', description: '检查数据库一致性，清理无效记录' },
     { value: 'scan_plugins', label: '插件扫描', description: '扫描并加载插件' },
   ];

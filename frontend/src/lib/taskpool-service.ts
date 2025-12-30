@@ -231,11 +231,14 @@ export class TaskPoolService {
       case 'upload':
       case 'upload_process':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'scan_directory':
-      case 'scan_archive':
+      case 'scan_all_categories':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'generate_thumbnail':
+      case 'scan_single_category':
         return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+      case 'scan_archive':
+        return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
+      case 'generate_thumbnail':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'check_database':
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
       case 'scan_plugins':
@@ -256,8 +259,10 @@ export class TaskPoolService {
       case 'upload':
       case 'upload_process':
         return '文件上传';
-      case 'scan_directory':
-        return '目录扫描';
+      case 'scan_all_categories':
+        return '扫描所有分类';
+      case 'scan_single_category':
+        return '扫描分类';
       case 'scan_archive':
         return '档案扫描';
       case 'generate_thumbnail':
@@ -397,10 +402,12 @@ export class TaskPoolService {
         return '上传';
       case 'upload_process':
         return '上传处理';
+      case 'scan_all_categories':
+        return '扫描所有分类';
+      case 'scan_single_category':
+        return '扫描分类';
       case 'scan_archive':
         return '扫描档案';
-      case 'scan_directory':
-        return '扫描目录';
       case 'check_database':
         return '数据库检查';
       case 'generate_thumbnail':

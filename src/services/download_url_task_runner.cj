@@ -17,8 +17,7 @@ import lrr4cj.utils.*
  * download_url 任务执行器（运行在TaskPool中）
  */
 public class DownloadUrlTaskRunner {
-    // 配置 - 使用静态变量存储配置
-    private static var archivePath: Path = Path("")
+    // 配置 - 使用静态变量存储配置（archivePath 已移除，改用分类系统）
     private static var cachePath: Path = Path("")
     private static var thumbnailPath: Path = Path("")
     private static var initialized: Bool = false
@@ -28,18 +27,15 @@ public class DownloadUrlTaskRunner {
     private static func ensureInitialized(): Unit {
         initMutex.lock()
         if (!initialized) {
-            // 从数据库读取配置
-            let archivePathStr = SystemSettingsService.getPath("ARCHIVE_PATH")
+            // 从数据库读取配置（archivePath 已移除，改用分类的 scan_path）
             let cachePathStr = SystemSettingsService.getPath("CACHE_PATH")
             let thumbnailPathStr = SystemSettingsService.getPath("THUMBNAIL_PATH")
 
             // 转换为 Path 类型并规范化
-            archivePath = canonicalize(archivePathStr)
             cachePath = canonicalize(cachePathStr)
             thumbnailPath = canonicalize(thumbnailPathStr)
 
             // 确保必要的目录存在
-            FileUtils.ensureDirectoryExists(archivePath)
             FileUtils.ensureDirectoryExists(cachePath)
             FileUtils.ensureDirectoryExists(thumbnailPath)
 
@@ -60,6 +56,22 @@ public class DownloadUrlTaskRunner {
         if (url.size == 0) {
             fail(taskId, "url is required")
             return
+        }
+
+        let categoryId = parseCategoryId(parameters)
+        if (categoryId <= 0) {
+            fail(taskId, "category_id is required")
+            return
+        }
+
+        // 获取分类信息
+        let categoryOpt = CategoryDao.getCategoryByInternalId(categoryId)
+        var categoryPath = ""
+        match (categoryOpt) {
+            case Some(cat) => categoryPath = cat.scanPath
+            case None =>
+                fail(taskId, "Category not found")
+                return
         }
 
         try {
@@ -182,12 +194,11 @@ public class DownloadUrlTaskRunner {
 
             TaskModel.updateTaskProgress(taskId, 60, "移动到archive")
 
-            let archiveDir = Path("./data/archive")
+            let archiveDir = Path(categoryPath)
             FileUtils.ensureDirectoryExists(archiveDir)
 
-            let finalArchivePath = Path("${archiveDir.toString()}/${fileName}")
+            let finalArchivePath = Path("${categoryPath}/${fileName}")
             let finalArchivePathStr = finalArchivePath.toString()
-            let relativePath = "archive/${fileName}"
 
             try {
                 rename(pluginTarget, to: finalArchivePath)
@@ -199,7 +210,6 @@ public class DownloadUrlTaskRunner {
             TaskModel.updateTaskProgress(taskId, 80, "创建扫描任务")
 
             // 获取配置
-            let archiveBasePath = archivePath.toString()
             let cachePathStr = cachePath.toString()
             let thumbnailPathStr = thumbnailPath.toString()
 
@@ -216,7 +226,7 @@ public class DownloadUrlTaskRunner {
             let params = """
                 {
                     "archive_path":"${escapeJson(finalArchivePathStr)}",
-                    "archive_base_path":"${escapeJson(archiveBasePath)}",
+                    "category_id":${categoryId},
                     "cache_path":"${escapeJson(cachePathStr)}",
                     "thumbnail_path":"${escapeJson(thumbnailPathStr)}",
                     "archive_type":"${archiveType}",
@@ -225,13 +235,13 @@ public class DownloadUrlTaskRunner {
             """
             let task = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, 50, "download_url:${taskId}", "upload")
             if (task.id <= 0) {
-                let errorJson = "{\"success\":0,\"relative_path\":\"${relativePath}\",\"error\":\"Failed to create scan_archive task\"}"
+                let errorJson = "{\"success\":0,\"error\":\"Failed to create scan_archive task\"}"
                 TaskModel.failTask(taskId, "Failed to create scan_archive task")
                 TaskIO.writeOutput(taskId, errorJson)
                 return
             }
 
-            let resultJson = "{\"success\":1,\"archives\":[{\"relative_path\":\"${relativePath}\",\"plugin_relative_path\":\"${pluginRelativePath}\",\"filename\":\"${escapeJson(fileName)}\"}],\"task_id\":\"${task.id}\"}"
+            let resultJson = "{\"success\":1,\"archives\":[{\"filename\":\"${escapeJson(fileName)}\"}],\"task_id\":\"${task.id}\"}"
 
             TaskModel.updateTaskProgress(taskId, 100, "下载完成")
             TaskModel.completeTask(taskId, "download_url completed")
@@ -266,6 +276,25 @@ public class DownloadUrlTaskRunner {
             }
         } catch (_: Exception) {}
         return ""
+    }
+
+    private static func parseCategoryId(parameters: String): Int64 {
+        let trimmed = parameters.trimAscii()
+        if (trimmed.size == 0) {
+            return 0
+        }
+        try {
+            let bodyJson = JsonValue.fromStr(trimmed)
+            match (bodyJson) {
+                case obj: JsonObject =>
+                    let fields = obj.getFields()
+                    if (fields.contains("category_id")) {
+                        return Int64.parse(fields["category_id"].toString().trimAscii())
+                    }
+                case _ => ()
+            }
+        } catch (_: Exception) {}
+        return 0
     }
 
     private static func escapeJson(s: String): String {

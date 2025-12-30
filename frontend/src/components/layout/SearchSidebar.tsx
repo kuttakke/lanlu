@@ -7,9 +7,10 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Switch } from '@/components/ui/switch';
-import { Search, Filter, SortAsc, SortDesc, BookOpen, Tag, Calendar, Clock, Star } from 'lucide-react';
+import { Search, Filter, SortAsc, SortDesc, BookOpen, Tag, Calendar, Clock, Star, FolderOpen } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getApiUrl } from '@/lib/api';
+import { CategoryService, type Category } from '@/lib/category-service';
 
 interface SmartFilter {
   id: number;
@@ -36,6 +37,7 @@ interface SearchSidebarProps {
     untaggedonly?: boolean;
     favoriteonly?: boolean;
     groupby_tanks?: boolean;
+    category_id?: string;
   }) => void;
   loading?: boolean;
 }
@@ -61,6 +63,8 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
   const [untaggedonly, setUntaggedonly] = useState(false);
   const [favoriteonly, setFavoriteonly] = useState(false);
   const [groupbyTanks, setGroupbyTanks] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [categories, setCategories] = useState<Category[]>([]);
   const [smartFilters, setSmartFilters] = useState<SmartFilter[]>([]);
   // 添加mounted状态以避免水合错误
   const [mounted, setMounted] = useState(false);
@@ -87,6 +91,20 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
     loadSmartFilters();
   }, [mounted]);
 
+  // Load categories from API
+  useEffect(() => {
+    if (!mounted) return;
+    const loadCategories = async () => {
+      try {
+        const cats = await CategoryService.getAllCategories();
+        setCategories(cats);
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+      }
+    };
+    loadCategories();
+  }, [mounted]);
+
   const handleSearch = () => {
     if (!mounted) return;
     onSearch({
@@ -98,7 +116,8 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
       newonly,
       untaggedonly,
       favoriteonly,
-      groupby_tanks: groupbyTanks
+      groupby_tanks: groupbyTanks,
+      category_id: selectedCategory !== 'all' ? selectedCategory : undefined
     });
   };
 
@@ -113,6 +132,7 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
     setUntaggedonly(false);
     setFavoriteonly(false);
     setGroupbyTanks(true);
+    setSelectedCategory('all');
     onSearch({
       query: '',
       sortBy: 'date_added',
@@ -283,7 +303,7 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 {t('search.dateRange')}
               </label>
-              
+
               <DateRangePicker
                 value={{ from: dateFrom, to: dateTo }}
                 onChange={(next) => {
@@ -292,6 +312,27 @@ export function SearchSidebar({ onSearch, loading = false }: SearchSidebarProps)
                 }}
                 placeholder={t('search.dateRange')}
               />
+            </div>
+
+            {/* 分类筛选 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                {t('search.categoryFilter')}
+              </label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('search.categoryFilter')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('search.allCategories')}</SelectItem>
+                  {categories.filter(cat => cat.enabled).map((category) => (
+                    <SelectItem key={category.catid} value={category.catid}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 排序 */}

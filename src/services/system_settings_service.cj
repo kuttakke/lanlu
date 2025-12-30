@@ -112,7 +112,6 @@ public class SystemSettingsService {
         var settings = ArrayList<SystemSettingData>()
 
         // 存储设置 - 默认值
-        settings.add(createSetting("ARCHIVE_PATH", "./data/archive", "path", "storage", "归档文件目录路径"))
         settings.add(createSetting("THUMBNAIL_PATH", "./data/thumb", "path", "storage", "缩略图目录路径"))
         settings.add(createSetting("CACHE_PATH", "./data/cache", "path", "storage", "缓存目录路径"))
         settings.add(createSetting("PLUGIN_PATH", "./plugins", "path", "storage", "插件目录路径"))

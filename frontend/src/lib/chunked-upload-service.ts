@@ -257,18 +257,18 @@ export class ChunkedUploadService {
         }
 
         // 保存上传会话信息到localStorage
-        const session = {
-          taskId,
-          fileName,
-          fileSize,
-          fileHash,
-          totalChunks,
-          completedChunks: [],
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        };
+      const session = {
+        taskId,
+        fileName,
+        fileSize,
+        fileHash,
+        totalChunks,
+        completedChunks: [],
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
 
-        localStorage.setItem(`upload_${taskId}`, JSON.stringify(session));
+      localStorage.setItem(`upload_${taskId}`, JSON.stringify(session));
 
         return taskId;
       } catch (serverError) {

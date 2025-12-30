@@ -152,8 +152,9 @@ public class ChunkedUploadController {
 
             getLogger("chunked_upload").info("Retrieved task from database", ("taskName", task.name), ("taskStatus", task.status), ("taskParameters", task.parameters))
 
-            // 从任务参数中使用JsonStream解析JSON获取原始文件名
+            // 从任务参数中使用JsonStream解析JSON获取原始文件名和分类ID
             var originalFileName = "archive_${taskIdStr}.zip"  // 默认文件名
+            var categoryId: String = ""  // 使用 catid 字符串类型
             if (task.parameters.size > 0) {
                 try {
                     // 使用JsonStream解析存储的JSON
@@ -173,8 +174,10 @@ public class ChunkedUploadController {
                                         case "filename" =>
                                             originalFileName = reader.readValue<String>()
                                             getLogger("chunked_upload").info("从JSON中解析到文件名", ("originalFileName", originalFileName))
+                                        case "category_id" =>
+                                            categoryId = reader.readValue<String>()
+                                            getLogger("chunked_upload").info("从JSON中解析到分类ID", ("categoryId", categoryId))
                                         case _ =>
-                                            // 对于其他字段，读取值但不使用
                                             let _ = reader.skip()
                                     }
                                 }
@@ -228,8 +231,26 @@ public class ChunkedUploadController {
                 return
             }
 
-            // 将文件移动到归档目录，使用原始文件名
-            let archivePath = "./data/archive"
+            // 验证 category_id 必须存在
+            if (categoryId.size == 0) {
+                let errorResponse = "{\"success\":0,\"error\":\"category_id is required\"}"
+                ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+                ctx.json(errorResponse)
+                return
+            }
+
+            // 从分类获取归档目录
+            let categoryOpt = CategoryDao.getCategoryById(categoryId)
+            var archivePath = ""
+            match (categoryOpt) {
+                case Some(cat) => archivePath = cat.scanPath
+                case None =>
+                    let errorResponse = "{\"success\":0,\"error\":\"Category not found\"}"
+                    ctx.status(HttpStatusCode.STATUS_BAD_REQUEST)
+                    ctx.json(errorResponse)
+                    return
+            }
+
             let archiveDir = Path(archivePath)
             if (!exists(archiveDir)) {
                 Directory.create(archiveDir, recursive: true)
@@ -295,11 +316,10 @@ public class ChunkedUploadController {
             }
 
             // 异步模式：创建 scan_archive 任务处理归档文件
-            let archiveBasePath = SystemSettingsService.getPath("ARCHIVE_PATH")
             let cachePath = SystemSettingsService.getPath("CACHE_PATH")
             let thumbnailPath = SystemSettingsService.getPath("THUMBNAIL_PATH")
 
-            let params = "{\"archive_path\":\"${escapeJsonString(absoluteArchivePath)}\",\"archive_base_path\":\"${escapeJsonString(archiveBasePath)}\",\"cache_path\":\"${escapeJsonString(cachePath)}\",\"thumbnail_path\":\"${escapeJsonString(thumbnailPath)}\"}"
+            let params = "{\"archive_path\":\"${escapeJsonString(absoluteArchivePath)}\",\"category_id\":\"${escapeJsonString(categoryId)}\",\"cache_path\":\"${escapeJsonString(cachePath)}\",\"thumbnail_path\":\"${escapeJsonString(thumbnailPath)}\"}"
             let scanTask = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, 50, "chunked_upload:${taskId}", "upload")
             if (scanTask.id > 0) {
                 TaskPoolService.getInstance().notifyTaskAvailable()

@@ -2,6 +2,7 @@ package lrr4cj.services
 
 import std.sync.*
 import std.time.*
+import std.collection.*
 import stdx.log.*
 import lrr4cj.dao.*
 import lrr4cj.models.*
@@ -326,20 +327,20 @@ public class CronService {
 
         logger.info("Creating default scheduled tasks")
 
-        // 定时目录扫描（每6小时）
+        // 定时扫描所有分类（每6小时）- 已禁用，改用分类系统手动触发扫描
         let scanTask = createScheduledTask(
-            "定时目录扫描",
+            "定时扫描所有分类",
             "0 */6 * * *",
-            "scan_directory",
-            taskParameters: "",  // 不需要参数，会自动从系统设置读取 ARCHIVE_PATH
-            enabled: false,  // 默认禁用，用户可手动启用
+            "scan_all_categories",
+            taskParameters: "{}",  // 扫描所有启用分类
+            enabled: false,  // 默认禁用，用户应通过分类管理界面触发扫描
             priority: 30
         )
         match (scanTask) {
             case Some(t) =>
-                logger.info("Created default scan_directory task", ("id", t.id.toString()))
+                logger.info("Created default scan_all_categories task", ("id", t.id.toString()))
             case None =>
-                logger.error("Failed to create default scan_directory task")
+                logger.error("Failed to create default scan_all_categories task")
         }
 
         // 定时数据库检查（每天凌晨2点）
@@ -400,18 +401,14 @@ public class CronService {
             logger.info("ENABLE_INITIAL_PLUGIN_SCAN is disabled, skipping initial plugin scan")
         }
 
-        // 检查是否启用初始扫描
+        // 检查是否启用初始扫描（改用分类系统）
         let enableInitialScan = SystemSettingsService.getBoolean("ENABLE_INITIAL_SCAN")
         if (enableInitialScan) {
-            logger.info("ENABLE_INITIAL_SCAN is enabled, triggering directory scan")
-            let scanPath = SystemSettingsService.getPath("ARCHIVE_PATH")
-            let dirExists = DirectoryScanner.directoryExists(scanPath)
-            if (dirExists) {
-                let scanTaskId = triggerDirectoryScan(scanPath: scanPath, priority: 30, triggerSource: "startup")
-                logger.info("Triggered startup scan_directory task", ("task_id", scanTaskId.toString()), ("path", scanPath))
-            } else {
-                logger.warn("Archive directory does not exist, skipping initial scan", ("path", scanPath))
-            }
+            logger.info("ENABLE_INITIAL_SCAN is enabled, triggering scan_all_categories task")
+            let params = "{}"
+            let task = TaskModel.createTaskWithOptions("启动时扫描所有分类", "scan_all_categories", params, 30, "", "startup")
+            TaskPoolService.getInstance().notifyTaskAvailable()
+            logger.info("Triggered startup scan_all_categories task", ("task_id", task.id.toString()))
         } else {
             logger.info("ENABLE_INITIAL_SCAN is disabled, skipping initial directory scan")
         }
@@ -428,14 +425,23 @@ public class CronService {
     }
 
     /**
-     * 触发目录扫描任务
+     * 触发目录扫描任务（已废弃，使用 scan_all_categories 代替）
      */
     public func triggerDirectoryScan(scanPath!: String = "", priority!: Int32 = 30, triggerSource!: String = "manual"): Int64 {
-        let targetPath = if (scanPath.size > 0) { scanPath } else { SystemSettingsService.getPath("ARCHIVE_PATH") }
         let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
-        let params =
-            "{\"scan_path\":\"${escapeJson(targetPath)}\",\"trigger_source\":\"${escapeJson(source)}\",\"child_priority\":${priority}}"
-        let task = TaskModel.createTaskWithOptions("目录扫描", "scan_directory", params, priority, "", source)
+        let params = "{}"
+        let task = TaskModel.createTaskWithOptions("目录扫描", "scan_all_categories", params, priority, "", source)
+        TaskPoolService.getInstance().notifyTaskAvailable()
+        return task.id
+    }
+
+    /**
+     * 触发分类扫描任务
+     */
+    public func triggerCategoryScan(catid: String, scanPath: String, priority: Int32, triggerSource: String): Int64 {
+        let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
+        let params = "{\"category_id\":\"${escapeJson(catid)}\"}"
+        let task = TaskModel.createTaskWithOptions("分类扫描", "scan_single_category", params, priority, "category_scan:${catid}", source)
         TaskPoolService.getInstance().notifyTaskAvailable()
         return task.id
     }
@@ -467,20 +473,16 @@ public class CronService {
     }
 
     /**
-     * 触发压缩包文件扫描任务（API入口）
+     * 触发所有分类的扫描任务（API入口）
      */
     public func scanArchives(): ScanResultData {
         let logger = getLogger("cron_service")
-        let scanPath = SystemSettingsService.getPath("ARCHIVE_PATH")
-        let dirExists = DirectoryScanner.directoryExists(scanPath)
-        if (!dirExists) {
-            logger.error("Archive directory does not exist", ("path", scanPath))
-            return ScanResultData(0, 0, 1, ["Archive directory does not exist: ${scanPath}"])
-        }
-
-        let taskId = triggerDirectoryScan(scanPath: scanPath, priority: 30, triggerSource: "manual")
-        logger.info("Enqueued scan_directory task", ("task_id", taskId.toString()), ("path", scanPath))
-        return ScanResultData(0, 0, 0, Array<String>(), taskId: taskId)
+        let source = "manual"
+        let params = "{}"
+        let task = TaskModel.createTaskWithOptions("扫描所有分类", "scan_all_categories", params, 30, "", source)
+        TaskPoolService.getInstance().notifyTaskAvailable()
+        logger.info("Enqueued scan_all_categories task", ("task_id", task.id.toString()))
+        return ScanResultData(0, 0, 0, [], taskId: task.id)
     }
 
     private func escapeJson(value: String): String {

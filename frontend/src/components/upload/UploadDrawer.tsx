@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useLanguage } from "@/contexts/LanguageContext"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -8,8 +8,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArchiveService, DownloadProgressCallback } from "@/lib/archive-service"
-import { Upload, FileText, X, CheckCircle, AlertCircle, Plus, Download } from "lucide-react"
+import { CategoryService, type Category } from "@/lib/category-service"
+import { Upload, FileText, X, CheckCircle, AlertCircle, Plus, Download, FolderOpen } from "lucide-react"
 
 interface UploadFile {
   id: string
@@ -44,11 +46,44 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
   const [urlInput, setUrlInput] = useState("")
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
+  const [loadingCategories, setLoadingCategories] = useState(false)
 
   const supportedFormats = [".zip", ".rar", ".7z", ".tar", ".gz", ".pdf", ".epub", ".mobi", ".cbz", ".cbr"]
 
+  // 加载分类列表
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setLoadingCategories(true)
+        const cats = await CategoryService.getAllCategories()
+        const enabledCats = cats.filter(cat => cat.enabled)
+        setCategories(enabledCats)
+        // 如果有可用的分类且当前未选择，自动选择第一个
+        if (enabledCats.length > 0 && !selectedCategoryId) {
+          setSelectedCategoryId(enabledCats[0].catid)
+        }
+      } catch (error) {
+        console.error("Failed to load categories:", error)
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+
+    if (open) {
+      loadCategories()
+    }
+  }, [open])
+
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return
+
+    // 检查是否已选择分类
+    if (!selectedCategoryId) {
+      alert("请先选择要上传到的分类")
+      return
+    }
 
     Array.from(files).forEach(file => {
       const fileExtension = "." + file.name.split(".").pop()?.toLowerCase()
@@ -69,7 +104,8 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
   const startUpload = async (uploadFile: UploadFile) => {
     try {
       const result = await ArchiveService.uploadArchiveWithChunks(uploadFile.file, {
-        title: uploadFile.file.name.replace(/\.[^/.]+$/, "")
+        title: uploadFile.file.name.replace(/\.[^/.]+$/, ""),
+        categoryId: selectedCategoryId
       }, {
         onProgress: (progress) => {
           setUploadFiles(prev => prev.map(f =>
@@ -140,6 +176,12 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
   }
 
   const startDownload = async (url: string) => {
+    // 检查是否已选择分类
+    if (!selectedCategoryId) {
+      alert("请先选择要下载到的分类")
+      return
+    }
+
     const task: DownloadTask = {
       id: Math.random().toString(36).substr(2, 9),
       url,
@@ -178,7 +220,7 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
         }
       }
 
-      await ArchiveService.downloadFromUrl(url, {}, callbacks)
+      await ArchiveService.downloadFromUrl(url, { categoryId: selectedCategoryId }, callbacks)
     } catch {
       setDownloadTasks(prev => prev.map(t =>
         t.id === task.id ? { ...t, status: "error", error: "下载失败" } : t
@@ -196,6 +238,8 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
 
   const clearAll = () => {
     setUploadFiles([])
+    setDownloadTasks([])
+    setSelectedCategoryId("")
   }
 
   const handleClose = () => {
@@ -242,6 +286,35 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
 
             {/* 上传档案标签页 */}
             <TabsContent value="upload" className="flex-1 overflow-y-auto mt-6 space-y-6">
+              {/* 分类选择 */}
+              <div className="space-y-2">
+                <Label htmlFor="category-select">选择分类 *</Label>
+                <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                  <SelectTrigger id="category-select">
+                    <SelectValue placeholder="请选择要上传到的分类" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingCategories ? (
+                      <SelectItem value="loading" disabled>加载中...</SelectItem>
+                    ) : categories.length === 0 ? (
+                      <SelectItem value="no-categories" disabled>暂无可用分类</SelectItem>
+                    ) : (
+                      categories.map((category) => (
+                        <SelectItem key={category.catid} value={category.catid}>
+                          <div className="flex items-center gap-2">
+                            <FolderOpen className="h-4 w-4" />
+                            <span>{category.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {t("upload.categoryHint") || "请选择要上传档案的目标分类"}
+                </p>
+              </div>
+
               {/* File Upload Area */}
               <div
                 className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
@@ -335,6 +408,35 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
 
             {/* 在线下载标签页 */}
             <TabsContent value="download" className="flex-1 overflow-y-auto mt-6 space-y-6">
+              {/* 分类选择 */}
+              <div className="space-y-2">
+                <Label htmlFor="download-category-select">选择分类 *</Label>
+                <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                  <SelectTrigger id="download-category-select">
+                    <SelectValue placeholder="请选择要下载到的分类" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingCategories ? (
+                      <SelectItem value="loading" disabled>加载中...</SelectItem>
+                    ) : categories.length === 0 ? (
+                      <SelectItem value="no-categories" disabled>暂无可用分类</SelectItem>
+                    ) : (
+                      categories.map((category) => (
+                        <SelectItem key={category.catid} value={category.catid}>
+                          <div className="flex items-center gap-2">
+                            <FolderOpen className="h-4 w-4" />
+                            <span>{category.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {t("download.categoryHint") || "请选择要下载档案的目标分类"}
+                </p>
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="url-input">{t("download.urlInput") || "下载链接（每行一个）"}</Label>
@@ -351,7 +453,7 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
                   onClick={() => {
                     handleAddDownloadUrls()
                   }}
-                  disabled={!urlInput.trim()}
+                  disabled={!urlInput.trim() || !selectedCategoryId}
                   className="w-full"
                 >
                   <Plus className="mr-2 h-4 w-4" />

@@ -1,192 +1,307 @@
 package lrr4cj.controllers
 
 import cjoy.*
+import stdx.encoding.json.*
+import std.time.*
+import std.fs.*
+import lrr4cj.dao.*
 import lrr4cj.models.*
-import lrr4cj.views.*
+import lrr4cj.services.*
+import lrr4cj.utils.*
 
 /**
- * 分类控制器
+ * 分类控制器（新结构）
+ * 每个分类对应一个扫描目录
  */
 public class CategoryController {
+
+    private static func escapeJson(s: String): String {
+        var escaped = s
+        escaped = escaped.replace("\\", "\\\\")
+        escaped = escaped.replace("\"", "\\\"")
+        escaped = escaped.replace("\n", "\\n")
+        escaped = escaped.replace("\r", "\\r")
+        escaped = escaped.replace("\t", "\\t")
+        return escaped
+    }
+
+    private static func getJsonString(obj: JsonObject, key: String): String {
+        let fields = obj.getFields()
+        if (!fields.contains(key)) { return "" }
+        match (fields[key]) {
+            case s: JsonString => return s.getValue().trimAscii()
+            case _ => return fields[key].toString().trimAscii()
+        }
+    }
+
+    private static func categoryToJson(cat: CategoryData): String {
+        var json = "{"
+        json += "\"catid\":\"${escapeJson(cat.catid)}\","
+        json += "\"name\":\"${escapeJson(cat.name)}\","
+        json += "\"scan_path\":\"${escapeJson(cat.scanPath)}\","
+        json += "\"description\":\"${escapeJson(cat.description)}\","
+        json += "\"icon\":\"${escapeJson(cat.icon)}\","
+        json += "\"sort_order\":${cat.sortOrder},"
+        json += "\"enabled\":${cat.enabled},"
+        json += "\"archive_count\":${cat.archiveCount},"
+        json += "\"created_at\":\"${escapeJson(cat.createdAt)}\","
+        json += "\"updated_at\":\"${escapeJson(cat.updatedAt)}\""
+        json += "}"
+        return json
+    }
+
     /**
-     * 获取所有分类
+     * GET /api/categories - 获取所有分类
      */
     public static func getCategories(ctx: JoyContext) {
-        let categories = CategoryModel.getAllCategories()
-        
-        // 手动构建JSON数组
+        let categories = CategoryDao.getAllCategories()
+
         var categoriesJson = "["
         var isFirst = true
-        for (category in categories) {
+        for (cat in categories) {
             if (!isFirst) {
                 categoriesJson += ","
             }
             isFirst = false
-            
-            categoriesJson += "{"
-            categoriesJson += "\"catid\":\"${category.id}\","
-            categoriesJson += "\"name\":\"${category.name}\","
-            categoriesJson += "\"search\":\"${category.search}\","
-            categoriesJson += "\"pinned\":${category.isPinned},"
-            
-            // 构建档案数组
-            categoriesJson += "\"archives\":["
-            var archiveFirst = true
-            for (archiveId in category.archives) {
-                if (!archiveFirst) {
-                    categoriesJson += ","
-                }
-                archiveFirst = false
-                categoriesJson += "\"${archiveId}\""
-            }
-            categoriesJson += "]"
-            
-            categoriesJson += "}"
+            categoriesJson += categoryToJson(cat)
         }
         categoriesJson += "]"
-        
-        let result = "{\"operation\":\"get_categories\",\"data\":" + categoriesJson + ",\"success\":1}"
+
+        let result = "{\"operation\":\"get_categories\",\"data\":${categoriesJson},\"success\":1}"
         ctx.json(result)
     }
-    
+
     /**
-     * 根据ID获取分类
+     * GET /api/categories/{id} - 获取分类详情
      */
     public static func getCategoryById(ctx: JoyContext) {
-        let id = ctx.getParam("id") ?? ""
-        let category = CategoryModel.getCategoryById(id)
+        let catid = ctx.getParam("id") ?? ""
 
-        if (category.id.size > 0) {
-            // 手动构建JSON对象
-            var categoryJson = "{"
-            categoryJson += "\"catid\":\"${category.id}\","
-            categoryJson += "\"name\":\"${category.name}\","
-            categoryJson += "\"search\":\"${category.search}\","
-            categoryJson += "\"pinned\":${category.isPinned},"
-            
-            // 构建档案数组
-            categoryJson += "\"archives\":["
-            var archiveFirst = true
-            for (archiveId in category.archives) {
-                if (!archiveFirst) {
-                    categoryJson += ","
-                }
-                archiveFirst = false
-                categoryJson += "\"${archiveId}\""
-            }
-            categoryJson += "]"
-            
-            categoryJson += "}"
-            
-            let result = "{\"operation\":\"get_category\",\"data\":" + categoryJson + ",\"success\":1}"
-            ctx.json(result)
-        } else {
-            ResponseView.errorJson(ctx, "Category not found")
+        match (CategoryDao.getCategoryById(catid)) {
+            case Some(cat) =>
+                let result = "{\"operation\":\"get_category\",\"data\":${categoryToJson(cat)},\"success\":1}"
+                ctx.json(result)
+            case None =>
+                ctx.status(404)
+                ctx.json("{\"success\":0,\"error\":\"Category not found\"}")
         }
     }
-    
+
     /**
-     * 创建新分类
+     * POST /api/categories - 创建分类
      */
     public static func createCategory(ctx: JoyContext) {
-        // 从请求体获取参数
-        let name = ctx.getQuery("name") ?? ""
-        let search = ctx.getQuery("search") ?? ""
-        
-        if (name.size == 0) {
-            ResponseView.errorJson(ctx, "Name is required")
-            return
-        }
-        
-        let category = CategoryModel.createCategory(name, search)
-        
-        // 手动构建JSON对象
-        var categoryJson = "{"
-        categoryJson += "\"catid\":\"${category.id}\","
-        categoryJson += "\"name\":\"${category.name}\","
-        categoryJson += "\"search\":\"${category.search}\","
-        categoryJson += "\"pinned\":${category.isPinned},"
-        
-        // 构建档案数组
-        categoryJson += "\"archives\":["
-        var archiveFirst = true
-        for (archiveId in category.archives) {
-            if (!archiveFirst) {
-                categoryJson += ","
+        try {
+            let body = ctx.readString()
+            var name = ""
+            var scanPath = ""
+            var description = ""
+            var icon = ""
+            var sortOrder: Int32 = 0
+            var enabled = true
+
+            if (body.size > 0) {
+                let jsonVal = JsonValue.fromStr(body)
+                match (jsonVal) {
+                    case obj: JsonObject =>
+                        name = getJsonString(obj, "name")
+                        scanPath = getJsonString(obj, "scan_path")
+                        description = getJsonString(obj, "description")
+                        icon = getJsonString(obj, "icon")
+                        let fields = obj.getFields()
+                        if (fields.contains("sort_order")) {
+                            try {
+                                sortOrder = Int32.parse(getJsonString(obj, "sort_order"))
+                            } catch (_: Exception) {}
+                        }
+                        if (fields.contains("enabled")) {
+                            let enabledStr = getJsonString(obj, "enabled")
+                            enabled = enabledStr == "true" || enabledStr == "1"
+                        }
+                    case _ => ()
+                }
             }
-            archiveFirst = false
-            categoryJson += "\"${archiveId}\""
+
+            if (name.size == 0) {
+                ctx.status(400)
+                ctx.json("{\"success\":0,\"error\":\"name is required\"}")
+                return
+            }
+
+            if (scanPath.size == 0) {
+                ctx.status(400)
+                ctx.json("{\"success\":0,\"error\":\"scan_path is required\"}")
+                return
+            }
+
+            // 验证路径是否存在
+            let pathExists = exists(Path(scanPath))
+            if (!pathExists) {
+                ctx.status(400)
+                ctx.json("{\"success\":0,\"error\":\"scan_path does not exist: ${scanPath}\"}")
+                return
+            }
+
+            // 生成 catid
+            let catid = "CAT_${DateTime.now().toUnixTimeStamp().toMilliseconds()}"
+
+            let data = CategoryData()
+            data.catid = catid
+            data.name = name
+            data.scanPath = scanPath
+            data.description = description
+            data.icon = icon
+            data.sortOrder = sortOrder
+            data.enabled = enabled
+
+            match (CategoryDao.createCategory(data)) {
+                case Some(created) =>
+                    let result = "{\"operation\":\"create_category\",\"data\":${categoryToJson(created)},\"success\":1}"
+                    ctx.json(result)
+                case None =>
+                    ctx.status(500)
+                    ctx.json("{\"success\":0,\"error\":\"Failed to create category\"}")
+            }
+        } catch (e: Exception) {
+            getLogger("category_controller").error("创建分类失败", ("error", e.message))
+            ctx.status(500)
+            ctx.json("{\"success\":0,\"error\":\"${escapeJson(e.message)}\"}")
         }
-        categoryJson += "]"
-        
-        categoryJson += "}"
-        
-        let result = "{\"operation\":\"create_category\",\"data\":" + categoryJson + ",\"success\":1}"
-        ctx.json(result)
     }
-    
+
     /**
-     * 更新分类
+     * PUT /api/categories/{id} - 更新分类
      */
     public static func updateCategory(ctx: JoyContext) {
-        let id = ctx.getParam("id") ?? ""
-        let name = ctx.getQuery("name") ?? ""
-        let search = ctx.getQuery("search") ?? ""
-        
-        if (name.size == 0) {
-            ResponseView.errorJson(ctx, "Name is required")
-            return
+        let catid = ctx.getParam("id") ?? ""
+
+        // 先获取现有分类
+        let existingOpt = CategoryDao.getCategoryById(catid)
+        match (existingOpt) {
+            case None =>
+                ctx.status(404)
+                ctx.json("{\"success\":0,\"error\":\"Category not found\"}")
+                return
+            case Some(_) => ()
         }
-        
-        let success = CategoryModel.updateCategory(id, name, search)
-        if (success) {
-            ResponseView.successJson(ctx, "Category updated successfully")
-        } else {
-            ResponseView.errorJson(ctx, "Failed to update category")
+        let existing = existingOpt.getOrThrow()
+
+        try {
+            let body = ctx.readString()
+            var name = existing.name
+            var scanPath = existing.scanPath
+            var description = existing.description
+            var icon = existing.icon
+            var sortOrder = existing.sortOrder
+            var enabled = existing.enabled
+
+            if (body.size > 0) {
+                let jsonVal = JsonValue.fromStr(body)
+                match (jsonVal) {
+                    case obj: JsonObject =>
+                        let newName = getJsonString(obj, "name")
+                        if (newName.size > 0) { name = newName }
+                        let newScanPath = getJsonString(obj, "scan_path")
+                        if (newScanPath.size > 0) { scanPath = newScanPath }
+                        let newDescription = getJsonString(obj, "description")
+                        if (newDescription.size > 0) { description = newDescription }
+                        let newIcon = getJsonString(obj, "icon")
+                        if (newIcon.size > 0) { icon = newIcon }
+                        let fields = obj.getFields()
+                        if (fields.contains("sort_order")) {
+                            try {
+                                sortOrder = Int32.parse(getJsonString(obj, "sort_order"))
+                            } catch (_: Exception) {}
+                        }
+                        if (fields.contains("enabled")) {
+                            let enabledStr = getJsonString(obj, "enabled")
+                            enabled = enabledStr == "true" || enabledStr == "1"
+                        }
+                    case _ => ()
+                }
+            }
+
+            if (name.size == 0) {
+                ctx.status(400)
+                ctx.json("{\"success\":0,\"error\":\"name is required\"}")
+                return
+            }
+
+            // 如果路径变更，验证新路径是否存在
+            if (scanPath != existing.scanPath) {
+                let pathExists = exists(Path(scanPath))
+                if (!pathExists) {
+                    ctx.status(400)
+                    ctx.json("{\"success\":0,\"error\":\"scan_path does not exist: ${scanPath}\"}")
+                    return
+                }
+            }
+
+            let data = CategoryData()
+            data.name = name
+            data.scanPath = scanPath
+            data.description = description
+            data.icon = icon
+            data.sortOrder = sortOrder
+            data.enabled = enabled
+
+            if (CategoryDao.updateCategory(catid, data)) {
+                ctx.json("{\"operation\":\"update_category\",\"success\":1}")
+            } else {
+                ctx.status(500)
+                ctx.json("{\"success\":0,\"error\":\"Failed to update category\"}")
+            }
+        } catch (e: Exception) {
+            getLogger("category_controller").error("更新分类失败", ("error", e.message))
+            ctx.status(500)
+            ctx.json("{\"success\":0,\"error\":\"${escapeJson(e.message)}\"}")
         }
     }
-    
+
     /**
-     * 删除分类
+     * DELETE /api/categories/{id} - 删除分类
      */
     public static func deleteCategory(ctx: JoyContext) {
-        let id = ctx.getParam("id") ?? ""
-        
-        let success = CategoryModel.deleteCategory(id)
-        if (success) {
-            ResponseView.successJson(ctx, "Category deleted successfully")
+        let catid = ctx.getParam("id") ?? ""
+
+        if (CategoryDao.deleteCategory(catid)) {
+            ctx.json("{\"operation\":\"delete_category\",\"success\":1}")
         } else {
-            ResponseView.errorJson(ctx, "Failed to delete category")
+            ctx.status(400)
+            ctx.json("{\"success\":0,\"error\":\"Cannot delete category with archives\"}")
         }
     }
-    
+
     /**
-     * 向分类添加档案
+     * POST /api/categories/{id}/scan - 触发分类扫描
      */
-    public static func addArchiveToCategory(ctx: JoyContext) {
-        let categoryId = ctx.getParam("category_id") ?? ""
-        let archiveId = ctx.getParam("archive_id") ?? ""
-        
-        let success = CategoryModel.addArchiveToCategory(categoryId, archiveId)
-        if (success) {
-            ResponseView.successJson(ctx, "Archive added to category successfully")
-        } else {
-            ResponseView.errorJson(ctx, "Failed to add archive to category")
-        }
-    }
-    
-    /**
-     * 从分类移除档案
-     */
-    public static func removeArchiveFromCategory(ctx: JoyContext) {
-        let categoryId = ctx.getParam("category_id") ?? ""
-        let archiveId = ctx.getParam("archive_id") ?? ""
-        
-        let success = CategoryModel.removeArchiveFromCategory(categoryId, archiveId)
-        if (success) {
-            ResponseView.successJson(ctx, "Archive removed from category successfully")
-        } else {
-            ResponseView.errorJson(ctx, "Failed to remove archive from category")
+    public static func scanCategory(ctx: JoyContext) {
+        let catid = ctx.getParam("id") ?? ""
+
+        match (CategoryDao.getCategoryById(catid)) {
+            case Some(cat) =>
+                // 创建扫描任务
+                let params = "{\"category_id\":\"${escapeJson(cat.catid)}\"}"
+                let task = TaskModel.createTaskWithOptions(
+                    "扫描分类: ${cat.name}",
+                    "scan_single_category",
+                    params,
+                    20i32,
+                    "category_scan:${cat.id}",
+                    "manual"
+                )
+
+                if (task.id > 0) {
+                    TaskPoolService.getInstance().notifyTaskAvailable()
+                    getLogger("category_controller").info("创建分类扫描任务", ("catid", catid), ("task_id", task.id.toString()))
+                    ctx.json("{\"operation\":\"scan_category\",\"success\":1,\"task_id\":${task.id}}")
+                } else {
+                    ctx.status(500)
+                    ctx.json("{\"success\":0,\"error\":\"Failed to create scan task\"}")
+                }
+            case None =>
+                ctx.status(404)
+                ctx.json("{\"success\":0,\"error\":\"Category not found\"}")
         }
     }
 }

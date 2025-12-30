@@ -4,6 +4,7 @@ import std.fs.*
 import stdx.encoding.json.*
 import stdx.log.*
 import std.sync.*
+import std.convert.*
 import lrr4cj.models.*
 import lrr4cj.utils.*
 import lrr4cj.dao.*
@@ -104,11 +105,12 @@ public class ScanArchiveTaskRunner {
         var archivePath = ""
         var cachePath = ""
         var thumbnailPath = ""
-        var archiveType = "archive"  // 默认压缩包
+        var archiveType = "archive"
         var tags = ""
+        var categoryId: String = ""
 
         if (trimmed.size == 0) {
-            return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType, tags)
+            return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType, tags, categoryId)
         }
 
         try {
@@ -143,7 +145,6 @@ public class ScanArchiveTaskRunner {
                         match (value) {
                             case s: JsonString =>
                                 archiveType = s.getValue().trimAscii()
-                                // 验证类型有效性
                                 if (archiveType != "archive" && archiveType != "folder" && archiveType != "pdf" && archiveType != "epub") {
                                     archiveType = "archive"
                                 }
@@ -157,17 +158,30 @@ public class ScanArchiveTaskRunner {
                             case _ => ()
                         }
                     }
+                    if (fields.contains("category_id")) {
+                        let value = fields["category_id"]
+                        match (value) {
+                            case s: JsonString => categoryId = s.getValue().trimAscii()
+                            case _ => ()
+                        }
+                    }
                 case _ => ()
             }
         } catch (_: Exception) {}
 
-        return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType, tags)
+        return ArchiveConfig(archivePath, cachePath, thumbnailPath, archiveType, tags, categoryId)
     }
 
     private static func processArchiveInternal(filePath: String, config: ArchiveConfig): ProcessResultData {
         try {
-            // 从系统配置获取archive_base_path
-            let archiveBasePath = SystemSettingsService.getPath("ARCHIVE_PATH")
+            let archiveBasePath = if (config.categoryId.size > 0) {
+                match (CategoryDao.getCategoryById(config.categoryId)) {
+                    case Some(cat) => cat.scanPath
+                    case None => throw Exception("Category not found: ${config.categoryId}")
+                }
+            } else {
+                throw Exception("category_id is required")
+            }
             let relativePath = ArchiveUtils.calculateRelativePath(filePath, archiveBasePath)
             let fileName = ArchiveUtils.getFullFileName(filePath)
             let existingArchive = ArchiveDao.getByPathAndFilename(relativePath, fileName)
@@ -211,7 +225,7 @@ public class ScanArchiveTaskRunner {
             let pageCount = handler.getMediaCount(filePath)
             logger.info("Archive ${filePath} (type: ${archiveType}) contains ${pageCount} media files")
 
-            let dbResult = addArchiveToDatabase(filePath, archiveBasePath)
+            let dbResult = addArchiveToDatabase(filePath, archiveBasePath, config.categoryId)
             if (!dbResult.success) {
                 return dbResult
             }
@@ -243,7 +257,7 @@ public class ScanArchiveTaskRunner {
         }
     }
 
-    private static func addArchiveToDatabase(filePath: String, archiveBasePath: String): ProcessResultData {
+    private static func addArchiveToDatabase(filePath: String, archiveBasePath: String, catid: String): ProcessResultData {
         try {
             let archiveId = ArchiveUtils.generateArchiveId(filePath)
 
@@ -254,10 +268,14 @@ public class ScanArchiveTaskRunner {
 
             let relativePath = ArchiveUtils.calculateRelativePath(filePath, archiveBasePath)
 
-            // 使用 ArchiveHandlerFactory 自动检测类型
             let archiveType = ArchiveHandlerFactory.getInstance().detectType(filePath)
 
-            let success = ArchiveDao.insertArchive(archiveId, defaultTitle, fileName, fileSize, fileModTime, relativePath, archiveType)
+            let categoryId = CategoryDao.getInternalId(catid)
+            if (categoryId == 0) {
+                return ProcessResultData(false, "", "Category not found: ${catid}")
+            }
+
+            let success = ArchiveDao.insertArchive(archiveId, defaultTitle, fileName, fileSize, fileModTime, relativePath, archiveType, categoryId)
             if (!success) {
                 return ProcessResultData(false, "", "Failed to create archive record in database")
             }
