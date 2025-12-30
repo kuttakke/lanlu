@@ -20,8 +20,17 @@ public class CronService {
     private var isRunning: Bool = false
     private let runningMutex: Mutex = Mutex()
 
-    // 调度循环间隔（毫秒）
-    private let checkIntervalMs: Int64 = 1000
+    // 调度循环基础间隔（毫秒）
+    private let baseCheckIntervalMs: Int64 = 1000
+
+    // 任务缓存机制 - 减少数据库查询频率
+    private var taskCache: Array<ScheduledTask> = Array<ScheduledTask>()
+    private let cacheMutex: Mutex = Mutex()
+    private var cacheLastRefreshTime: String = ""
+    // 缓存刷新间隔（5分钟）
+    private let cacheRefreshIntervalMs: Int64 = 300000
+    // 最近任务执行时间（用于动态调整等待间隔）
+    private var nearestTaskRunAt: String = ""
 
     private init() {}
 
@@ -109,39 +118,204 @@ public class CronService {
     }
 
     /**
-     * 调度循环：每秒检查到期任务
+     * 调度循环：使用动态间隔检查到期任务，减少数据库查询
      */
     private func runScheduleLoop(): Unit {
         let logger = getLogger("cron_service")
-        logger.info("Schedule loop started")
+        logger.info("Schedule loop started with dynamic interval optimization")
+
+        // 初始加载任务缓存
+        refreshTaskCache()
 
         while (isServiceRunning()) {
             try {
-                checkAndTriggerDueTasks()
+                // 计算动态等待间隔
+                let waitTime = calculateNextWaitTime()
+                
+                if (waitTime > 0) {
+                    // 等待直到下一个任务到期或达到最小检查间隔
+                    sleep(Duration.millisecond * waitTime)
+                }
+
+                // 检查缓存是否需要刷新
+                if (shouldRefreshCache()) {
+                    refreshTaskCache()
+                }
+
+                // 检查并触发到期的任务
+                checkAndTriggerDueTasksFromCache()
             } catch (e: Exception) {
                 logger.error("Error in schedule loop", ("error", e.message))
             }
-
-            // 等待下一次检查
-            sleep(Duration.millisecond * checkIntervalMs)
         }
 
         logger.info("Schedule loop stopped")
     }
 
     /**
-     * 检查并触发到期任务
+     * 刷新任务缓存
      */
-    private func checkAndTriggerDueTasks(): Unit {
-        let logger = getLogger("cron_service")
-        let dueTasks = ScheduledTaskModel.getDueTasks()
+    private func refreshTaskCache(): Unit {
+        cacheMutex.lock()
+        try {
+            taskCache = ScheduledTaskModel.getEnabledTasks()
+            cacheLastRefreshTime = DateTime.now().toString()
+            
+            // 计算最近任务执行时间
+            nearestTaskRunAt = calculateNearestTaskRunAt()
+            
+            let logger = getLogger("cron_service")
+            logger.debug("Task cache refreshed", ("task_count", taskCache.size.toString()))
+        } finally {
+            cacheMutex.unlock()
+        }
+    }
 
-        for (task in dueTasks) {
+    /**
+     * 计算最近的任务执行时间（使用 DateTime 精确计算）
+     */
+    private func calculateNearestTaskRunAt(): String {
+        let now = DateTime.now()
+        var nearest: String = ""
+
+        for (task in taskCache) {
+            if (task.nextRunAt.size > 0) {
+                // 尝试解析任务时间，如果解析失败则跳过
+                match (DateTime.tryParse(task.nextRunAt)) {
+                    case Some(taskTime) =>
+                        // 如果任务时间在当前时间之后，且比当前最近时间更近，则更新
+                        if (taskTime > now) {
+                            if (nearest.size == 0) {
+                                nearest = task.nextRunAt
+                            } else {
+                                match (DateTime.tryParse(nearest)) {
+                                    case Some(nearestTime) =>
+                                        if (taskTime < nearestTime) {
+                                            nearest = task.nextRunAt
+                                        }
+                                    case None => ()
+                                }
+                            }
+                        }
+                    case None =>
+                        // 时间解析失败，跳过该任务
+                        ()
+                }
+            }
+        }
+        return nearest
+    }
+
+    /**
+     * 计算下一次等待时间（使用 DateTime 精确计算）
+     */
+    private func calculateNextWaitTime(): Int64 {
+        let now = DateTime.now()
+
+        cacheMutex.lock()
+        try {
+            // 如果没有任务，等待较长时间
+            if (nearestTaskRunAt.size == 0) {
+                return cacheRefreshIntervalMs / 2  // 等待2.5分钟
+            }
+
+            // 解析最近任务时间
+            match (DateTime.tryParse(nearestTaskRunAt)) {
+                case Some(taskTime) =>
+                    // 如果最近任务已到期，立即检查
+                    if (taskTime <= now) {
+                        return baseCheckIntervalMs  // 1秒
+                    }
+
+                    // 计算到任务执行的时间差
+                    let timeDiff = taskTime - now
+                    // 转换为毫秒
+                    let waitMillis = timeDiff.toMilliseconds()
+
+                    // 根据时间差动态调整等待间隔
+                    let minWait: Int64 = baseCheckIntervalMs  // 最少1秒
+                    let maxWait: Int64 = 60000  // 最多等1分钟
+
+                    // 如果任务很快就要执行（< 30秒），使用短间隔
+                    // 否则根据实际时间差计算，但不超过maxWait
+                    if (waitMillis <= 30000) {
+                        return minWait
+                    } else {
+                        // 返回较小值，确保及时检查但不超过最大间隔
+                        return min(minWait, maxWait, Array<Int64>())
+                    }
+                case None =>
+                    // 时间解析失败，返回默认间隔
+                    return baseCheckIntervalMs
+            }
+        } finally {
+            cacheMutex.unlock()
+        }
+    }
+
+    /**
+     * 检查是否需要刷新缓存（使用 DateTime 精确计算）
+     */
+    private func shouldRefreshCache(): Bool {
+        // 如果缓存时间为空，需要刷新
+        if (cacheLastRefreshTime.size == 0) {
+            return true
+        }
+
+        // 解析缓存刷新时间
+        match (DateTime.tryParse(cacheLastRefreshTime)) {
+            case Some(lastRefresh) =>
+                // 计算当前时间与上次刷新时间的时间差
+                let now = DateTime.now()
+                let timeDiff = now - lastRefresh
+                let diffMillis = timeDiff.toMilliseconds()
+
+                // 如果超过缓存刷新间隔，需要刷新
+                return diffMillis >= cacheRefreshIntervalMs
+            case None =>
+                // 时间解析失败，需要刷新
+                return true
+        }
+    }
+
+    /**
+     * 从缓存检查并触发到期任务（使用 DateTime 精确计算）
+     */
+    private func checkAndTriggerDueTasksFromCache(): Unit {
+        let logger = getLogger("cron_service")
+        let now = DateTime.now()
+
+        cacheMutex.lock()
+        let tasksToTrigger = ArrayList<ScheduledTask>()
+
+        try {
+            // 找出所有到期的任务
+            for (task in taskCache) {
+                if (task.nextRunAt.size > 0) {
+                    // 使用 DateTime 精确比较任务时间
+                    match (DateTime.tryParse(task.nextRunAt)) {
+                        case Some(taskTime) =>
+                            if (taskTime <= now) {
+                                tasksToTrigger.add(task)
+                            }
+                        case None =>
+                            // 时间解析失败，跳过该任务
+                            logger.debug("Failed to parse task time", ("task_id", task.id.toString()), ("time", task.nextRunAt))
+                    }
+                }
+            }
+        } finally {
+            cacheMutex.unlock()
+        }
+
+        // 在缓存锁外执行实际触发逻辑
+        for (i in 0..tasksToTrigger.size) {
+            let task = tasksToTrigger[i]
             if (!isServiceRunning()) {
                 break
             }
 
-            logger.info("Triggering scheduled task", ("id", task.id.toString()), ("name", task.name), ("type", task.taskType))
+            logger.info("Triggering scheduled task from cache", ("id", task.id.toString()), ("name", task.name), ("type", task.taskType))
 
             // 触发任务执行
             let success = triggerTask(task)
@@ -155,6 +329,56 @@ public class CronService {
 
             // 计算并更新下次执行时间
             ScheduledTaskModel.updateNextRunTime(task.id)
+
+            // 更新缓存中的下次执行时间
+            updateTaskInCache(task.id)
+        }
+
+        // 更新最近任务时间
+        cacheMutex.lock()
+        try {
+            nearestTaskRunAt = calculateNearestTaskRunAt()
+        } finally {
+            cacheMutex.unlock()
+        }
+    }
+
+    /**
+     * 更新缓存中的任务信息
+     */
+    private func updateTaskInCache(taskId: Int64): Unit {
+        let logger = getLogger("cron_service")
+        cacheMutex.lock()
+        try {
+            for (i in 0..taskCache.size) {
+                if (taskCache[i].id == taskId) {
+                    match (ScheduledTaskModel.getById(taskId)) {
+                        case Some(updatedTask) =>
+                            taskCache[i] = updatedTask
+                        case None =>
+                            // 任务可能已被删除，从缓存中移除该任务
+                            // 由于Array没有remove方法，标记缓存需要刷新
+                            logger.debug("Task deleted, cache will be refreshed")
+                    }
+                    break
+                }
+            }
+        } finally {
+            cacheMutex.unlock()
+        }
+    }
+
+    /**
+     * 使缓存失效（任务变更时调用）
+     */
+    private func invalidateCache(): Unit {
+        cacheMutex.lock()
+        try {
+            taskCache = Array<ScheduledTask>()
+            cacheLastRefreshTime = ""
+            nearestTaskRunAt = ""
+        } finally {
+            cacheMutex.unlock()
         }
     }
 
@@ -238,21 +462,43 @@ public class CronService {
             priority: priority,
             timeoutSeconds: timeoutSeconds
         )
-        return ScheduledTaskModel.create(task)
+        let result = ScheduledTaskModel.create(task)
+
+        // 创建任务后刷新缓存
+        match (result) {
+            case Some(_) => invalidateCache()
+            case None => ()
+        }
+
+        return result
     }
 
     /**
      * 更新定时任务
      */
     public func updateScheduledTask(task: ScheduledTask): Bool {
-        return ScheduledTaskModel.update(task)
+        let result = ScheduledTaskModel.update(task)
+
+        // 更新任务后刷新缓存
+        if (result) {
+            invalidateCache()
+        }
+
+        return result
     }
 
     /**
      * 删除定时任务
      */
     public func deleteScheduledTask(id: Int64): Bool {
-        return ScheduledTaskModel.delete(id)
+        let result = ScheduledTaskModel.delete(id)
+
+        // 删除任务后刷新缓存
+        if (result) {
+            invalidateCache()
+        }
+
+        return result
     }
 
     /**
@@ -263,6 +509,9 @@ public class CronService {
         if (result) {
             // 重新计算下次执行时间
             ScheduledTaskModel.updateNextRunTime(id)
+
+            // 启用任务后刷新缓存
+            invalidateCache()
         }
         return result
     }
@@ -271,7 +520,14 @@ public class CronService {
      * 禁用定时任务
      */
     public func disableScheduledTask(id: Int64): Bool {
-        return ScheduledTaskModel.disable(id)
+        let result = ScheduledTaskModel.disable(id)
+
+        // 禁用任务后刷新缓存
+        if (result) {
+            invalidateCache()
+        }
+
+        return result
     }
 
     /**
