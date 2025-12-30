@@ -56,6 +56,7 @@ function HomePageContent() {
   const urlDateFrom = searchParams?.get('date_from') || '';
   const urlDateTo = searchParams?.get('date_to') || '';
   const urlGroupByTanks = searchParams?.get('groupby_tanks') !== 'false'; // 默认为true
+  const urlPage = parseInt(searchParams?.get('page') || '0', 10); // 从URL读取页码
 
   const fetchArchives = useCallback(async (page: number = 0) => {
     try {
@@ -145,10 +146,11 @@ function HomePageContent() {
     setDateFrom(urlDateFrom);
     setDateTo(urlDateTo);
     setGroupByTanks(urlGroupByTanks);
+    setCurrentPage(urlPage); // 从URL恢复页码
 
     // 标记为已初始化，避免在初始化期间同步URL
     setIsInitialized(true);
-  }, [urlQuery, urlSortBy, urlSortOrder, urlNewonly, urlUntaggedonly, urlFavoriteonly, urlDateFrom, urlDateTo, urlGroupByTanks]);
+  }, [urlQuery, urlSortBy, urlSortOrder, urlNewonly, urlUntaggedonly, urlFavoriteonly, urlDateFrom, urlDateTo, urlGroupByTanks, urlPage]);
 
   // 同步状态到URL（仅在初始化完成后执行）
   useEffect(() => {
@@ -164,11 +166,12 @@ function HomePageContent() {
     if (dateFrom) params.set('date_from', dateFrom);
     if (dateTo) params.set('date_to', dateTo);
     if (!groupByTanks) params.set('groupby_tanks', 'false'); // 只在禁用时添加参数
+    if (currentPage > 0) params.set('page', currentPage.toString()); // 只在非第一页时添加页码参数
 
     const queryString = params.toString();
     const newUrl = queryString ? `/?${queryString}` : '/';
     router.replace(newUrl);
-  }, [searchQuery, sortBy, sortOrder, newonly, untaggedonly, favoriteonly, dateFrom, dateTo, groupByTanks, router, isInitialized]);
+  }, [searchQuery, sortBy, sortOrder, newonly, untaggedonly, favoriteonly, dateFrom, dateTo, groupByTanks, currentPage, router, isInitialized]);
 
   useEffect(() => {
     // 只在客户端执行数据获取，避免静态生成时的API调用
