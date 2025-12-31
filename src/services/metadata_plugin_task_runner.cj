@@ -2,9 +2,7 @@ package lrr4cj.services
 
 import std.collection.*
 import stdx.encoding.json.*
-import stdx.log.*
-import std.fs.*
-import std.time.DateTime
+import std.time.*
 import lrr4cj.dao.*
 import lrr4cj.models.*
 import lrr4cj.utils.*
@@ -17,74 +15,105 @@ public class MetadataPluginTaskRunner {
     public static func run(taskId: Int64, parameters: String): Unit {
         TaskIO.appendLog(taskId, "metadata_plugin task started")
         TaskModel.updateTaskProgress(taskId, 1, "元数据插件任务开始")
+        TaskIO.appendLog(taskId, "metadata_plugin: about to parse parameters")
 
         let (archiveId, namespace, param) = parseParameters(parameters)
+        TaskIO.appendLog(taskId, "metadata_plugin: parameters parsed")
         if (archiveId.size == 0 || namespace.size == 0) {
             fail(taskId, "archive_id and namespace are required")
             return
         }
 
+        TaskIO.appendLog(taskId, "metadata_plugin: about to get archive")
         // 获取归档并验证存在
         let archive = ArchiveDao.getArchiveById(archiveId)
+        TaskIO.appendLog(taskId, "metadata_plugin: archive retrieved")
         if (archive.id.size == 0) {
             fail(taskId, "Archive not found")
             return
         }
 
+        TaskIO.appendLog(taskId, "metadata_plugin: about to get plugin")
         // 获取插件并验证类型
         var plugin = PluginDao.getPluginByNamespace(namespace)
+        TaskIO.appendLog(taskId, "metadata_plugin: plugin retrieved")
+        TaskIO.appendLog(taskId, "metadata_plugin: namespace=${plugin.namespace}, type=${plugin.plugin_type}, enabled=${plugin.enabled}")
         if (plugin.namespace.size == 0) {
             fail(taskId, "Plugin not found")
             return
         }
+        TaskIO.appendLog(taskId, "metadata_plugin: namespace check passed")
         if (plugin.plugin_type != "Metadata") {
             fail(taskId, "Plugin is not a Metadata plugin")
             return
         }
+        TaskIO.appendLog(taskId, "metadata_plugin: type check passed")
         if (!plugin.enabled) {
             // 与 download_url 保持一致：若匹配到禁用插件，自动启用一次
             plugin.enabled = true
             PluginDao.setEnabled(plugin.namespace, true)
         }
+        TaskIO.appendLog(taskId, "metadata_plugin: enabled check passed")
+        TaskIO.appendLog(taskId, "metadata_plugin: about to update task plugin namespace")
 
-        TaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
+        let updateResult = TaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
+        TaskIO.appendLog(taskId, "metadata_plugin: update result=${updateResult}")
+        TaskIO.appendLog(taskId, "metadata_plugin: task plugin namespace updated")
         TaskIO.appendLog(taskId, "plugin=${plugin.namespace}")
 
-        TaskModel.updateTaskProgress(taskId, 10, "准备插件脚本")
-        if (!ensurePluginScriptReady(plugin, "Metadata")) {
-            fail(taskId, "Failed to prepare metadata plugin file")
-            return
-        }
+        // 生成 groupId 用于 KV store
+        let groupId = "metadata_${taskId}_${DateTime.now().toUnixTimeStamp().toSeconds()}"
 
-        // 若需要登录插件，提前准备脚本（由 PluginService 执行）
-        let effectiveLoginFrom = plugin.login_from.trimAscii()
-        if (effectiveLoginFrom.size > 0) {
-            let loginPlugin = PluginDao.getPluginByNamespace(effectiveLoginFrom)
-            if (loginPlugin.namespace.size == 0) {
-                fail(taskId, "Login plugin not found: ${effectiveLoginFrom}")
-                return
-            }
-            if (!ensurePluginScriptReady(loginPlugin, "Login")) {
-                fail(taskId, "Failed to prepare login plugin file")
-                return
-            }
-        }
-
-        TaskModel.updateTaskProgress(taskId, 30, "执行元数据插件")
+        TaskModel.updateTaskProgress(taskId, 10, "创建 Deno 任务")
 
         let (oneshotOpt, extraParamsOpt) = splitParam(param)
 
-        let pluginService = PluginService.getInstance()
-        let execResult = pluginService.executeMetadataPlugin(plugin, archiveId, oneshotOpt, extraParamsOpt)
-        if (!execResult.success) {
-            fail(taskId, "Plugin execution failed: ${execResult.error}")
+        // 创建 deno_task 参数
+        var paramsObj = JsonObject()
+        let paramsFields = paramsObj.getFields()
+        paramsFields["pluginNamespace"] = JsonString(plugin.namespace)
+        paramsFields["pluginType"] = JsonString("Metadata")
+        paramsFields["action"] = JsonString("run")
+        paramsFields["groupId"] = JsonString(groupId)
+        paramsFields["archiveId"] = JsonString(archiveId)
+        match (oneshotOpt) {
+            case Some(v) => paramsFields["oneshotParam"] = JsonString(v)
+            case None => ()
+        }
+        match (extraParamsOpt) {
+            case Some(v) => paramsFields["extraParams"] = JsonString(v)
+            case None => ()
+        }
+        let denoParams = paramsObj.toString()
+
+        // 创建并提交 deno_task
+        let denoTask = TaskModel.createTaskWithOptions(
+            "执行元数据插件",
+            "deno_task",
+            denoParams,
+            50,
+            groupId,
+            "metadata_plugin:${taskId}"
+        )
+
+        if (denoTask.id <= 0) {
+            fail(taskId, "Failed to create deno_task")
             return
         }
 
-        let output = match (execResult.data.get("output")) {
-            case Some(v) => v
-            case None => ""
+        // 通知 TaskPool
+        TaskPoolService.getInstance().notifyTaskAvailable()
+
+        TaskModel.updateTaskProgress(taskId, 30, "等待插件执行")
+
+        // 等待 deno_task 完成
+        let denoResult = waitForTaskCompletion(denoTask.id, 300)
+        if (!denoResult.success) {
+            fail(taskId, "Deno task failed: ${denoResult.error}")
+            return
         }
+
+        let output = denoResult.output
         TaskIO.appendLog(taskId, "plugin output: ${output}")
 
         TaskModel.updateTaskProgress(taskId, 70, "解析并写回元数据")
@@ -277,42 +306,40 @@ public class MetadataPluginTaskRunner {
         }
     }
 
-    private static func ensurePluginScriptReady(plugin: PluginData, scriptName: String): Bool {
-        try {
-            let pluginsRoot = Path("./data/plugins")
-            FileUtils.ensureDirectoryExists(pluginsRoot)
-
-            let sharedBase = Path("${pluginsRoot.toString()}/base_plugin.ts")
-            let sharedSource = Path("./plugins/base_plugin.ts")
-            if (!exists(sharedSource)) {
-                getLogger("metadata_plugin_task").error("缺少共享基础插件文件", ("path", sharedSource.toString()))
-                return false
-            }
-            copy(sharedSource, to: sharedBase, overwrite: true)
-
-            let pluginDir = Path("${pluginsRoot.toString()}/${plugin.namespace}")
-            FileUtils.ensureDirectoryExists(pluginDir)
-
-            let targetFile = Path("${pluginDir.toString()}/${scriptName}.ts")
-            let sourcePath = Path("./plugins/${plugin.plugin_type}/${plugin.entry}")
-            if (!exists(sourcePath)) {
-                getLogger("metadata_plugin_task").error("源插件文件不存在", ("path", sourcePath.toString()))
-                return false
-            }
-
-            copy(sourcePath, to: targetFile, overwrite: true)
-            return true
-        } catch (e: Exception) {
-            getLogger("metadata_plugin_task").error("准备插件文件失败", ("error", e.message))
-            return false
-        }
-    }
-
     private static func fail(taskId: Int64, message: String): Unit {
         let msg = if (message.size == 0) { "Unknown error" } else { message }
         TaskIO.appendLog(taskId, "FAILED: ${msg}")
         TaskModel.failTask(taskId, msg)
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
+    }
+
+    /**
+     * 等待任务完成（轮询 + 指数退避）
+     */
+    private static func waitForTaskCompletion(taskId: Int64, timeoutSeconds: Int32): TaskWaitResult {
+        let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
+        var sleepMs: Int64 = 100
+
+        while (true) {
+            let task = TaskDao.getTaskDataById(taskId)
+            if (task.status == "completed") {
+                let output = TaskIO.readOutput(taskId)
+                return TaskWaitResult(true, "", output)
+            }
+            if (task.status == "failed" || task.status == "stopped") {
+                return TaskWaitResult(false, task.message, "")
+            }
+
+            let elapsed = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
+            if (elapsed > Int64(timeoutSeconds)) {
+                return TaskWaitResult(false, "Timeout waiting for task", "")
+            }
+
+            sleep(Duration.millisecond * sleepMs)
+            sleepMs = if (sleepMs * 2 > 2000) { 2000 } else { sleepMs * 2 }
+        }
+        // This line should never be reached but satisfies the compiler
+        return TaskWaitResult(false, "Unexpected error", "")
     }
 
     private static func escapeJson(s: String): String {

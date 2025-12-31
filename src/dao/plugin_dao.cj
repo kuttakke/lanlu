@@ -192,46 +192,51 @@ public class PluginDao {
             case Some(handle) =>
                 let conn = handle.connection
                 try {
-                let stmt = conn.prepareStatement(
-                    "SELECT id, name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters, created_at, updated_at FROM plugins WHERE namespace = ?")
-                stmt.set(0, namespace)
-                let rs = stmt.query()
+                    let stmt = conn.prepareStatement(
+                        "SELECT id, name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters, created_at, updated_at FROM plugins WHERE namespace = ?")
+                    try {
+                        stmt.set(0, namespace)
+                        let rs = stmt.query()
+                        try {
+                            if (rs.next()) {
+                                let plugin = PluginData()
+                                plugin.id = rs.getOrNull<Int32>(0) ?? 0
+                                plugin.name = rs.getOrNull<String>(1) ?? ""
+                                plugin.namespace = rs.getOrNull<String>(2) ?? ""
+                                plugin.version = rs.getOrNull<String>(3) ?? ""
+                                plugin.description = rs.getOrNull<String>(4) ?? ""
+                                plugin.author = rs.getOrNull<String>(5) ?? ""
+                                plugin.entry = rs.getOrNull<String>(6) ?? ""
+                                plugin.plugin_type = rs.getOrNull<String>(7) ?? ""
+                                plugin.tags = rs.getOrNull<String>(8) ?? ""
+                                plugin.url_regex = rs.getOrNull<String>(9) ?? ""
+                                plugin.login_from = rs.getOrNull<String>(10) ?? ""
+                                let permissionsOpt = rs.getOrNull<String>(11)
+                                plugin.permissions = match (permissionsOpt) {
+                                    case Some(value) => value
+                                    case None => ""
+                                }
+                                plugin.icon = rs.getOrNull<String>(12) ?? ""
+                                plugin.enabled = rs.getOrNull<Bool>(13) ?? false
+                                plugin.installed = rs.getOrNull<Bool>(14) ?? false
+                                plugin.has_schema = rs.getOrNull<Bool>(15) ?? false
+                                plugin.parameters = rs.getOrNull<String>(16) ?? "[]"
+                                plugin.created_at = rs.getOrNull<String>(17) ?? ""
+                                plugin.updated_at = rs.getOrNull<String>(18) ?? ""
 
-                if (rs.next()) {
-                    let plugin = PluginData()
-                    plugin.id = rs.getOrNull<Int32>(0) ?? 0
-                    plugin.name = rs.getOrNull<String>(1) ?? ""
-                    plugin.namespace = rs.getOrNull<String>(2) ?? ""
-                    plugin.version = rs.getOrNull<String>(3) ?? ""
-                    plugin.description = rs.getOrNull<String>(4) ?? ""
-                    plugin.author = rs.getOrNull<String>(5) ?? ""
-                    plugin.entry = rs.getOrNull<String>(6) ?? ""
-                    plugin.plugin_type = rs.getOrNull<String>(7) ?? ""
-                    plugin.tags = rs.getOrNull<String>(8) ?? ""
-                    plugin.url_regex = rs.getOrNull<String>(9) ?? ""
-                    plugin.login_from = rs.getOrNull<String>(10) ?? ""
-                    let permissionsOpt = rs.getOrNull<String>(11)
-                    plugin.permissions = match (permissionsOpt) {
-                        case Some(value) => value
-                        case None => ""
+                                return plugin
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
                     }
-                    plugin.icon = rs.getOrNull<String>(12) ?? ""
-                    plugin.enabled = rs.getOrNull<Bool>(13) ?? false
-                    plugin.installed = rs.getOrNull<Bool>(14) ?? false
-                    plugin.has_schema = rs.getOrNull<Bool>(15) ?? false
-                    plugin.parameters = rs.getOrNull<String>(16) ?? "[]"
-                    plugin.created_at = rs.getOrNull<String>(17) ?? ""
-                    plugin.updated_at = rs.getOrNull<String>(18) ?? ""
-
-                    DatabaseConfig.releasePooledConnection(handle)
-                    return plugin
+                } catch (e: Exception) {
+                    getLogger("plugin_dao").error("根据namespace查询插件失败", ("error", e.message), ("namespace", namespace))
+                } finally {
+                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
                 }
-
-                DatabaseConfig.releasePooledConnection(handle)
-            } catch (e: Exception) {
-                getLogger("plugin_dao").error("根据namespace查询插件失败", ("error", e.message), ("namespace", namespace))
-                DatabaseConfig.releasePooledConnection(handle)
-            }
             case None => getLogger("plugin_dao").error("无法连接到数据库")
         }
         return PluginData()
@@ -359,18 +364,22 @@ public class PluginDao {
             case Some(handle) =>
                 let conn = handle.connection
                 try {
-                let stmt = conn.prepareStatement("UPDATE plugins SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE namespace = ?")
-                stmt.set(0, enabled)
-                stmt.set(1, namespace)
+                    let stmt = conn.prepareStatement("UPDATE plugins SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE namespace = ?")
+                    try {
+                        stmt.set(0, enabled)
+                        stmt.set(1, namespace)
 
-                stmt.update()
-                DatabaseConfig.releasePooledConnection(handle)
-                return true
-            } catch (e: Exception) {
-                getLogger("plugin_dao").error("设置插件状态失败", ("error", e.message), ("namespace", namespace))
-                DatabaseConfig.releasePooledConnection(handle)
-                return false
-            }
+                        stmt.update()
+                        return true
+                    } finally {
+                        try { stmt.close() } catch (_: Exception) {}
+                    }
+                } catch (e: Exception) {
+                    getLogger("plugin_dao").error("设置插件状态失败", ("error", e.message), ("namespace", namespace))
+                    return false
+                } finally {
+                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                }
             case None =>
                 getLogger("plugin_dao").error("无法连接到数据库")
                 return false

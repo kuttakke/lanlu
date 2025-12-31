@@ -1,0 +1,723 @@
+package lrr4cj.services
+
+import std.process.*
+import std.time.*
+import std.collection.*
+import std.fs.*
+import stdx.encoding.json.*
+import stdx.log.*
+import std.sync.*
+import lrr4cj.dao.*
+import lrr4cj.models.*
+import lrr4cj.utils.*
+
+/**
+ * Deno 任务执行结果
+ */
+public class DenoExecutionResult {
+    public var success: Bool = false
+    public var error: String = ""
+    public var output: String = ""
+    public var cookiesJson: String = ""
+    public var exitCode: Int32 = 0
+
+    public init(success: Bool, error: String, output: String) {
+        this.success = success
+        this.error = error
+        this.output = output
+    }
+
+    public init(success: Bool, error: String, output: String, cookiesJson: String, exitCode: Int32) {
+        this.success = success
+        this.error = error
+        this.output = output
+        this.cookiesJson = cookiesJson
+        this.exitCode = exitCode
+    }
+}
+
+/**
+ * Deno 任务执行器
+ * 统一处理所有 Deno 插件执行
+ */
+public class DenoTaskRunner {
+    private static var pluginPath: String = ""
+    private static var initialized: Bool = false
+    private static let initMutex: Mutex = Mutex()
+
+    private static func ensureInitialized(): Unit {
+        initMutex.lock()
+        if (!initialized) {
+            pluginPath = SystemSettingsService.getPath("PLUGIN_PATH")
+            initialized = true
+        }
+        initMutex.unlock()
+    }
+
+    /**
+     * 任务入口
+     */
+    public static func run(taskId: Int64, parameters: String): Unit {
+        ensureInitialized()
+        let logger = getLogger("deno_task")
+        TaskIO.appendLog(taskId, "deno_task started")
+        TaskModel.updateTaskProgress(taskId, 1, "Deno任务开始")
+
+        // 解析参数
+        let (pluginNamespace, pluginType, action, groupId, archiveId, oneshotParam, extraParams, url) = parseParameters(parameters)
+
+        if (pluginNamespace.size == 0 || pluginType.size == 0) {
+            fail(taskId, "pluginNamespace and pluginType are required")
+            return
+        }
+
+        // 获取 KV store 引用
+        let kvStore = TaskGroupKVStore.getInstance()
+        if (groupId.size > 0) {
+            kvStore.acquireGroup(groupId)
+        }
+
+        try {
+            // 获取插件
+            let plugin = PluginDao.getPluginByNamespace(pluginNamespace)
+            if (plugin.namespace.size == 0) {
+                fail(taskId, "Plugin not found: ${pluginNamespace}")
+                return
+            }
+
+            TaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
+            TaskModel.updateTaskProgress(taskId, 10, "准备插件脚本")
+
+            // 准备插件脚本
+            if (!ensurePluginScriptReady(plugin, pluginType)) {
+                fail(taskId, "Failed to prepare plugin script")
+                return
+            }
+
+            // 处理登录依赖
+            var loginCookiesJson = ""
+            let effectiveLoginFrom = plugin.login_from.trimAscii()
+            if (effectiveLoginFrom.size > 0) {
+                TaskModel.updateTaskProgress(taskId, 20, "处理登录依赖")
+                let loginResult = handleLoginDependency(taskId, effectiveLoginFrom, groupId, kvStore)
+                if (!loginResult.success) {
+                    fail(taskId, "Login plugin failed: ${loginResult.error}")
+                    return
+                }
+                loginCookiesJson = loginResult.cookiesJson
+            }
+
+            TaskModel.updateTaskProgress(taskId, 40, "执行插件")
+
+            // 根据类型执行插件
+            let result = match (pluginType) {
+                case "Metadata" => executeMetadataPlugin(taskId, plugin, archiveId, oneshotParam, extraParams, loginCookiesJson)
+                case "Download" => executeDownloadPlugin(taskId, plugin, url, loginCookiesJson)
+                case "Login" => executeLoginPluginDirect(taskId, plugin)
+                case _ =>
+                    fail(taskId, "Unknown plugin type: ${pluginType}")
+                    return
+            }
+
+            if (!result.success) {
+                fail(taskId, result.error)
+                return
+            }
+
+            TaskModel.updateTaskProgress(taskId, 100, "Deno任务完成")
+            TaskModel.completeTask(taskId, "deno_task completed")
+            TaskIO.writeOutput(taskId, result.output)
+
+        } catch (e: Exception) {
+            fail(taskId, e.message)
+        } finally {
+            // 释放 KV store 引用
+            if (groupId.size > 0) {
+                kvStore.releaseGroup(groupId)
+            }
+        }
+    }
+
+    private static func fail(taskId: Int64, message: String): Unit {
+        let msg = if (message.size == 0) { "Unknown error" } else { message }
+        TaskIO.appendLog(taskId, "FAILED: ${msg}")
+        TaskModel.failTask(taskId, msg)
+        TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
+    }
+
+    private static func parseParameters(parameters: String): (String, String, String, String, String, String, String, String) {
+        var pluginNamespace = ""
+        var pluginType = ""
+        var action = "run"
+        var groupId = ""
+        var archiveId = ""
+        var oneshotParam = ""
+        var extraParams = ""
+        var url = ""
+
+        let trimmed = parameters.trimAscii()
+        if (trimmed.size == 0) {
+            return (pluginNamespace, pluginType, action, groupId, archiveId, oneshotParam, extraParams, url)
+        }
+
+        try {
+            let jsonVal = JsonValue.fromStr(trimmed)
+            match (jsonVal) {
+                case obj: JsonObject =>
+                    let fields = obj.getFields()
+                    pluginNamespace = getJsonStringValue(fields, "pluginNamespace")
+                    pluginType = getJsonStringValue(fields, "pluginType")
+                    action = getJsonStringValue(fields, "action")
+                    if (action.size == 0) { action = "run" }
+                    groupId = getJsonStringValue(fields, "groupId")
+                    archiveId = getJsonStringValue(fields, "archiveId")
+                    oneshotParam = getJsonStringValue(fields, "oneshotParam")
+                    extraParams = getJsonStringValue(fields, "extraParams")
+                    url = getJsonStringValue(fields, "url")
+                case _ => ()
+            }
+        } catch (_: Exception) {}
+
+        return (pluginNamespace, pluginType, action, groupId, archiveId, oneshotParam, extraParams, url)
+    }
+
+    private static func getJsonStringValue(fields: HashMap<String, JsonValue>, key: String): String {
+        match (fields.get(key)) {
+            case Some(v) =>
+                match (v) {
+                    case s: JsonString => return s.getValue().trimAscii()
+                    case _ => return v.toString().trimAscii()
+                }
+            case None => return ""
+        }
+    }
+
+    private static func escapeJson(s: String): String {
+        var escaped = s
+        escaped = escaped.replace("\\", "\\\\")
+        escaped = escaped.replace("\"", "\\\"")
+        escaped = escaped.replace("\b", "\\b")
+        escaped = escaped.replace("\f", "\\f")
+        escaped = escaped.replace("\n", "\\n")
+        escaped = escaped.replace("\r", "\\r")
+        escaped = escaped.replace("\t", "\\t")
+        return escaped
+    }
+
+    /**
+     * 准备插件脚本
+     */
+    private static func ensurePluginScriptReady(plugin: PluginData, scriptName: String): Bool {
+        try {
+            let pluginsRoot = Path("./data/plugins")
+            FileUtils.ensureDirectoryExists(pluginsRoot)
+
+            // 复制共享基础插件
+            let sharedBase = Path("${pluginsRoot.toString()}/base_plugin.ts")
+            let sharedSource = Path("./plugins/base_plugin.ts")
+            if (!exists(sharedSource)) {
+                getLogger("deno_task").error("缺少共享基础插件文件", ("path", sharedSource.toString()))
+                return false
+            }
+            copy(sharedSource, to: sharedBase, overwrite: true)
+
+            // 复制插件文件
+            let pluginDir = Path("${pluginsRoot.toString()}/${plugin.namespace}")
+            FileUtils.ensureDirectoryExists(pluginDir)
+
+            let targetFile = Path("${pluginDir.toString()}/${scriptName}.ts")
+            let sourcePath = Path("./plugins/${plugin.plugin_type}/${plugin.entry}")
+            if (!exists(sourcePath)) {
+                getLogger("deno_task").error("源插件文件不存在", ("path", sourcePath.toString()))
+                return false
+            }
+
+            copy(sourcePath, to: targetFile, overwrite: true)
+            return true
+        } catch (e: Exception) {
+            getLogger("deno_task").error("准备插件文件失败", ("error", e.message))
+            return false
+        }
+    }
+
+    /**
+     * 处理登录依赖
+     */
+    private static func handleLoginDependency(
+        taskId: Int64,
+        loginNamespace: String,
+        groupId: String,
+        kvStore: TaskGroupKVStore
+    ): DenoExecutionResult {
+        let logger = getLogger("deno_task")
+
+        // 先检查 KV store 中是否有缓存的 cookies
+        if (groupId.size > 0) {
+            match (kvStore.get(groupId, "login_cookies_${loginNamespace}")) {
+                case Some(cached) =>
+                    TaskIO.appendLog(taskId, "Using cached login cookies from KV store")
+                    return DenoExecutionResult(true, "", "", cached, 0)
+                case None => ()
+            }
+        }
+
+        // 获取登录插件
+        let loginPlugin = PluginDao.getPluginByNamespace(loginNamespace)
+        if (loginPlugin.namespace.size == 0) {
+            return DenoExecutionResult(false, "Login plugin not found: ${loginNamespace}", "", "", 1)
+        }
+
+        // 准备登录插件脚本
+        if (!ensurePluginScriptReady(loginPlugin, "Login")) {
+            return DenoExecutionResult(false, "Failed to prepare login plugin script", "", "", 1)
+        }
+
+        // 执行登录插件
+        let loginResult = executeLoginPluginDirect(taskId, loginPlugin)
+        if (!loginResult.success) {
+            return loginResult
+        }
+
+        // 提取 cookies
+        let cookiesJson = extractLoginCookiesJson(loginResult.output)
+        if (cookiesJson.size == 0) {
+            logger.warn("Login plugin did not return cookies", ("namespace", loginNamespace))
+        }
+
+        // 缓存到 KV store
+        if (groupId.size > 0 && cookiesJson.size > 0) {
+            kvStore.set(groupId, "login_cookies_${loginNamespace}", cookiesJson, ttlSeconds: 3600)
+        }
+
+        return DenoExecutionResult(true, "", loginResult.output, cookiesJson, 0)
+    }
+
+    /**
+     * 从登录插件输出提取 cookies JSON
+     */
+    private static func extractLoginCookiesJson(output: String): String {
+        if (output.trimAscii().size == 0) {
+            return ""
+        }
+
+        try {
+            let jsonVal = JsonValue.fromStr(output)
+            match (jsonVal) {
+                case jsonObj: JsonObject =>
+                    let fields = jsonObj.getFields()
+                    if (!getJsonBool(fields, "success")) {
+                        return ""
+                    }
+                    if (fields.contains("data")) {
+                        match (fields["data"]) {
+                            case dataObj: JsonObject =>
+                                let dataFields = dataObj.getFields()
+                                if (dataFields.contains("cookies")) {
+                                    match (dataFields["cookies"]) {
+                                        case cookiesArr: JsonArray =>
+                                            return cookiesArr.toString()
+                                        case _ => ()
+                                    }
+                                }
+                            case _ => ()
+                        }
+                    }
+                case _ => ()
+            }
+        } catch (_: Exception) {}
+
+        return ""
+    }
+
+    private static func getJsonBool(fields: HashMap<String, JsonValue>, key: String): Bool {
+        match (fields.get(key)) {
+            case Some(v) =>
+                match (v) {
+                    case b: JsonBool => return b.getValue()
+                    case s: JsonString =>
+                        let val = s.getValue()
+                        return val == "true" || val == "1"
+                    case _ =>
+                        let val = v.toString()
+                        return val == "true" || val == "1"
+                }
+            case None => return false
+        }
+    }
+
+    /**
+     * 构建 Deno 权限参数
+     */
+    private static func buildDenoPermissions(plugin: PluginData, pluginFile: String): ArrayList<String> {
+        var denoArgs = ArrayList<String>()
+        denoArgs.add("run")
+
+        // 默认给予插件目录的读写权限
+        let pluginDir = "./data/plugins/${plugin.namespace}"
+        denoArgs.add("--allow-read=${pluginDir}")
+        denoArgs.add("--allow-write=${pluginDir}")
+        denoArgs.add("--allow-read=./data/plugins")
+
+        // 解析插件声明的权限
+        let permissionsStr = plugin.permissions.trimAscii()
+        if (permissionsStr.size > 0 && permissionsStr.startsWith("[")) {
+            try {
+                let jsonVal = JsonValue.fromStr(permissionsStr)
+                match (jsonVal) {
+                    case arr: JsonArray =>
+                        var netHosts = ArrayList<String>()
+                        var allowNetAll = false
+
+                        for (i in 0..arr.size()) {
+                            match (arr[i]) {
+                                case s: JsonString =>
+                                    let perm = normalizePermission(s.getValue())
+                                    allowNetAll = processPermission(perm, denoArgs, netHosts, allowNetAll)
+                                case _ => ()
+                            }
+                        }
+
+                        // 汇总网络权限
+                        if (allowNetAll) {
+                            denoArgs.add("--allow-net")
+                        } else if (netHosts.size > 0) {
+                            let joinedHosts = String.join(netHosts.toArray(), delimiter: ",")
+                            denoArgs.add("--allow-net=${joinedHosts}")
+                        }
+                    case _ => ()
+                }
+            } catch (_: Exception) {}
+        }
+
+        return denoArgs
+    }
+
+    private static func normalizePermission(permission: String): String {
+        var perm = permission.trimAscii()
+        if (perm.startsWith("\"") && perm.endsWith("\"") && perm.size >= 2) {
+            perm = perm[1..perm.size - 1]
+        }
+        return perm
+    }
+
+    private static func processPermission(
+        perm: String,
+        denoArgs: ArrayList<String>,
+        netHosts: ArrayList<String>,
+        allowNetAll: Bool
+    ): Bool {
+        var netAll = allowNetAll
+        if (perm.contains("=")) {
+            let parts = perm.split("=", 2)
+            if (parts.size == 2) {
+                let permType = normalizePermission(parts[0])
+                let permValue = normalizePermission(parts[1])
+                if (permType == "net" && permValue.size > 0) {
+                    netHosts.add(permValue)
+                } else if (permType == "read") {
+                    denoArgs.add("--allow-read=${permValue}")
+                } else if (permType == "write") {
+                    denoArgs.add("--allow-write=${permValue}")
+                } else if (permType == "env") {
+                    denoArgs.add("--allow-env=${permValue}")
+                } else if (permType == "run") {
+                    denoArgs.add("--allow-run=${permValue}")
+                }
+            }
+        } else {
+            if (perm == "net") { netAll = true }
+            else if (perm == "read") { denoArgs.add("--allow-read") }
+            else if (perm == "write") { denoArgs.add("--allow-write") }
+            else if (perm == "env") { denoArgs.add("--allow-env") }
+            else if (perm == "run") { denoArgs.add("--allow-run") }
+            else if (perm == "ffi") { denoArgs.add("--allow-ffi") }
+            else if (perm == "hrtime") { denoArgs.add("--allow-hrtime") }
+        }
+        return netAll
+    }
+
+    /**
+     * 执行命令并获取输出
+     */
+    private static func executeWithOutput(command: String, args: Array<String>): (Int32, Array<UInt8>, Array<UInt8>) {
+        try {
+            if (args.size == 2) {
+                let process = launch(command, args[0], args[1],
+                    stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+                let (exitCode, stdout, stderr) = process.waitOutput()
+                return (Int32(exitCode), stdout, stderr)
+            } else {
+                var fullCmd = command
+                for (arg in args) {
+                    fullCmd += " " + escapeShellArg(arg)
+                }
+                let process = launch("sh", "-c", fullCmd,
+                    stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+                let (exitCode, stdout, stderr) = process.waitOutput()
+                return (Int32(exitCode), stdout, stderr)
+            }
+        } catch (_: Exception) {
+            return (1, Array<UInt8>(), Array<UInt8>())
+        }
+    }
+
+    private static func escapeShellArg(arg: String): String {
+        if (arg.size == 0) { return "''" }
+        let safe = arg.replace("'", "'\"'\"'")
+        return "'${safe}'"
+    }
+
+    /**
+     * 执行登录插件
+     */
+    private static func executeLoginPluginDirect(taskId: Int64, plugin: PluginData): DenoExecutionResult {
+        let logger = getLogger("deno_task")
+        let pluginFile = "./data/plugins/${plugin.namespace}/Login.ts"
+
+        if (!exists(pluginFile)) {
+            return DenoExecutionResult(false, "Plugin file not found", "", "", 1)
+        }
+
+        let denoArgs = buildDenoPermissions(plugin, pluginFile)
+        denoArgs.add(pluginFile)
+        denoArgs.add("--action=run")
+
+        // 添加插件参数
+        let paramsJson = buildPluginParametersJson(plugin)
+        if (paramsJson.size > 0) {
+            denoArgs.add("--params=${paramsJson}")
+        }
+
+        let (exitCode, stdout, stderr) = executeWithOutput("deno", denoArgs.toArray())
+
+        if (exitCode == 0) {
+            let output = String.fromUtf8(stdout)
+            return DenoExecutionResult(true, "", output, "", exitCode)
+        } else {
+            let errorOutput = String.fromUtf8(stderr)
+            logger.error("Login plugin failed", ("namespace", plugin.namespace), ("error", errorOutput))
+            return DenoExecutionResult(false, errorOutput, "", "", exitCode)
+        }
+    }
+
+    /**
+     * 构建插件参数 JSON
+     */
+    private static func buildPluginParametersJson(plugin: PluginData): String {
+        if (plugin.parameters.trimAscii().size == 0) {
+            return ""
+        }
+
+        try {
+            let jsonVal = JsonValue.fromStr(plugin.parameters)
+            match (jsonVal) {
+                case array: JsonArray =>
+                    var mergedParams = JsonObject()
+                    let fields = mergedParams.getFields()
+                    let size = array.size()
+                    for (i in 0..size) {
+                        match (array.get(i)) {
+                            case Some(paramVal) =>
+                                match (paramVal) {
+                                    case paramObj: JsonObject =>
+                                        let paramFields = paramObj.getFields()
+                                        let name = getParamName(paramFields)
+                                        let key = if (name.size > 0) { name } else { "param${i}" }
+                                        match (getParamValue(paramFields)) {
+                                            case Some(value) => fields[key] = value
+                                            case None => ()
+                                        }
+                                    case _ => ()
+                                }
+                            case None => ()
+                        }
+                    }
+                    if (fields.size > 0) {
+                        return mergedParams.toString()
+                    }
+                case obj: JsonObject =>
+                    if (obj.getFields().size > 0) {
+                        return obj.toString()
+                    }
+                case _ => ()
+            }
+        } catch (_: Exception) {}
+
+        return ""
+    }
+
+    private static func getParamName(fields: HashMap<String, JsonValue>): String {
+        match (fields.get("name")) {
+            case Some(v) =>
+                match (v) {
+                    case s: JsonString => return s.getValue()
+                    case _ => return ""
+                }
+            case None => return ""
+        }
+    }
+
+    private static func getParamValue(fields: HashMap<String, JsonValue>): Option<JsonValue> {
+        if (fields.contains("value")) {
+            return Option<JsonValue>.Some(fields["value"])
+        }
+        if (fields.contains("default_value")) {
+            return Option<JsonValue>.Some(fields["default_value"])
+        }
+        return Option.None
+    }
+
+    /**
+     * 执行元数据插件
+     */
+    private static func executeMetadataPlugin(
+        taskId: Int64,
+        plugin: PluginData,
+        archiveId: String,
+        oneshotParam: String,
+        extraParams: String,
+        loginCookiesJson: String
+    ): DenoExecutionResult {
+        let logger = getLogger("deno_task")
+        let pluginFile = "./data/plugins/${plugin.namespace}/Metadata.ts"
+
+        if (!exists(pluginFile)) {
+            return DenoExecutionResult(false, "Plugin file not found", "")
+        }
+
+        // 获取归档信息
+        let archive = ArchiveDao.getArchiveById(archiveId)
+        if (archive.id.size == 0) {
+            return DenoExecutionResult(false, "Archive not found", "")
+        }
+        let tagsString = TagDao.getArchiveTags(archiveId)
+
+        let denoArgs = buildDenoPermissions(plugin, pluginFile)
+        denoArgs.add("--allow-read=./data/thumb")
+        denoArgs.add("--allow-env=ARCHIVE_TITLE,EXISTING_TAGS,THUMBNAIL_HASH,ARCHIVE_ID")
+
+        denoArgs.add(pluginFile)
+        denoArgs.add("--action=run")
+        denoArgs.add("--archive_id=${archiveId}")
+        denoArgs.add("--archive_title=${archive.title}")
+
+        if (oneshotParam.size > 0) {
+            denoArgs.add("--oneshot=${oneshotParam}")
+        }
+
+        // 合并参数
+        let baseParams = buildPluginParametersJson(plugin)
+        let mergedParams = mergeParamsJson(baseParams, extraParams)
+        if (mergedParams.size > 0) {
+            denoArgs.add("--params=${mergedParams}")
+        }
+
+        if (loginCookiesJson.size > 0) {
+            denoArgs.add("--login_cookies=${loginCookiesJson}")
+        }
+
+        // 通过 env 注入环境变量
+        var envArgs = ArrayList<String>()
+        envArgs.add("ARCHIVE_TITLE=${archive.title}")
+        envArgs.add("EXISTING_TAGS=${tagsString}")
+        envArgs.add("THUMBNAIL_HASH=${archive.thumbhash}")
+        envArgs.add("ARCHIVE_ID=${archiveId}")
+        envArgs.add("deno")
+        for (arg in denoArgs.toArray()) {
+            envArgs.add(arg)
+        }
+
+        let (exitCode, stdout, stderr) = executeWithOutput("env", envArgs.toArray())
+
+        if (exitCode == 0) {
+            let output = String.fromUtf8(stdout)
+            return DenoExecutionResult(true, "", output, loginCookiesJson, exitCode)
+        } else {
+            let errorOutput = String.fromUtf8(stderr)
+            logger.error("Metadata plugin failed", ("namespace", plugin.namespace))
+            return DenoExecutionResult(false, errorOutput, "", "", exitCode)
+        }
+    }
+
+    /**
+     * 合并参数 JSON
+     */
+    private static func mergeParamsJson(baseParams: String, extraParams: String): String {
+        let extraTrimmed = extraParams.trimAscii()
+        if (extraTrimmed.size == 0) {
+            return baseParams
+        }
+
+        let baseTrimmed = baseParams.trimAscii()
+        if (baseTrimmed.size == 0) {
+            return extraTrimmed
+        }
+
+        try {
+            let baseVal = JsonValue.fromStr(baseTrimmed)
+            let extraVal = JsonValue.fromStr(extraTrimmed)
+
+            match (baseVal) {
+                case baseObj: JsonObject =>
+                    match (extraVal) {
+                        case extraObj: JsonObject =>
+                            let merged = JsonObject()
+                            let fields = merged.getFields()
+                            for ((k, v) in baseObj.getFields()) {
+                                fields[k] = v
+                            }
+                            for ((k, v) in extraObj.getFields()) {
+                                fields[k] = v
+                            }
+                            return merged.toString()
+                        case _ => return extraTrimmed
+                    }
+                case _ => return extraTrimmed
+            }
+        } catch (_: Exception) {
+            return extraTrimmed
+        }
+    }
+
+    /**
+     * 执行下载插件
+     */
+    private static func executeDownloadPlugin(
+        taskId: Int64,
+        plugin: PluginData,
+        url: String,
+        loginCookiesJson: String
+    ): DenoExecutionResult {
+        let logger = getLogger("deno_task")
+        let pluginFile = "./data/plugins/${plugin.namespace}/Download.ts"
+
+        if (!exists(pluginFile)) {
+            return DenoExecutionResult(false, "Plugin file not found", "")
+        }
+
+        let denoArgs = buildDenoPermissions(plugin, pluginFile)
+        denoArgs.add(pluginFile)
+        denoArgs.add("--action=run")
+        denoArgs.add("--url=${url}")
+
+        let paramsJson = buildPluginParametersJson(plugin)
+        if (paramsJson.size > 0) {
+            denoArgs.add("--params=${paramsJson}")
+        }
+
+        if (loginCookiesJson.size > 0) {
+            denoArgs.add("--login_cookies=${loginCookiesJson}")
+        }
+
+        let (exitCode, stdout, stderr) = executeWithOutput("deno", denoArgs.toArray())
+
+        if (exitCode == 0) {
+            let output = String.fromUtf8(stdout)
+            return DenoExecutionResult(true, "", output, loginCookiesJson, exitCode)
+        } else {
+            let errorOutput = String.fromUtf8(stderr)
+            logger.error("Download plugin failed", ("namespace", plugin.namespace))
+            return DenoExecutionResult(false, errorOutput, "", "", exitCode)
+        }
+    }
+}

@@ -98,38 +98,4 @@ export class TankoubonService {
       )
       .map(result => result.value);
   }
-
-  /**
-   * 通过搜索接口获取包含 archives 的 tankoubon 列表
-   * @deprecated 建议修改后端搜索接口支持 include_archives 参数
-   */
-  static async searchTankoubonsWithArchives(params: {
-    favorite_tankoubons_only?: boolean;
-    start?: number;
-    count?: number;
-  }): Promise<{ data: Tankoubon[] }> {
-    // 通过搜索接口获取基本数据
-    const response = await apiClient.get('/api/search', {
-      params: {
-        favorite_tankoubons_only: params.favorite_tankoubons_only,
-        start: params.start ?? 0,
-        count: params.count ?? 1000
-      }
-    });
-
-    const tankoubons = response.data.data as unknown as Tankoubon[];
-    const tankoubonIds = tankoubons.map(t => t.tankoubon_id);
-
-    if (tankoubonIds.length > 0) {
-      // 批量获取详细信息
-      const detailedTankoubons = await this.getTankoubonsWithArchives(tankoubonIds);
-      return {
-        data: detailedTankoubons
-      };
-    }
-
-    return {
-      data: tankoubons
-    };
-  }
 }

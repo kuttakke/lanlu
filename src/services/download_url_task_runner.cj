@@ -87,44 +87,43 @@ public class DownloadUrlTaskRunner {
             TaskDao.updateTaskPluginNamespace(taskId, plugin.namespace)
             TaskIO.appendLog(taskId, "matched plugin=${plugin.namespace}")
 
-            TaskModel.updateTaskProgress(taskId, 10, "准备插件脚本")
-            let pluginReady = ensurePluginScriptReady(plugin, "Download")
-            if (!pluginReady) {
-                fail(taskId, "Failed to prepare download plugin file")
+            // 生成 groupId 用于 KV store
+            let groupId = "download_${taskId}_${DateTime.now().toUnixTimeStamp().toSeconds()}"
+
+            TaskModel.updateTaskProgress(taskId, 10, "创建 Deno 任务")
+
+            // 创建 deno_task 参数
+            let denoParams = "{\"pluginNamespace\":\"${escapeJson(plugin.namespace)}\",\"pluginType\":\"Download\",\"action\":\"run\",\"groupId\":\"${escapeJson(groupId)}\",\"url\":\"${escapeJson(url)}\"}"
+
+            // 创建并提交 deno_task
+            let denoTask = TaskModel.createTaskWithOptions(
+                "执行下载插件",
+                "deno_task",
+                denoParams,
+                50,
+                groupId,
+                "download_url:${taskId}"
+            )
+
+            if (denoTask.id <= 0) {
+                fail(taskId, "Failed to create deno_task")
                 return
             }
 
-            let pluginService = PluginService.getInstance()
-            let effectiveLoginFrom = plugin.login_from.trimAscii()
-            if (effectiveLoginFrom.size > 0) {
-                plugin.login_from = effectiveLoginFrom
-                let loginPlugin = PluginDao.getPluginByNamespace(effectiveLoginFrom)
-                if (loginPlugin.namespace.size == 0) {
-                    fail(taskId, "Login plugin ${plugin.login_from} not found")
-                    return
-                }
-                let loginReady = ensurePluginScriptReady(loginPlugin, "Login")
-                if (!loginReady) {
-                    fail(taskId, "Failed to prepare login plugin file")
-                    return
-                }
-            }
+            // 通知 TaskPool
+            TaskPoolService.getInstance().notifyTaskAvailable()
 
-            TaskModel.updateTaskProgress(taskId, 20, "执行下载插件")
-            let execResult = pluginService.executeDownloadPlugin(plugin, url)
-            if (!execResult.success) {
-                fail(taskId, "Plugin execution failed: ${execResult.error}")
+            TaskModel.updateTaskProgress(taskId, 15, "等待插件执行")
+
+            // 等待 deno_task 完成
+            let denoResult = waitForTaskCompletion(denoTask.id, 300)
+            if (!denoResult.success) {
+                fail(taskId, "Deno task failed: ${denoResult.error}")
                 return
             }
 
-            let output = match (execResult.data.get("output")) {
-                case Some(v) => v
-                case None => ""
-            }
-            let loginCookiesJson = match (execResult.data.get("login_cookies")) {
-                case Some(v) => v
-                case None => ""
-            }
+            let output = denoResult.output
+            let loginCookiesJson = denoResult.cookiesJson
             TaskIO.appendLog(taskId, "plugin output: ${output}")
 
             // 插件自行下载并回传 relative_path（相对于 ./data）
@@ -259,6 +258,35 @@ public class DownloadUrlTaskRunner {
         TaskIO.writeOutput(taskId, "{\"success\":0,\"error\":\"${escapeJson(msg)}\"}")
     }
 
+    /**
+     * 等待任务完成（轮询 + 指数退避）
+     */
+    private static func waitForTaskCompletion(taskId: Int64, timeoutSeconds: Int32): TaskWaitResult {
+        let startTime = DateTime.now().toUnixTimeStamp().toSeconds()
+        var sleepMs: Int64 = 100
+
+        while (true) {
+            let task = TaskDao.getTaskDataById(taskId)
+            if (task.status == "completed") {
+                let output = TaskIO.readOutput(taskId)
+                return TaskWaitResult(true, "", output)
+            }
+            if (task.status == "failed" || task.status == "stopped") {
+                return TaskWaitResult(false, task.message, "")
+            }
+
+            let elapsed = DateTime.now().toUnixTimeStamp().toSeconds() - startTime
+            if (elapsed > Int64(timeoutSeconds)) {
+                return TaskWaitResult(false, "Timeout waiting for task", "")
+            }
+
+            sleep(Duration.millisecond * sleepMs)
+            sleepMs = if (sleepMs * 2 > 2000) { 2000 } else { sleepMs * 2 }
+        }
+        // This line should never be reached but satisfies the compiler
+        return TaskWaitResult(false, "Unexpected error", "")
+    }
+
     private static func parseUrl(parameters: String): String {
         let trimmed = parameters.trimAscii()
         if (trimmed.size == 0) {
@@ -346,37 +374,6 @@ public class DownloadUrlTaskRunner {
         }
 
         return Option<PluginData>.None
-    }
-
-    private static func ensurePluginScriptReady(plugin: PluginData, scriptName: String): Bool {
-        try {
-            let pluginsRoot = Path("./data/plugins")
-            FileUtils.ensureDirectoryExists(pluginsRoot)
-
-            let sharedBase = Path("${pluginsRoot.toString()}/base_plugin.ts")
-            let sharedSource = Path("./plugins/base_plugin.ts")
-            if (!exists(sharedSource)) {
-                getLogger("download_url_task").error("缺少共享基础插件文件", ("path", sharedSource.toString()))
-                return false
-            }
-            copy(sharedSource, to: sharedBase, overwrite: true)
-
-            let pluginDir = Path("${pluginsRoot.toString()}/${plugin.namespace}")
-            FileUtils.ensureDirectoryExists(pluginDir)
-
-            let targetFile = Path("${pluginDir.toString()}/${scriptName}.ts")
-            let sourcePath = Path("./plugins/${plugin.plugin_type}/${plugin.entry}")
-            if (!exists(sourcePath)) {
-                getLogger("download_url_task").error("源插件文件不存在", ("path", sourcePath.toString()))
-                return false
-            }
-
-            copy(sourcePath, to: targetFile, overwrite: true)
-            return true
-        } catch (e: Exception) {
-            getLogger("download_url_task").error("准备插件文件失败", ("error", e.message))
-            return false
-        }
     }
 
     private static func parseDownloadUrl(output: String): String {

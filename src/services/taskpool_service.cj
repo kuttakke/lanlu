@@ -177,6 +177,8 @@ public class TaskPoolService {
                 CheckDatabaseTaskRunner.run(task.id, task.parameters)
             case "scan_plugins" =>
                 ScanPluginsTaskRunner.run(task.id, task.parameters)
+            case "deno_task" =>
+                DenoTaskRunner.run(task.id, task.parameters)
             case _ =>
                 TaskIO.appendLog(task.id, "Unknown task type: ${task.taskType}")
                 TaskModel.failTask(task.id, "Unknown task type: ${task.taskType}")
