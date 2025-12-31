@@ -30,7 +30,7 @@ public class UserStatsDao {
      * 获取用户已读档案数量
      */
     public static func getReadCount(userId: Int64): Int64 {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -55,7 +55,7 @@ public class UserStatsDao {
                 } catch (_: Exception) {
                     return 0
                 } finally {
-                    try { conn.close() } catch (_: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (_: Exception) {}
                 }
             case None => return 0
         }
@@ -66,7 +66,7 @@ public class UserStatsDao {
      * 计算用户已读档案的 progress 总和（从 user_archive_status.progress 获取）
      */
     public static func getTotalPagesRead(userId: Int64): Int64 {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -93,7 +93,7 @@ public class UserStatsDao {
                     getLogger("user_stats_dao").error("获取总阅读页数失败", ("error", e.message))
                     return 0
                 } finally {
-                    try { conn.close() } catch (_: Exception) { /* ignore */ }
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (_: Exception) { /* ignore */ }
                 }
             case None => return 0
         }
@@ -103,7 +103,7 @@ public class UserStatsDao {
      * 获取档案总数
      */
     public static func getTotalArchives(): Int64 {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -124,7 +124,7 @@ public class UserStatsDao {
                 } catch (_: Exception) {
                     return 0
                 } finally {
-                    try { conn.close() } catch (_: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (_: Exception) {}
                 }
             case None => return 0
         }
@@ -138,7 +138,7 @@ public class UserStatsDao {
      */
     public static func getReadingTrend(userId: Int64, days: Int32): Array<ReadingTrendItem> {
         let result = ArrayList<ReadingTrendItem>()
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -194,7 +194,7 @@ public class UserStatsDao {
                 } catch (e: Exception) {
                     getLogger("user_stats_dao").error("获取阅读趋势失败", ("error", e.message))
                 } finally {
-                    try { conn.close() } catch (_: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("user_stats_dao").error("无法连接到数据库")
@@ -210,7 +210,7 @@ public class UserStatsDao {
      */
     public static func getRecentReadArchives(userId: Int64, limit: Int32): Array<ArchiveData> {
         let result = ArrayList<ArchiveData>()
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -257,7 +257,7 @@ public class UserStatsDao {
                 } catch (e: Exception) {
                     getLogger("user_stats_dao").error("获取最近阅读档案失败", ("error", e.message))
                 } finally {
-                    try { conn.close() } catch (_: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("user_stats_dao").error("无法连接到数据库")
@@ -273,7 +273,7 @@ public class UserStatsDao {
      */
     public static func getRecentFavoriteArchives(userId: Int64, limit: Int32): Array<ArchiveData> {
         let result = ArrayList<ArchiveData>()
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -322,7 +322,7 @@ public class UserStatsDao {
                 } catch (e: Exception) {
                     getLogger("user_stats_dao").error("获取最近收藏档案失败", ("error", e.message))
                 } finally {
-                    try { conn.close() } catch (_: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("user_stats_dao").error("无法连接到数据库")

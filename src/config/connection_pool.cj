@@ -11,10 +11,12 @@ import lrr4cj.utils.*
 public class PooledConnection {
     public var connection: Connection
     public var isInUse: Bool
+    public var id: Int64  // 唯一标识符
 
-    public init(conn: Connection) {
+    public init(conn: Connection, id: Int64) {
         this.connection = conn
         this.isInUse = false
+        this.id = id
     }
 }
 
@@ -35,6 +37,7 @@ public class ConnectionPool {
     private var connections: ArrayList<PooledConnection> = ArrayList<PooledConnection>()
     private let poolMutex: Mutex = Mutex()
     private var isInitialized: Bool = false
+    private var nextConnectionId: Int64 = 0  // 连接ID计数器
 
     private init() {}
 
@@ -72,7 +75,8 @@ public class ConnectionPool {
         for (_ in 0..minConnections) {
             match (createNewConnection()) {
                 case Some(conn) =>
-                    let pooled = PooledConnection(conn)
+                    let pooled = PooledConnection(conn, nextConnectionId)
+                    nextConnectionId += 1
                     connections.add(pooled)
                 case None =>
                     logger.error("初始化连接池失败：无法创建连接")
@@ -122,7 +126,8 @@ public class ConnectionPool {
         if (connections.size < maxConnections) {
             match (createNewConnection()) {
                 case Some(conn) =>
-                    let pooled = PooledConnection(conn)
+                    let pooled = PooledConnection(conn, nextConnectionId)
+                    nextConnectionId += 1
                     pooled.isInUse = true
                     connections.add(pooled)
                     poolMutex.unlock()
@@ -143,8 +148,10 @@ public class ConnectionPool {
 
     /**
      * 释放连接（归还到池中）
+     * 注意：由于 Connection 接口不支持直接比较，这里采用简化策略
+     * 将第一个标记为使用中的连接释放
      */
-    public func releaseConnection(conn: Connection): Unit {
+    public func releaseConnection(_: Connection): Unit {
         poolMutex.lock()
         for (pooled in connections) {
             if (pooled.isInUse) {

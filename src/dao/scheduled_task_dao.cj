@@ -48,7 +48,7 @@ public class ScheduledTaskDao {
      */
     public static func createTable(): Bool {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -110,7 +110,7 @@ public class ScheduledTaskDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -146,7 +146,7 @@ public class ScheduledTaskDao {
      */
     public static func create(data: ScheduledTaskData): Bool {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -213,7 +213,7 @@ public class ScheduledTaskDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -229,7 +229,7 @@ public class ScheduledTaskDao {
      */
     public static func getById(id: Int64): ScheduledTaskData {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -262,7 +262,7 @@ public class ScheduledTaskDao {
                     return ScheduledTaskData()
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -278,7 +278,7 @@ public class ScheduledTaskDao {
      */
     public static func getEnabledTasks(): Array<ScheduledTaskData> {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -303,7 +303,7 @@ public class ScheduledTaskDao {
                     return Array<ScheduledTaskData>()
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -319,7 +319,7 @@ public class ScheduledTaskDao {
      */
     public static func getDueTasks(): Array<ScheduledTaskData> {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -347,7 +347,7 @@ public class ScheduledTaskDao {
                     return Array<ScheduledTaskData>()
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -363,7 +363,7 @@ public class ScheduledTaskDao {
      */
     public static func getWithPagination(offset: Int32, limit: Int32): Array<ScheduledTaskData> {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -390,7 +390,7 @@ public class ScheduledTaskDao {
                     return Array<ScheduledTaskData>()
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -406,7 +406,7 @@ public class ScheduledTaskDao {
      */
     public static func getCount(): Int32 {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -428,7 +428,7 @@ public class ScheduledTaskDao {
                     return 0
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -444,7 +444,7 @@ public class ScheduledTaskDao {
      */
     public static func update(data: ScheduledTaskData): Bool {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -491,7 +491,7 @@ public class ScheduledTaskDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -507,7 +507,7 @@ public class ScheduledTaskDao {
      */
     public static func delete(id: Int64): Bool {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -525,7 +525,7 @@ public class ScheduledTaskDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -541,7 +541,7 @@ public class ScheduledTaskDao {
      */
     public static func setEnabled(id: Int64, enabled: Bool): Bool {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -563,7 +563,7 @@ public class ScheduledTaskDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -579,7 +579,7 @@ public class ScheduledTaskDao {
      */
     public static func updateRunResult(id: Int64, success: Bool, errorMessage: String): Bool {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -620,7 +620,7 @@ public class ScheduledTaskDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -636,7 +636,7 @@ public class ScheduledTaskDao {
      */
     public static func updateNextRunAt(id: Int64, nextRunAt: String): Bool {
         let logger = getLogger("scheduled_task_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -663,7 +663,7 @@ public class ScheduledTaskDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }

@@ -58,6 +58,16 @@ main(): Int64 {
         return 1
     }
 
+    // 初始化数据库连接池
+    logger.debug("Application starting... step 9-pool: initializing connection pool")
+    let poolInitialized = DatabaseConfig.initializePool()
+    if (poolInitialized) {
+        logger.info("Connection pool initialized successfully")
+    } else {
+        logger.error("Failed to initialize connection pool")
+        return 1
+    }
+
     // 初始化用户/Token表
     logger.info("Application starting... step 9a: initializing auth tables")
     let authTablesInitialized = UserModel.initialize()

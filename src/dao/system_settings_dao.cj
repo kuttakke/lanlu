@@ -33,7 +33,7 @@ public class SystemSettingsDao {
      */
     public static func createTable(): Bool {
         let logger = getLogger("system_settings_dao")
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -96,7 +96,7 @@ public class SystemSettingsDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -111,7 +111,7 @@ public class SystemSettingsDao {
      * 获取所有设置
      */
     public static func getAllSettings(): Array<SystemSettingData> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -155,7 +155,7 @@ public class SystemSettingsDao {
                     return Array<SystemSettingData>()
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -170,7 +170,7 @@ public class SystemSettingsDao {
      * 根据键获取设置
      */
     public static func getSetting(key: String): Option<SystemSettingData> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -205,7 +205,7 @@ public class SystemSettingsDao {
                     return Option<SystemSettingData>.None
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -220,7 +220,7 @@ public class SystemSettingsDao {
      * 根据分类获取设置
      */
     public static func getSettingsByCategory(category: String): Array<SystemSettingData> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -265,7 +265,7 @@ public class SystemSettingsDao {
                     return Array<SystemSettingData>()
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -280,7 +280,7 @@ public class SystemSettingsDao {
      * 插入或更新设置
      */
     public static func upsertSetting(data: SystemSettingData): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -311,7 +311,7 @@ public class SystemSettingsDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -326,7 +326,7 @@ public class SystemSettingsDao {
      * 批量插入或更新设置
      */
     public static func upsertSettings(settings: Array<SystemSettingData>): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -359,7 +359,7 @@ public class SystemSettingsDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -374,7 +374,7 @@ public class SystemSettingsDao {
      * 删除设置
      */
     public static func deleteSetting(key: String): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -389,7 +389,7 @@ public class SystemSettingsDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -404,7 +404,7 @@ public class SystemSettingsDao {
      * 检查设置是否存在
      */
     public static func settingExists(key: String): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -426,7 +426,7 @@ public class SystemSettingsDao {
                     return false
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -441,7 +441,7 @@ public class SystemSettingsDao {
      * 获取设置数量
      */
     public static func getSettingCount(): Int32 {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -461,7 +461,7 @@ public class SystemSettingsDao {
                     return 0
                 } finally {
                     try {
-                        conn.close()
+                        DatabaseConfig.releasePooledConnection(conn)
                     } catch (closeError: Exception) {
                         getLogger("system_settings_dao").warn("关闭Connection失败: ${closeError.message}")
                     }

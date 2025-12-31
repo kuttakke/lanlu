@@ -46,7 +46,7 @@ public class TankoubonDao {
      * 获取所有Tankoubons
      */
     public static func getAllTankoubons(): Array<TankoubonData> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 var tankoubons: ArrayList<TankoubonData> = ArrayList<TankoubonData>()
@@ -78,7 +78,7 @@ public class TankoubonDao {
                     getLogger("tankoubon_dao").error("查询Tankoubon失败", ("error", e.message))
                     return Array<TankoubonData>()
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -90,7 +90,7 @@ public class TankoubonDao {
      * 根据tankoubon_id获取Tankoubon
      */
     public static func getTankoubonById(tankoubonId: String): Option<TankoubonData> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -122,7 +122,7 @@ public class TankoubonDao {
                     getLogger("tankoubon_dao").error("查询Tankoubon失败", ("tankoubonId", tankoubonId), ("error", e.message))
                     return None
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -134,7 +134,7 @@ public class TankoubonDao {
      * 获取Tankoubon的档案数量和总页数
      */
     public static func getTankoubonArchiveStats(tankoubonId: String): (Int32, Int32) {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -164,7 +164,7 @@ public class TankoubonDao {
                 } catch (e: Exception) {
                     getLogger("tankoubon_dao").error("获取Tankoubon档案统计失败", ("tankoubonId", tankoubonId), ("error", e.message))
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -177,7 +177,7 @@ public class TankoubonDao {
      * 返回生成的tankoubon_id
      */
     public static func createTankoubon(name: String): String {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -200,7 +200,7 @@ public class TankoubonDao {
                     getLogger("tankoubon_dao").error("创建Tankoubon失败", ("name", name), ("error", e.message))
                     return ""
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -212,7 +212,7 @@ public class TankoubonDao {
      * 更新Tankoubon元数据
      */
     public static func updateTankoubon(tankoubonId: String, name: String, summary: String): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -232,7 +232,7 @@ public class TankoubonDao {
                     getLogger("tankoubon_dao").error("更新Tankoubon失败", ("tankoubonId", tankoubonId), ("error", e.message))
                     return false
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -244,7 +244,7 @@ public class TankoubonDao {
      * 删除Tankoubon
      */
     public static func deleteTankoubon(tankoubonId: String): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -261,7 +261,7 @@ public class TankoubonDao {
                     getLogger("tankoubon_dao").error("删除Tankoubon失败", ("tankoubonId", tankoubonId), ("error", e.message))
                     return false
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -273,7 +273,7 @@ public class TankoubonDao {
      * 添加归档到Tankoubon
      */
     public static func addArchiveToTankoubon(tankoubonId: String, archiveArcid: String, sortOrder: Int32): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -305,7 +305,7 @@ public class TankoubonDao {
                         ("tankoubonId", tankoubonId), ("archiveArcid", archiveArcid), ("error", e.message))
                     return false
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -317,7 +317,7 @@ public class TankoubonDao {
      * 从Tankoubon移除归档
      */
     public static func removeArchiveFromTankoubon(tankoubonId: String, archiveArcid: String): Bool {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -346,7 +346,7 @@ public class TankoubonDao {
                         ("tankoubonId", tankoubonId), ("archiveArcid", archiveArcid), ("error", e.message))
                     return false
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -358,7 +358,7 @@ public class TankoubonDao {
      * 获取Tankoubon中的所有归档arcids
      */
     public static func getArchivesInTankoubon(tankoubonId: String): Array<String> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 var arcids: ArrayList<String> = ArrayList<String>()
@@ -393,7 +393,7 @@ public class TankoubonDao {
                         ("tankoubonId", tankoubonId), ("error", e.message))
                     return Array<String>()
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -406,7 +406,7 @@ public class TankoubonDao {
      * 返回tankoubon_id，如果不在任何Tankoubon中则返回None
      */
     public static func getTankoubonForArchive(archiveArcid: String): Option<String> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -440,7 +440,7 @@ public class TankoubonDao {
                         ("archiveArcid", archiveArcid), ("error", e.message))
                     return None
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -452,7 +452,7 @@ public class TankoubonDao {
      * 获取Tankoubon的聚合元数据（用于搜索结果）
      */
     public static func getAggregatedMetadata(tankoubonId: String, userId: Int64): Option<TankoubonAggregatedData> {
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -513,7 +513,7 @@ public class TankoubonDao {
                         ("tankoubonId", tankoubonId), ("error", e.message))
                     return None
                 } finally {
-                    try { conn.close() } catch (closeException: Exception) {}
+                    try { DatabaseConfig.releasePooledConnection(conn) } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("tankoubon_dao").error("无法连接到数据库")
@@ -836,7 +836,7 @@ public class TankoubonDao {
             return result
         }
 
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
@@ -931,7 +931,7 @@ public class TankoubonDao {
             return result
         }
 
-        let connOpt = DatabaseConfig.createConnection()
+        let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
                 try {
