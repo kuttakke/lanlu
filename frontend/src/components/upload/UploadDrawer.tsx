@@ -12,13 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArchiveService, DownloadProgressCallback } from "@/lib/archive-service"
 import { CategoryService, type Category } from "@/lib/category-service"
-import { Upload, FileText, X, CheckCircle, AlertCircle, Plus, Download, FolderOpen } from "lucide-react"
+import { Upload, FileText, X, CheckCircle, AlertCircle, Plus, Download, FolderOpen, RefreshCw } from "lucide-react"
 
 interface UploadFile {
   id: string
   file: File
   progress: number
-  status: "uploading" | "success" | "error"
+  status: "uploading" | "success" | "error" | "fileExists"
   error?: string
 }
 
@@ -103,11 +103,12 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
     })
   }
 
-  const startUpload = async (uploadFile: UploadFile) => {
+  const startUpload = async (uploadFile: UploadFile, overwrite: boolean = false) => {
     try {
       const result = await ArchiveService.uploadArchiveWithChunks(uploadFile.file, {
         title: uploadFile.file.name.replace(/\.[^/.]+$/, ""),
-        categoryId: selectedCategoryId
+        categoryId: selectedCategoryId,
+        overwrite
       }, {
         onProgress: (progress) => {
           setUploadFiles(prev => prev.map(f =>
@@ -129,6 +130,9 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
               onUploadComplete?.(result.taskId!)
             }, 1500)
             return { ...f, progress: 100, status: "success" }
+          } else if (result.fileExists) {
+            // 文件已存在，显示强制上传按钮
+            return { ...f, status: "fileExists", error: result.error || "文件已存在" }
           } else {
             return { ...f, status: "error", error: result.error || t("upload.uploadFailed") }
           }
@@ -140,6 +144,16 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
         f.id === uploadFile.id ? { ...f, status: "error", error: t("upload.uploadFailed") } : f
       ))
     }
+  }
+
+  // 强制上传（覆盖已存在的文件）
+  const forceUpload = (uploadFile: UploadFile) => {
+    // 重置状态为上传中
+    setUploadFiles(prev => prev.map(f =>
+      f.id === uploadFile.id ? { ...f, status: "uploading", progress: 0, error: undefined } : f
+    ))
+    // 以 overwrite=true 重新上传
+    startUpload(uploadFile, true)
   }
 
   const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -374,6 +388,9 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
                             {uploadFile.status === "error" && (
                               <AlertCircle className="h-5 w-5 text-red-600" />
                             )}
+                            {uploadFile.status === "fileExists" && (
+                              <AlertCircle className="h-5 w-5 text-amber-500" />
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -400,6 +417,22 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
                         {/* Error Message */}
                         {uploadFile.status === "error" && uploadFile.error && (
                           <div className="text-sm text-red-600">{uploadFile.error}</div>
+                        )}
+
+                        {/* File Exists - 显示强制上传按钮 */}
+                        {uploadFile.status === "fileExists" && (
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-amber-600">{uploadFile.error}</div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => forceUpload(uploadFile)}
+                              className="ml-2"
+                            >
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              强制覆盖
+                            </Button>
+                          </div>
                         )}
                       </div>
                     ))}

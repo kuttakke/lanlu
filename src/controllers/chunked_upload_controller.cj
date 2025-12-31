@@ -25,11 +25,65 @@ public class ChunkedUploadController {
      * 初始化上传会话
      * POST /api/archives/upload/init
      * 优化：使用 createTaskFull 将 3 次数据库操作合并为 1 次
+     * 新增：检查目标文件是否已存在，支持 overwrite 参数
      */
     public static func initUpload(ctx: JoyContext): Unit {
         try {
             // 直接读取请求体中的JSON字符串
             let requestBody = ctx.readString()
+
+            // 解析请求参数，检查文件是否已存在
+            var filename = ""
+            var categoryId = ""
+            var overwrite = false
+
+            if (requestBody.size > 0) {
+                try {
+                    var bas = ByteBuffer()
+                    unsafe { bas.write(requestBody.rawData()) }
+                    var reader = JsonReader(bas)
+
+                    while (let Some(v) <- reader.peek()) {
+                        match (v) {
+                            case BeginObject =>
+                                reader.startObject()
+                                while (reader.peek() != EndObject) {
+                                    let name = reader.readName()
+                                    match (name) {
+                                        case "filename" => filename = reader.readValue<String>()
+                                        case "category_id" => categoryId = reader.readValue<String>()
+                                        case "overwrite" =>
+                                            // 支持布尔值或字符串
+                                            let rawValue = reader.readValue<String>()
+                                            overwrite = rawValue == "true" || rawValue == "1"
+                                        case _ => let _ = reader.skip()
+                                    }
+                                }
+                                reader.endObject()
+                                break
+                            case _ => throw Exception("Invalid JSON format")
+                        }
+                    }
+                } catch (e: Exception) {
+                    getLogger("chunked_upload").warn("解析请求参数失败", ("error", e.message))
+                }
+            }
+
+            // 如果有 category_id 和 filename，检查目标文件是否已存在
+            if (categoryId.size > 0 && filename.size > 0 && !overwrite) {
+                let categoryOpt = CategoryDao.getCategoryById(categoryId)
+                match (categoryOpt) {
+                    case Some(cat) =>
+                        let targetPath = Path("${cat.scanPath}/${filename}")
+                        if (exists(targetPath)) {
+                            // 文件已存在，返回提示信息
+                            let response = "{\"success\":0,\"fileExists\":true,\"error\":\"文件已存在: ${escapeJsonString(filename)}\"}"
+                            ctx.json(response)
+                            return
+                        }
+                    case None => ()
+                }
+            }
 
             // 使用 createTaskFull 一次性创建任务并设置所有字段
             // 原来需要 3 次数据库连接，现在只需要 1 次
@@ -154,9 +208,10 @@ public class ChunkedUploadController {
 
             getLogger("chunked_upload").info("Retrieved task from database", ("taskName", task.name), ("taskStatus", task.status), ("taskParameters", task.parameters))
 
-            // 从任务参数中使用JsonStream解析JSON获取原始文件名和分类ID
+            // 从任务参数中使用JsonStream解析JSON获取原始文件名、分类ID和overwrite标志
             var originalFileName = "archive_${taskIdStr}.zip"  // 默认文件名
             var categoryId: String = ""  // 使用 catid 字符串类型
+            var overwrite = false  // 是否覆盖已存在的文件
             if (task.parameters.size > 0) {
                 try {
                     // 使用JsonStream解析存储的JSON
@@ -179,6 +234,10 @@ public class ChunkedUploadController {
                                         case "category_id" =>
                                             categoryId = reader.readValue<String>()
                                             getLogger("chunked_upload").info("从JSON中解析到分类ID", ("categoryId", categoryId))
+                                        case "overwrite" =>
+                                            let rawValue = reader.readValue<String>()
+                                            overwrite = rawValue == "true" || rawValue == "1"
+                                            getLogger("chunked_upload").info("从JSON中解析到覆盖标志", ("overwrite", overwrite.toString()))
                                         case _ =>
                                             let _ = reader.skip()
                                     }
@@ -259,6 +318,27 @@ public class ChunkedUploadController {
             }
 
             let finalArchivePath = Path("${archivePath}/${originalFileName}")
+
+            // 如果目标文件已存在且 overwrite 为 true，先删除旧文件
+            if (exists(finalArchivePath)) {
+                if (overwrite) {
+                    try {
+                        getLogger("chunked_upload").info("覆盖模式：删除已存在的文件", ("path", finalArchivePath.toString()))
+                        remove(finalArchivePath)
+                    } catch (e: Exception) {
+                        getLogger("chunked_upload").error("删除已存在文件失败", ("path", finalArchivePath.toString()), ("error", e.message))
+                        let errorResponse = "{\"success\":0,\"error\":\"删除已存在文件失败: ${e.message}\"}"
+                        ctx.status(HttpStatusCode.STATUS_INTERNAL_SERVER_ERROR)
+                        ctx.json(errorResponse)
+                        return
+                    }
+                } else {
+                    // 文件已存在但未设置覆盖，返回错误
+                    let errorResponse = "{\"success\":0,\"fileExists\":true,\"error\":\"文件已存在: ${escapeJsonString(originalFileName)}\"}"
+                    ctx.json(errorResponse)
+                    return
+                }
+            }
 
             // 移动文件到归档目录
             try {

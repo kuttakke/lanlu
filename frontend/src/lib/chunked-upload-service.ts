@@ -7,6 +7,7 @@ export interface UploadMetadata {
   summary?: string;
   categoryId?: string;
   fileChecksum?: string;
+  overwrite?: boolean;  // 是否覆盖已存在的文件
 }
 
 // 上传进度回调接口
@@ -21,6 +22,7 @@ export interface UploadResult {
   success: boolean;
   taskId?: string;
   error?: string;
+  fileExists?: boolean;  // 文件是否已存在
 }
 
 // 上传状态接口
@@ -87,7 +89,14 @@ export class ChunkedUploadService {
       const totalChunks = Math.ceil(file.size / this.CHUNK_SIZE);
 
       // 4. 初始化上传会话
-      taskId = await this.initUploadSession(file.name, file.size, fileHash, totalChunks, metadata);
+      const initResult = await this.initUploadSession(file.name, file.size, fileHash, totalChunks, metadata);
+
+      // 检查是否是文件已存在的情况
+      if (initResult && typeof initResult === 'object' && 'fileExists' in initResult) {
+        return { success: false, fileExists: true, error: initResult.error };
+      }
+
+      taskId = initResult as string | null;
       if (!taskId) {
         return { success: false, error: 'Failed to initialize upload session' };
       }
@@ -222,6 +231,7 @@ export class ChunkedUploadService {
 
   /**
    * 初始化上传会话
+   * 返回 taskId 或 null，如果文件已存在则返回特殊对象
    */
   private static async initUploadSession(
     fileName: string,
@@ -229,7 +239,7 @@ export class ChunkedUploadService {
     fileHash: string,
     totalChunks: number,
     metadata: UploadMetadata
-  ): Promise<string | null> {
+  ): Promise<string | { fileExists: true; error: string } | null> {
     try {
       // 调用服务器初始化上传会话 - 服务器会返回taskId
       try {
@@ -242,10 +252,15 @@ export class ChunkedUploadService {
           title: metadata.title || '',
           tags: metadata.tags || '',
           summary: metadata.summary || '',
-          category_id: metadata.categoryId || ''
+          category_id: metadata.categoryId || '',
+          overwrite: metadata.overwrite ? 'true' : 'false'
         });
 
         if (response.data.success !== 1) {
+          // 检查是否是文件已存在的情况
+          if (response.data.fileExists) {
+            return { fileExists: true, error: response.data.error || '文件已存在' };
+          }
           console.error('Server failed to initialize upload session:', response.data.error);
           return null;
         }
