@@ -69,7 +69,7 @@ public class PdfHandler <: ArchiveHandler {
         return getPdfPageCount(archivePath)
     }
 
-    public func getFirstImage(archivePath: String): (String, String) {
+    public func getFirstImage(_: String): (String, String) {
         return ("page_1.jpg", "")
     }
 

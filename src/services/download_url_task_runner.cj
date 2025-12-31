@@ -154,7 +154,6 @@ public class DownloadUrlTaskRunner {
 
             var fileName = ""
             var pluginTarget = Path("")
-            var pluginRelativePath = ""
 
             // 处理数组中的第一个（也是唯一的）档案
             let downloadedRelativePath = downloadedRelativePaths.get(0).getOrThrow()
@@ -166,7 +165,6 @@ public class DownloadUrlTaskRunner {
                     return
                 }
 
-                pluginRelativePath = downloadedRelativePath
                 pluginTarget = Path("./data/${downloadedRelativePath}")
                 if (!exists(pluginTarget)) {
                     fail(taskId, "Plugin downloaded file not found")
@@ -188,7 +186,6 @@ public class DownloadUrlTaskRunner {
                     fail(taskId, "Failed to download file from plugin url")
                     return
                 }
-                pluginRelativePath = "plugins/${plugin.namespace}/${fileName}"
             }
 
             TaskModel.updateTaskProgress(taskId, 60, "移动到archive")

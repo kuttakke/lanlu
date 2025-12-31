@@ -833,7 +833,7 @@ public class TagDao {
         // 构建翻译后的标签字符串
         var translatedTags: ArrayList<String> = ArrayList<String>()
         for (tag in tags) {
-            let (namespace, name) = parseTagName(tag)
+            let (namespace, _) = parseTagName(tag)
             // 查找翻译
             match (translationsMap.get(tag)) {
                 case Some(translatedText) =>
@@ -876,7 +876,7 @@ public class TagDao {
         // 构建反向映射：翻译文本 -> 原始标签
         var reverseMap: HashMap<String, String> = HashMap<String, String>()
         for ((originalTag, translatedText) in allTranslationsMap) {
-            let (namespace, name) = parseTagName(originalTag)
+            let (namespace, _) = parseTagName(originalTag)
             let key = if (namespace.size > 0) {
                 "${namespace}:${translatedText}"
             } else {

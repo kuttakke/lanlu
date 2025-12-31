@@ -24,7 +24,6 @@ public class CronExpression {
      * If no match is found within 5 years, returns None.
      */
     public func next(after: DateTime): Option<DateTime> {
-        let zone = after.zone
         var candidate = normalizeStart(after)
         let limit = after + (Duration.day * (366 * 5))
 

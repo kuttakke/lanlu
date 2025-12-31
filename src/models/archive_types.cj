@@ -36,10 +36,10 @@ public class ArchiveTypes {
      */
     public static func getDisplayName(`type`: String): String {
         match (`type`) {
-            case ARCHIVE => "压缩包"
-            case FOLDER => "文件夹"
-            case PDF => "PDF文件"
-            case EPUB => "EPUB电子书"
+            case "archive" => "压缩包"
+            case "folder" => "文件夹"
+            case "pdf" => "PDF文件"
+            case "epub" => "EPUB电子书"
             case _ => "未知"
         }
     }

@@ -149,7 +149,7 @@ public class TankoubonModel {
     /**
      * 更新单行本
      */
-    public static func updateTankoubon(id: String, name: String, summary: String, tags: String, _: Array<String>): Bool {
+    public static func updateTankoubon(id: String, name: String, summary: String, _: String, _: Array<String>): Bool {
         return TankoubonDao.updateTankoubon(id, name, summary)
     }
 

@@ -681,20 +681,9 @@ public class CronService {
     }
 
     /**
-     * 触发目录扫描任务（已废弃，使用 scan_all_categories 代替）
-     */
-    public func triggerDirectoryScan(scanPath!: String = "", priority!: Int32 = 30, triggerSource!: String = "manual"): Int64 {
-        let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
-        let params = "{}"
-        let task = TaskModel.createTaskWithOptions("目录扫描", "scan_all_categories", params, priority, "", source)
-        TaskPoolService.getInstance().notifyTaskAvailable()
-        return task.id
-    }
-
-    /**
      * 触发分类扫描任务
      */
-    public func triggerCategoryScan(catid: String, scanPath: String, priority: Int32, triggerSource: String): Int64 {
+    public func triggerCategoryScan(catid: String, _: String, priority: Int32, triggerSource: String): Int64 {
         let source = if (triggerSource.size > 0) { triggerSource } else { "manual" }
         let params = "{\"category_id\":\"${escapeJson(catid)}\"}"
         let task = TaskModel.createTaskWithOptions("分类扫描", "scan_single_category", params, priority, "category_scan:${catid}", source)

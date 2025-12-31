@@ -174,7 +174,7 @@ public class SystemSettingsService {
     /**
      * 获取英文描述翻译
      */
-    private static func getEnglishDescription(key: String, zhDescription: String): String {
+    private static func getEnglishDescription(_: String, zhDescription: String): String {
         // 根据中文描述返回英文翻译
         let translations = HashMap<String, String>()
         translations["归档文件目录路径"] = "Archive Directory Path"

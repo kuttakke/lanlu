@@ -36,10 +36,6 @@ public class ScanArchiveTaskRunner {
                 FileUtils.ensureDirectoryExists(cachePath)
                 FileUtils.ensureDirectoryExists(thumbnailPath)
 
-                // 转换为 Path 类型并规范化
-                let cachePathCanonical = canonicalize(cachePathStr)
-                let thumbnailPathCanonical = canonicalize(thumbnailPathStr)
-
                 initialized = true
             } catch (e: Exception) {
                 // 即使初始化失败，也设置为 true 避免死锁

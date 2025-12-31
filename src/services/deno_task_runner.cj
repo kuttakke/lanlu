@@ -1,7 +1,6 @@
 package lrr4cj.services
 
 import std.process.*
-import std.time.*
 import std.collection.*
 import std.fs.*
 import stdx.encoding.json.*
@@ -59,12 +58,11 @@ public class DenoTaskRunner {
      */
     public static func run(taskId: Int64, parameters: String): Unit {
         ensureInitialized()
-        let logger = getLogger("deno_task")
         TaskIO.appendLog(taskId, "deno_task started")
         TaskModel.updateTaskProgress(taskId, 1, "Deno任务开始")
 
         // 解析参数
-        let (pluginNamespace, pluginType, action, groupId, archiveId, oneshotParam, extraParams, url) = parseParameters(parameters)
+        let (pluginNamespace, pluginType, _, groupId, archiveId, oneshotParam, extraParams, url) = parseParameters(parameters)
 
         if (pluginNamespace.size == 0 || pluginType.size == 0) {
             fail(taskId, "pluginNamespace and pluginType are required")
@@ -348,7 +346,7 @@ public class DenoTaskRunner {
     /**
      * 构建 Deno 权限参数
      */
-    private static func buildDenoPermissions(plugin: PluginData, pluginFile: String): ArrayList<String> {
+    private static func buildDenoPermissions(plugin: PluginData, _: String): ArrayList<String> {
         var denoArgs = ArrayList<String>()
         denoArgs.add("run")
 
@@ -470,7 +468,7 @@ public class DenoTaskRunner {
     /**
      * 执行登录插件
      */
-    private static func executeLoginPluginDirect(taskId: Int64, plugin: PluginData): DenoExecutionResult {
+    private static func executeLoginPluginDirect(_: Int64, plugin: PluginData): DenoExecutionResult {
         let logger = getLogger("deno_task")
         let pluginFile = "./data/plugins/${plugin.namespace}/Login.ts"
 
@@ -571,7 +569,7 @@ public class DenoTaskRunner {
      * 执行元数据插件
      */
     private static func executeMetadataPlugin(
-        taskId: Int64,
+        _: Int64,
         plugin: PluginData,
         archiveId: String,
         oneshotParam: String,
@@ -683,7 +681,7 @@ public class DenoTaskRunner {
      * 执行下载插件
      */
     private static func executeDownloadPlugin(
-        taskId: Int64,
+        _: Int64,
         plugin: PluginData,
         url: String,
         loginCookiesJson: String
