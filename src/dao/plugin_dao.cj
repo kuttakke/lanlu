@@ -251,34 +251,37 @@ public class PluginDao {
             case Some(handle) =>
                 let conn = handle.connection
                 try {
-                let stmt = conn.prepareStatement(
-                    "INSERT INTO plugins (name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                    let stmt = conn.prepareStatement(
+                        "INSERT INTO plugins (name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                    try {
+                        stmt.set(0, plugin.name)
+                        stmt.set(1, plugin.namespace)
+                        stmt.set(2, plugin.version)
+                        stmt.set(3, plugin.description)
+                        stmt.set(4, plugin.author)
+                        stmt.set(5, plugin.entry)
+                        stmt.set(6, plugin.plugin_type)
+                        stmt.set(7, plugin.tags)
+                        stmt.set(8, plugin.url_regex)
+                        stmt.set(9, plugin.login_from)
+                        stmt.set(10, plugin.permissions)
+                        stmt.set(11, plugin.icon)
+                        stmt.set(12, plugin.enabled)
+                        stmt.set(13, plugin.installed)
+                        stmt.set(14, plugin.has_schema)
+                        stmt.set(15, plugin.parameters)
 
-                stmt.set(0, plugin.name)
-                stmt.set(1, plugin.namespace)
-                stmt.set(2, plugin.version)
-                stmt.set(3, plugin.description)
-                stmt.set(4, plugin.author)
-                stmt.set(5, plugin.entry)
-                stmt.set(6, plugin.plugin_type)
-                stmt.set(7, plugin.tags)
-                stmt.set(8, plugin.url_regex)
-                stmt.set(9, plugin.login_from)
-                stmt.set(10, plugin.permissions)
-                stmt.set(11, plugin.icon)
-                stmt.set(12, plugin.enabled)
-                stmt.set(13, plugin.installed)
-                stmt.set(14, plugin.has_schema)
-                stmt.set(15, plugin.parameters)
-
-                stmt.update()
-                DatabaseConfig.releasePooledConnection(handle)
-                return true
-            } catch (e: Exception) {
-                getLogger("plugin_dao").error("创建插件失败", ("error", e.message), ("namespace", plugin.namespace))
-                DatabaseConfig.releasePooledConnection(handle)
-                return false
-            }
+                        stmt.update()
+                        return true
+                    } finally {
+                        try { stmt.close() } catch (_: Exception) {}
+                    }
+                } catch (e: Exception) {
+                    getLogger("plugin_dao").error("创建插件失败", ("error", e.message), ("namespace", plugin.namespace))
+                    return false
+                } finally {
+                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                }
             case None =>
                 getLogger("plugin_dao").error("无法连接到数据库")
                 return false
@@ -395,22 +398,28 @@ public class PluginDao {
             case Some(handle) =>
                 let conn = handle.connection
                 try {
-                let stmt = conn.prepareStatement("SELECT COUNT(*) FROM plugins WHERE namespace = ?")
-                stmt.set(0, namespace)
-                let rs = stmt.query()
-
-                var count: Int64 = 0
-                if (rs.next()) {
-                    count = rs.getOrNull<Int64>(0) ?? 0
+                    let stmt = conn.prepareStatement("SELECT COUNT(*) FROM plugins WHERE namespace = ?")
+                    try {
+                        stmt.set(0, namespace)
+                        let rs = stmt.query()
+                        try {
+                            var count: Int64 = 0
+                            if (rs.next()) {
+                                count = rs.getOrNull<Int64>(0) ?? 0
+                            }
+                            return count > 0
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("plugin_dao").error("检查插件存在性失败", ("error", e.message), ("namespace", namespace))
+                    return false
+                } finally {
+                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
                 }
-
-                DatabaseConfig.releasePooledConnection(handle)
-                return count > 0
-            } catch (e: Exception) {
-                getLogger("plugin_dao").error("检查插件存在性失败", ("error", e.message), ("namespace", namespace))
-                DatabaseConfig.releasePooledConnection(handle)
-                return false
-            }
             case None =>
                 getLogger("plugin_dao").error("无法连接到数据库")
                 return false
