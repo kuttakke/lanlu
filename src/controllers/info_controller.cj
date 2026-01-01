@@ -3,7 +3,7 @@ package lrr4cj.controllers
 import cjoy.*
 import std.time.*
 import lrr4cj.dao.*
-import lrr4cj.services.*
+import lrr4cj.models.*
 
 /**
  * Info API 控制器

@@ -1,4 +1,4 @@
-package lrr4cj.services
+package lrr4cj.models
 
 import std.collection.*
 import std.sync.*

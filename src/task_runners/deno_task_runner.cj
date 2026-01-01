@@ -422,31 +422,6 @@ public class DenoTaskRunner {
         return netAll
     }
 
-    /**
-     * 执行命令并获取输出
-     */
-    private static func executeWithOutput(command: String, args: Array<String>): (Int32, Array<UInt8>, Array<UInt8>) {
-        try {
-            if (args.size == 2) {
-                let process = launch(command, args[0], args[1],
-                    stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let (exitCode, stdout, stderr) = process.waitOutput()
-                return (Int32(exitCode), stdout, stderr)
-            } else {
-                var fullCmd = command
-                for (arg in args) {
-                    fullCmd += " " + escapeShellArg(arg)
-                }
-                let process = launch("sh", "-c", fullCmd,
-                    stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let (exitCode, stdout, stderr) = process.waitOutput()
-                return (Int32(exitCode), stdout, stderr)
-            }
-        } catch (_: Exception) {
-            return (1, Array<UInt8>(), Array<UInt8>())
-        }
-    }
-
     private static func escapeShellArg(arg: String): String {
         if (arg.size == 0) { return "''" }
         let safe = arg.replace("'", "'\"'\"'")

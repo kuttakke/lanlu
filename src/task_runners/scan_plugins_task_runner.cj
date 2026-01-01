@@ -363,58 +363,6 @@ public class ScanPluginsTaskRunner {
     }
 
     /**
-     * 执行命令
-     */
-    private static func executeWithOutput(taskId: Int64, command: String, args: Array<String>): (Int32, Array<UInt8>, Array<UInt8>) {
-        try {
-            // 构建完整的命令字符串用于日志，对包含空格的参数加引号
-            var fullCmd = command
-            for (arg in args) {
-                if (arg.contains(" ") || arg.contains("\t") || arg.contains("\"") || arg.contains("'")) {
-                    fullCmd += " \"" + arg.replace("\"", "\\\"") + "\""
-                } else {
-                    fullCmd += " " + arg
-                }
-            }
-            TaskIO.appendLog(taskId, "Executing command: ${fullCmd}")
-
-            if (args.size == 0) {
-                // 没有参数的情况
-                let process = launch(command, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let (exitCode, stdout, stderr) = process.waitOutput()
-                return (Int32(exitCode), stdout, stderr)
-            } else if (args.size == 1) {
-                // 一个参数的情况
-                let process = launch(command, args[0], stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let (exitCode, stdout, stderr) = process.waitOutput()
-                return (Int32(exitCode), stdout, stderr)
-            } else if (args.size == 2) {
-                // 两个参数的情况
-                let process = launch(command, args[0], args[1], stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let (exitCode, stdout, stderr) = process.waitOutput()
-                return (Int32(exitCode), stdout, stderr)
-            } else if (args.size == 3) {
-                // 三个参数的情况
-                let process = launch(command, args[0], args[1], args[2], stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let (exitCode, stdout, stderr) = process.waitOutput()
-                return (Int32(exitCode), stdout, stderr)
-            } else if (args.size == 4) {
-                // 四个参数的情况
-                let process = launch(command, args[0], args[1], args[2], args[3], stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-                let (exitCode, stdout, stderr) = process.waitOutput()
-                return (Int32(exitCode), stdout, stderr)
-            } else {
-                // 更多参数的情况，暂时返回错误
-                TaskIO.appendLog(taskId, "ERROR: Too many arguments for command: ${fullCmd}")
-                return (1, Array<UInt8>(), Array<UInt8>())
-            }
-        } catch (e: Exception) {
-            TaskIO.appendLog(taskId, "ERROR: Error executing command '${command}': ${e.message}")
-            return (1, Array<UInt8>(), Array<UInt8>())
-        }
-    }
-
-    /**
      * 获取当前时间戳（毫秒）
      */
     private static func getCurrentTimeMillis(): Int64 {
