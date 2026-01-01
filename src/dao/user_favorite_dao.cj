@@ -28,10 +28,10 @@ public class UserFavoriteDao {
      */
     public static func addFavorite(userId: Int64, archiveId: Int64): Bool {
         let logger = getLogger("user_favorite_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 使用 INSERT OR IGNORE 避免重复收藏
                     let stmt = conn.prepareStatement("""
@@ -51,7 +51,7 @@ public class UserFavoriteDao {
                     logger.error("添加收藏失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 logger.error("无法连接到数据库")
@@ -64,10 +64,10 @@ public class UserFavoriteDao {
      */
     public static func removeFavorite(userId: Int64, archiveId: Int64): Bool {
         let logger = getLogger("user_favorite_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         DELETE FROM user_favorites
@@ -85,7 +85,7 @@ public class UserFavoriteDao {
                     logger.error("取消收藏失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 logger.error("无法连接到数据库")
@@ -97,10 +97,10 @@ public class UserFavoriteDao {
      * 检查是否已收藏
      */
     public static func isFavorite(userId: Int64, archiveId: Int64): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT COUNT(*) FROM user_favorites
@@ -125,7 +125,7 @@ public class UserFavoriteDao {
                 } catch (_: Exception) {
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return false
         }
@@ -136,10 +136,10 @@ public class UserFavoriteDao {
      */
     public static func getUserFavorites(userId: Int64): Array<Int64> {
         let result = ArrayList<Int64>()
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT archive_id FROM user_favorites
@@ -165,7 +165,7 @@ public class UserFavoriteDao {
                 } catch (e: Exception) {
                     getLogger("user_favorite_dao").error("获取用户收藏失败", ("error", e.message))
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("user_favorite_dao").error("无法连接到数据库")
@@ -178,10 +178,10 @@ public class UserFavoriteDao {
      */
     public static func getUserFavoriteArcids(userId: Int64): Array<String> {
         let result = ArrayList<String>()
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT a.arcid FROM user_favorites uf
@@ -208,7 +208,7 @@ public class UserFavoriteDao {
                 } catch (e: Exception) {
                     getLogger("user_favorite_dao").error("获取用户收藏arcid失败", ("error", e.message))
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("user_favorite_dao").error("无法连接到数据库")
@@ -227,10 +227,10 @@ public class UserFavoriteDao {
             return result
         }
 
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 构建 IN 子句的占位符
                     var inClause = ""
@@ -280,7 +280,7 @@ public class UserFavoriteDao {
                         result[archiveId] = false
                     }
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 // 无法连接时，所有档案默认为未收藏
@@ -303,10 +303,10 @@ public class UserFavoriteDao {
             return result
         }
 
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 构建 IN 子句的占位符
                     var inClause = ""
@@ -349,7 +349,7 @@ public class UserFavoriteDao {
                 } catch (_: Exception) {
                     // 出错时返回空结果
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => ()
         }
@@ -362,10 +362,10 @@ public class UserFavoriteDao {
      */
     public static func deleteByUserId(userId: Int64): Bool {
         let logger = getLogger("user_favorite_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("DELETE FROM user_favorites WHERE user_id = ?")
                     try {
@@ -379,7 +379,7 @@ public class UserFavoriteDao {
                     logger.error("删除用户收藏失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return false
         }
@@ -390,10 +390,10 @@ public class UserFavoriteDao {
      */
     public static func deleteByArchiveId(archiveId: Int64): Bool {
         let logger = getLogger("user_favorite_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("DELETE FROM user_favorites WHERE archive_id = ?")
                     try {
@@ -407,7 +407,7 @@ public class UserFavoriteDao {
                     logger.error("删除档案收藏失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return false
         }
@@ -417,10 +417,10 @@ public class UserFavoriteDao {
      * 获取收藏数量
      */
     public static func getFavoriteCount(userId: Int64): Int64 {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT COUNT(*) FROM user_favorites WHERE user_id = ?
@@ -442,7 +442,7 @@ public class UserFavoriteDao {
                 } catch (_: Exception) {
                     return 0
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return 0
         }
@@ -455,10 +455,10 @@ public class UserFavoriteDao {
     public static func getUserFavoriteArchives(userId: Int64, start: Int32, count: Int32): (Array<ArchiveData>, Int64) {
         let result = ArrayList<ArchiveData>()
         var totalCount: Int64 = 0
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 先获取总数
                     let countStmt = conn.prepareStatement("""
@@ -526,7 +526,7 @@ public class UserFavoriteDao {
                     getLogger("user_favorite_dao").error("获取用户收藏档案详情失败", ("error", e.message), ("stack", e.toString()))
                     getLogger("user_favorite_dao").error("查询参数", ("userId", userId.toString()), ("start", start.toString()), ("count", count.toString()))
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("user_favorite_dao").error("无法连接到数据库")

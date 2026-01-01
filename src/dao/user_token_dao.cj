@@ -35,10 +35,10 @@ public class CreateTokenResult {
 public class UserTokenDao {
     public static func createTable(): Bool {
         let logger = getLogger("user_token_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 先检查表是否已存在
                     let checkStmt = conn.prepareStatement("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'user_tokens' AND table_schema = 'public'")
@@ -105,7 +105,7 @@ public class UserTokenDao {
                     logger.error("异常类型: ${e.toString()}")
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 logger.error("无法创建数据库连接")
@@ -123,10 +123,10 @@ public class UserTokenDao {
         let tokenHash = AuthUtils.sha256Hex("${token}:${pepper}")
         let actualType = if (tokenType == "api" || tokenType == "session") { tokenType } else { "session" }
 
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         INSERT INTO user_tokens (user_id, name, token_type, token_prefix, token_hash)
@@ -157,17 +157,17 @@ public class UserTokenDao {
                 } catch (_: Exception) {
                     return None
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return None
         }
     }
 
     public static func findActiveByHash(tokenHash: String): UserTokenRow {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, user_id, name, token_type, token_prefix, token_hash, created_at,
@@ -202,17 +202,17 @@ public class UserTokenDao {
                 } catch (_: Exception) {
                     return UserTokenRow()
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return UserTokenRow()
         }
     }
 
     public static func touch(tokenId: Int64): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE user_tokens SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?")
                     stmt.set(0, tokenId)
@@ -222,7 +222,7 @@ public class UserTokenDao {
                 } catch (_: Exception) {
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return false
         }
@@ -234,10 +234,10 @@ public class UserTokenDao {
 
     public static func listByUserAndType(userId: Int64, tokenType: Option<String>): Array<UserTokenRow> {
         var out: ArrayList<UserTokenRow> = ArrayList<UserTokenRow>()
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let sql = match (tokenType) {
                         case Some(t) => """
@@ -286,7 +286,7 @@ public class UserTokenDao {
                 } catch (_: Exception) {
                     ()
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => ()
         }
@@ -294,10 +294,10 @@ public class UserTokenDao {
     }
 
     public static func revoke(userId: Int64, tokenId: Int64): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE user_tokens SET revoked_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? AND revoked_at IS NULL")
                     stmt.set(0, tokenId)
@@ -308,7 +308,7 @@ public class UserTokenDao {
                 } catch (_: Exception) {
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None => return false
         }

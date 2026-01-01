@@ -65,10 +65,10 @@ public class ArchiveDao {
      * 获取所有归档
      */
     public static func getAllArchives(): Array<ArchiveData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
                 try {
                     let stmt = conn.prepareStatement(
@@ -102,7 +102,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("查询归档失败", ("error", e.message))
                     return Array<ArchiveData>()
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -114,10 +114,10 @@ public class ArchiveDao {
      * 根据 ID 获取归档
      */
     public static func getArchiveById(id: String): ArchiveData {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement(
                         "SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, archive_type FROM archives WHERE arcid = ?")
@@ -149,7 +149,7 @@ public class ArchiveDao {
                 } catch (e: Exception) {
                     getLogger("archive_dao").error("查询归档失败", ("error", e.message))
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None => getLogger("archive_dao").error("无法连接到数据库")
         }
@@ -160,10 +160,10 @@ public class ArchiveDao {
      * 根据 arcid 获取 archives 表的内部 ID（INTEGER）
      */
     public static func getArchiveInternalId(arcid: String): Int64 {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("SELECT id FROM archives WHERE arcid = ?")
                     try {
@@ -182,7 +182,7 @@ public class ArchiveDao {
                 } catch (e: Exception) {
                     getLogger("archive_dao").error("查询归档内部ID失败", ("error", e.message))
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None => getLogger("archive_dao").error("无法连接到数据库")
         }
@@ -206,10 +206,10 @@ public class ArchiveDao {
     }
 
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, favoriteOnly: Bool, dateFrom: String, dateTo: String, userId: Int64): (Array<ArchiveData>, Int64) {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
                 try {
                 getLogger("archive_dao").debug("开始搜索归档",
@@ -545,11 +545,11 @@ public class ArchiveDao {
 
                 let resultArray = archives.toArray()
                 getLogger("archive_dao").info("查询完成", ("records", resultArray.size.toString()), ("total_count", totalCount.toString()))
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return (resultArray, totalCount)
             } catch (e: Exception) {
                 getLogger("archive_dao").error("搜索归档失败", ("error", e.message))
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return (Array<ArchiveData>(), 0)
             }
             case None =>
@@ -568,10 +568,10 @@ public class ArchiveDao {
             return mapping
         }
 
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 构建 IN 子句的占位符
                     var placeholders = ""
@@ -615,7 +615,7 @@ public class ArchiveDao {
                 } catch (e: Exception) {
                     getLogger("archive_dao").error("获取归档Tankoubon映射失败", ("error", e.message))
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -628,10 +628,10 @@ public class ArchiveDao {
      * 创建归档记录
      */
     public static func create(archive: ArchiveData): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement(
                         "INSERT INTO archives (arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -655,7 +655,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("创建归档失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -667,10 +667,10 @@ public class ArchiveDao {
      * 插入归档记录 - 专门为 ShinobuService 提供的方法
      */
     public static func insertArchive(archiveId: String, title: String, fileName: String, fileSize: Int64, _: Int64, filePath: String, archiveType: String, categoryId: Int64): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 使用数据库的默认值来处理时间戳，避免格式问题
                     let sql = "INSERT INTO archives (arcid, title, filename, summary, thumbhash, relative_path, file_size, pagecount, archive_type, category_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -697,7 +697,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("插入语句执行失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("Failed to connect to database")
@@ -709,10 +709,10 @@ public class ArchiveDao {
      * 更新归档记录
      */
     public static func update(archive: ArchiveData): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement(
                         "UPDATE archives SET title = ?, filename = ?, summary = ?, thumbhash = ?, updated_at = ?, relative_path = ?, file_size = ?, pagecount = ? WHERE arcid = ?")
@@ -735,7 +735,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("更新归档失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -747,10 +747,10 @@ public class ArchiveDao {
      * 删除归档记录
      */
     public static func delete(id: String): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("DELETE FROM archives WHERE arcid = ?")
                     try {
@@ -764,7 +764,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("删除归档失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -776,10 +776,10 @@ public class ArchiveDao {
      * 更新归档的页数
      */
     public static func updatePageCount(archiveId: String, pageCount: Int32): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE archives SET pagecount = ? WHERE arcid = ?")
                     try {
@@ -794,7 +794,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("更新归档页数失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -806,10 +806,10 @@ public class ArchiveDao {
      * 更新归档的缩略图hash
      */
     public static func updateThumbHash(archiveId: String, thumbHash: String): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE archives SET thumbhash = ? WHERE arcid = ?")
                     try {
@@ -824,7 +824,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("更新归档缩略图hash失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -836,10 +836,10 @@ public class ArchiveDao {
      * 同时更新归档的页数和缩略图hash
      */
     public static func updateArchiveDetails(archiveId: String, pageCount: Int32, thumbHash: String): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE archives SET pagecount = ?, thumbhash = ? WHERE arcid = ?")
                     try {
@@ -855,7 +855,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("更新归档详情失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -867,10 +867,10 @@ public class ArchiveDao {
      * 更新归档的相对路径
      */
     public static func updateArchiveRelativePath(archiveId: String, relativePath: String): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE archives SET relative_path = ? WHERE arcid = ?")
                     try {
@@ -885,7 +885,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("更新归档相对路径失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -897,10 +897,10 @@ public class ArchiveDao {
      * 获取所有没有缩略图的归档
      */
     public static func getArchivesWithoutThumbnails(): Array<ArchiveData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     var archives: ArrayList<ArchiveData> = ArrayList<ArchiveData>()
                     let stmt = conn.prepareStatement(
@@ -933,7 +933,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("获取无缩略图归档失败", ("error", e.message))
                     return Array<ArchiveData>()
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -945,10 +945,10 @@ public class ArchiveDao {
      * 检查归档是否存在
      */
     public static func exists(id: String): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                 let stmt = conn.prepareStatement("SELECT COUNT(*) FROM archives WHERE arcid = ?")
                 stmt.set(0, id)
@@ -959,11 +959,11 @@ public class ArchiveDao {
                     count = rs.getOrNull<Int64>(0) ?? 0
                 }
                 
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return count > 0
             } catch (e: Exception) {
                 getLogger("archive_dao").error("检查归档存在性失败", ("error", e.message))
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return false
             }
             case None =>
@@ -976,10 +976,10 @@ public class ArchiveDao {
      * 根据文件路径获取归档信息
      */
     public static func getByPath(filePath: String): Option<ArchiveData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                 let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives WHERE relative_path = ?")
                 stmt.set(0, filePath)
@@ -998,15 +998,15 @@ public class ArchiveDao {
                     archive.file_size = rs.getOrNull<Int64>(8) ?? 0
                     archive.pagecount = rs.getOrNull<Int32>(9) ?? 0
 
-                    DatabaseConfig.releasePooledConnection(handle)
+                    conn.close()
                     return Some(archive)
                 } else {
-                    DatabaseConfig.releasePooledConnection(handle)
+                    conn.close()
                     return None
                 }
             } catch (e: Exception) {
                 getLogger("archive_dao").error("根据路径获取归档失败", ("error", e.message))
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return None
             }
             case None =>
@@ -1019,10 +1019,10 @@ public class ArchiveDao {
      * 根据相对路径和文件名获取归档
      */
     public static func getByPathAndFilename(relativePath: String, filename: String): Option<ArchiveData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("SELECT arcid, title, filename, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount FROM archives WHERE relative_path = ? AND filename = ?")
                     try {
@@ -1055,7 +1055,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("根据路径和文件名获取归档失败", ("error", e.message))
                     return None
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -1067,10 +1067,10 @@ public class ArchiveDao {
      * 获取归档的缩略图hash
      */
     public static func getThumbnailHash(archiveId: String): String {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("SELECT thumbhash FROM archives WHERE arcid = ?")
                     try {
@@ -1091,7 +1091,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("获取缩略图hash失败", ("error", e.message))
                     return ""
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -1103,10 +1103,10 @@ public class ArchiveDao {
      * 根据 ID 获取归档元数据（包含标签）
      */
     public static func getArchiveMetadataById(id: String): ArchiveData {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                 // 使用 archives_with_tags 视图获取包含标签的数据
                 let stmt = conn.prepareStatement(
@@ -1132,17 +1132,17 @@ public class ArchiveDao {
                     // 关闭查询的资源
                     rs.close()
                     stmt.close()
-                    DatabaseConfig.releasePooledConnection(handle)
+                    conn.close()
                     return archive
                 }
 
                 // 关闭资源
                 rs.close()
                 stmt.close()
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
             } catch (e: Exception) {
                 getLogger("archive_dao").error("查询归档元数据失败", ("error", e.message))
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
             }
             case None => getLogger("archive_dao").error("无法连接到数据库")
         }
@@ -1153,10 +1153,10 @@ public class ArchiveDao {
      * 获取档案的 category_id
      */
     public static func getArchiveCategoryId(arcid: String): Int64 {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("SELECT category_id FROM archives WHERE arcid = ?")
                     try {
@@ -1177,7 +1177,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("获取档案分类ID失败", ("error", e.message))
                     return 0
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")
@@ -1189,10 +1189,10 @@ public class ArchiveDao {
      * 更新档案的 category_id
      */
     public static func updateArchiveCategoryId(arcid: String, categoryId: Int64): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE archives SET category_id = ? WHERE arcid = ?")
                     try {
@@ -1207,7 +1207,7 @@ public class ArchiveDao {
                     getLogger("archive_dao").error("更新档案分类ID失败", ("error", e.message))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 getLogger("archive_dao").error("无法连接到数据库")

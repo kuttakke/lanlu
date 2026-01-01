@@ -42,10 +42,10 @@ public class PluginDao {
      * 获取所有插件
      */
     public static func getAllPlugins(): Array<PluginData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 var plugins: ArrayList<PluginData> = ArrayList<PluginData>()
                 let stmt = conn.prepareStatement(
                     "SELECT id, name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters, created_at, updated_at FROM plugins ORDER BY id")
@@ -99,7 +99,7 @@ public class PluginDao {
                         getLogger("plugin_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                     }
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("plugin_dao").warn("关闭数据库连接失败: ${closeError.message}")
                     }
@@ -114,10 +114,10 @@ public class PluginDao {
      * 根据类型获取插件
      */
     public static func getPluginsByType(pluginType: String): Array<PluginData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 var plugins: ArrayList<PluginData> = ArrayList<PluginData>()
                 let stmt = conn.prepareStatement(
                     "SELECT id, name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters, created_at, updated_at FROM plugins WHERE LOWER(plugin_type) = LOWER(?) ORDER BY id")
@@ -172,7 +172,7 @@ public class PluginDao {
                         getLogger("plugin_dao").warn("关闭PreparedStatement失败: ${closeError.message}")
                     }
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("plugin_dao").warn("关闭数据库连接失败: ${closeError.message}")
                     }
@@ -187,10 +187,10 @@ public class PluginDao {
      * 根据namespace获取插件
      */
     public static func getPluginByNamespace(namespace: String): PluginData {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement(
                         "SELECT id, name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters, created_at, updated_at FROM plugins WHERE namespace = ?")
@@ -235,7 +235,7 @@ public class PluginDao {
                 } catch (e: Exception) {
                     getLogger("plugin_dao").error("根据namespace查询插件失败", ("error", e.message), ("namespace", namespace))
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None => getLogger("plugin_dao").error("无法连接到数据库")
         }
@@ -246,10 +246,10 @@ public class PluginDao {
      * 创建插件记录
      */
     public static func create(plugin: PluginData): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement(
                         "INSERT INTO plugins (name, namespace, version, description, author, entry, plugin_type, tags, url_regex, login_from, permissions, icon, enabled, installed, has_schema, parameters) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -280,7 +280,7 @@ public class PluginDao {
                     getLogger("plugin_dao").error("创建插件失败", ("error", e.message), ("namespace", plugin.namespace))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("plugin_dao").error("无法连接到数据库")
@@ -292,10 +292,10 @@ public class PluginDao {
      * 更新插件记录
      */
     public static func update(plugin: PluginData): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                 let stmt = conn.prepareStatement(
                     "UPDATE plugins SET name = ?, version = ?, description = ?, author = ?, entry = ?, plugin_type = ?, tags = ?, url_regex = ?, login_from = ?, permissions = ?, icon = ?, enabled = ?, installed = ?, has_schema = ?, parameters = ?, updated_at = CURRENT_TIMESTAMP WHERE namespace = ?")
@@ -318,11 +318,11 @@ public class PluginDao {
                 stmt.set(15, plugin.namespace)
 
                 stmt.update()
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return true
             } catch (e: Exception) {
                 getLogger("plugin_dao").error("更新插件失败", ("error", e.message), ("namespace", plugin.namespace))
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return false
             }
             case None =>
@@ -335,20 +335,20 @@ public class PluginDao {
      * 删除插件记录
      */
     public static func delete(namespace: String): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                 let stmt = conn.prepareStatement("DELETE FROM plugins WHERE namespace = ?")
                 stmt.set(0, namespace)
 
                 stmt.update()
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return true
             } catch (e: Exception) {
                 getLogger("plugin_dao").error("删除插件失败", ("error", e.message), ("namespace", namespace))
-                DatabaseConfig.releasePooledConnection(handle)
+                conn.close()
                 return false
             }
             case None =>
@@ -362,10 +362,10 @@ public class PluginDao {
      * 启用/禁用插件
      */
     public static func setEnabled(namespace: String, enabled: Bool): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("UPDATE plugins SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE namespace = ?")
                     try {
@@ -381,7 +381,7 @@ public class PluginDao {
                     getLogger("plugin_dao").error("设置插件状态失败", ("error", e.message), ("namespace", namespace))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("plugin_dao").error("无法连接到数据库")
@@ -393,10 +393,10 @@ public class PluginDao {
      * 检查插件是否存在
      */
     public static func exists(namespace: String): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("SELECT COUNT(*) FROM plugins WHERE namespace = ?")
                     try {
@@ -418,7 +418,7 @@ public class PluginDao {
                     getLogger("plugin_dao").error("检查插件存在性失败", ("error", e.message), ("namespace", namespace))
                     return false
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (closeException: Exception) {}
+                    try { conn.close() } catch (closeException: Exception) {}
                 }
             case None =>
                 getLogger("plugin_dao").error("无法连接到数据库")
@@ -430,10 +430,10 @@ public class PluginDao {
      * 获取已启用的插件
      */
     public static func getEnabledPlugins(pluginType: String): Array<PluginData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 var plugins: ArrayList<PluginData> = ArrayList<PluginData>()
                 try {
                     let stmt = conn.prepareStatement(
@@ -469,11 +469,11 @@ public class PluginDao {
                         plugins.add(plugin)
                     }
 
-                    DatabaseConfig.releasePooledConnection(handle)
+                    conn.close()
                     return plugins.toArray()
                 } catch (e: Exception) {
                     getLogger("plugin_dao").error("查询已启用插件失败", ("error", e.message), ("type", pluginType))
-                    DatabaseConfig.releasePooledConnection(handle)
+                    conn.close()
                     return Array<PluginData>()
                 }
             case None =>

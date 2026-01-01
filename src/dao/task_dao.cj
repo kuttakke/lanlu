@@ -41,10 +41,10 @@ public class TaskDao {
      */
     public static func createTable(): Bool {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 首先检查表是否存在
                     let checkTable = conn.prepareStatement("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'tasks')")
@@ -76,7 +76,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("释放连接失败: ${closeError.message}")
                     }
@@ -91,10 +91,10 @@ public class TaskDao {
      * 创建任务（含扩展字段）
      */
     public static func createTaskData(data: TaskData): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         INSERT INTO tasks (name, task_type, status, progress, message, plugin_namespace, parameters, result, priority, group_id, timeout_at, trigger_source, started_at, completed_at)
@@ -161,7 +161,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("释放连接失败: ${closeError.message}")
                     }
@@ -187,10 +187,10 @@ public class TaskDao {
         triggerSource: String
     ): Option<Int64> {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         INSERT INTO tasks (name, task_type, status, progress, message, plugin_namespace, parameters, result, priority, group_id, timeout_at, trigger_source, started_at, completed_at)
@@ -224,7 +224,7 @@ public class TaskDao {
                     logger.error("创建完整任务失败", ("error", e.message))
                     return None
                 } finally {
-                    try { DatabaseConfig.releasePooledConnection(handle) } catch (_: Exception) {}
+                    try { conn.close() } catch (_: Exception) {}
                 }
             case None =>
                 logger.error("无法创建数据库连接")
@@ -236,10 +236,10 @@ public class TaskDao {
      * 根据ID获取任务
      */
     public static func getTaskDataById(id: Int64): TaskData {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, task_type, status, progress, message, plugin_namespace, parameters, result,
@@ -293,7 +293,7 @@ public class TaskDao {
                     return TaskData()
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -308,10 +308,10 @@ public class TaskDao {
      * 更新任务状态
      */
     public static func updateTaskStatus(id: Int64, status: String, message: String, progress: Int32): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         UPDATE tasks SET status = ?, message = ?, progress = ?
@@ -338,7 +338,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -353,10 +353,10 @@ public class TaskDao {
      * 更新任务完整信息
      */
     public static func updateTaskData(data: TaskData): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         UPDATE tasks SET
@@ -417,7 +417,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -432,10 +432,10 @@ public class TaskDao {
      * 删除任务
      */
     public static func deleteTask(id: Int64): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("DELETE FROM tasks WHERE id = ?")
                     try {
@@ -455,7 +455,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -470,10 +470,10 @@ public class TaskDao {
      * 检查任务是否存在
      */
     public static func taskExists(id: Int64): Bool {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("SELECT COUNT(*) FROM tasks WHERE id = ?")
                     try {
@@ -506,7 +506,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -521,10 +521,10 @@ public class TaskDao {
      * 获取任务总数
      */
     public static func getTaskCount(): Int32 {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("SELECT COUNT(*) FROM tasks")
                     let rs = stmt.query()
@@ -548,7 +548,7 @@ public class TaskDao {
                     return 0
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -566,10 +566,10 @@ public class TaskDao {
      * @return 任务数据数组
      */
     public static func getTasksWithPagination(offset: Int32, limit: Int32): Array<TaskData> {
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, task_type, status, progress, message, plugin_namespace, parameters, result, priority, group_id, timeout_at, trigger_source, created_at, started_at, completed_at
@@ -637,7 +637,7 @@ public class TaskDao {
                     return Array<TaskData>()
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         getLogger("task_dao").warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -653,10 +653,10 @@ public class TaskDao {
      */
     public static func updateTaskParameters(id: Int64, parameters: String): Bool {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let sql = "UPDATE tasks SET parameters = ? WHERE id = ?"
                     let pstmt = conn.prepareStatement(sql)
@@ -679,7 +679,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -695,10 +695,10 @@ public class TaskDao {
      */
     public static func updateTaskType(id: Int64, taskType: String): Bool {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let sql = "UPDATE tasks SET task_type = ? WHERE id = ?"
                     let pstmt = conn.prepareStatement(sql)
@@ -717,7 +717,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -733,10 +733,10 @@ public class TaskDao {
      */
     public static func updateTaskPluginNamespace(id: Int64, pluginNamespace: String): Bool {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let sql = "UPDATE tasks SET plugin_namespace = ? WHERE id = ?"
                     let pstmt = conn.prepareStatement(sql)
@@ -754,7 +754,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -771,10 +771,10 @@ public class TaskDao {
      */
     public static func recoverOrphanedTasks(): Int64 {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 更新所有非终态任务为失败状态
                     let updateSql = """
@@ -803,7 +803,7 @@ public class TaskDao {
                     return 0
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -819,10 +819,10 @@ public class TaskDao {
      */
     public static func hasRecentTask(taskType: String, triggerSource: String, withinSeconds: Int32): Bool {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let sql = """
                         SELECT COUNT(*) FROM tasks
@@ -862,7 +862,7 @@ public class TaskDao {
                     return false
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -878,10 +878,10 @@ public class TaskDao {
      */
     public static func getTasksByTriggerSource(triggerSource: String, limit: Int32): Array<TaskData> {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, task_type, status, progress, message, plugin_namespace, parameters, result,
@@ -949,7 +949,7 @@ public class TaskDao {
                     return Array<TaskData>()
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -965,10 +965,10 @@ public class TaskDao {
      */
     public static func getTasksByGroupId(groupId: String): Array<TaskData> {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT id, name, task_type, status, progress, message, plugin_namespace, parameters, result,
@@ -1034,7 +1034,7 @@ public class TaskDao {
                     return Array<TaskData>()
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -1050,10 +1050,10 @@ public class TaskDao {
      */
     public static func updateTaskStatusByGroupId(groupId: String, status: String, message: String): Int64 {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     let stmt = conn.prepareStatement("""
                         UPDATE tasks
@@ -1081,7 +1081,7 @@ public class TaskDao {
                     return 0
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
@@ -1097,10 +1097,10 @@ public class TaskDao {
      */
     public static func claimNextPendingTask(): Option<TaskData> {
         let logger = getLogger("task_dao")
-        let handleOpt = DatabaseConfig.getPooledConnection()
-        match (handleOpt) {
-            case Some(handle) =>
-                let conn = handle.connection
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case Some(conn) =>
+                
                 try {
                     // 使用单条UPDATE + 子查询实现原子领取
                     let stmt = conn.prepareStatement("""
@@ -1157,7 +1157,7 @@ public class TaskDao {
                     return Option<TaskData>.None
                 } finally {
                     try {
-                        DatabaseConfig.releasePooledConnection(handle)
+                        conn.close()
                     } catch (closeError: Exception) {
                         logger.warn("关闭Connection失败: ${closeError.message}")
                     }
