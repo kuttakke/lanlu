@@ -38,33 +38,81 @@ export interface PluginResult {
 }
 
 /**
+ * 插件输入（从 stdin 读取）
+ */
+export interface PluginInput {
+  action: 'plugin_info' | 'run';
+  pluginType: string;
+  archiveId?: string;
+  archiveTitle?: string;
+  existingTags?: string;
+  thumbnailHash?: string;
+  oneshotParam?: string;
+  params?: Record<string, any>;
+  loginCookies?: Array<{ name: string; value: string; domain?: string; path?: string }>;
+  url?: string;
+}
+
+/**
  * 插件基础接口
  */
 export abstract class BasePlugin {
+  protected input: PluginInput | null = null;
+
   abstract getPluginInfo(): PluginInfo;
 
-  protected async log(level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR', message: string, meta?: unknown): Promise<void> {
-    try {
-      const ts = new Date().toISOString();
-      const namespace = this.getPluginInfo()?.namespace || 'unknown';
-      const metaStr = meta === undefined ? '' : ` meta=${this.safeJson(meta)}`;
-      const line = `${ts} ${level} namespace=${namespace} msg=${message}${metaStr}\n`;
+  /**
+   * 从 stdin 读取输入（逐行读取，避免等待 EOF）
+   */
+  protected async readInput(): Promise<PluginInput> {
+    const reader = Deno.stdin.readable.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-      try {
-        await Deno.writeTextFile('./data/logs/plugins.log', line, { append: true });
-        return;
-      } catch {
-        // ignore and fall back
-      }
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      try {
-        await Deno.writeTextFile(`./data/plugins/${namespace}/plugins.log`, line, { append: true });
-      } catch {
-        // ignore logging failures
+      buffer += decoder.decode(value, { stream: true });
+
+      // 检查是否有完整的 JSON 行（以换行符结尾）
+      const newlineIndex = buffer.indexOf('\n');
+      if (newlineIndex !== -1) {
+        const jsonLine = buffer.slice(0, newlineIndex).trim();
+        reader.releaseLock();
+        if (jsonLine) {
+          return JSON.parse(jsonLine) as PluginInput;
+        }
       }
-    } catch {
-      // ignore logging failures
     }
+
+    // 如果没有换行符，尝试解析整个 buffer
+    reader.releaseLock();
+    const trimmed = buffer.trim();
+    if (trimmed) {
+      return JSON.parse(trimmed) as PluginInput;
+    }
+
+    throw new Error('No input received from stdin');
+  }
+
+  /**
+   * 输出进度消息
+   */
+  protected reportProgress(progress: number, message: string): void {
+    console.log(JSON.stringify({ type: 'progress', progress, message }));
+  }
+
+  /**
+   * 输出流式数据
+   */
+  protected emitData(key: string, value: unknown): void {
+    console.log(JSON.stringify({ type: 'data', key, value }));
+  }
+
+  protected async log(level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR', message: string, meta?: unknown): Promise<void> {
+    // 输出到 stdout 作为 NDJSON 消息
+    console.log(JSON.stringify({ type: 'log', level, message: meta ? `${message} ${this.safeJson(meta)}` : message }));
   }
 
   protected logDebug(message: string, meta?: unknown): Promise<void> {
@@ -81,68 +129,56 @@ export abstract class BasePlugin {
   }
 
   /**
-   * 处理命令行参数
+   * 处理命令 - 从 stdin 读取输入
    */
-  async handleCommand(args: string[]): Promise<void> {
-    const action = args.find(arg => arg.startsWith('--action='))?.split('=')[1];
+  async handleCommand(): Promise<void> {
+    try {
+      this.input = await this.readInput();
 
-    switch (action) {
-      case 'plugin_info':
-        await this.outputPluginInfo();
-        break;
-      case 'run':
-        await this.runPlugin(args);
-        break;
-      default:
-        this.outputError('Invalid action. Use --action=plugin_info or --action=run');
+      switch (this.input.action) {
+        case 'plugin_info':
+          await this.outputPluginInfo();
+          break;
+        case 'run':
+          await this.runPlugin(this.input);
+          break;
+        default:
+          this.outputResult({ success: false, error: 'Invalid action' });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.outputResult({ success: false, error: `Failed to read input: ${errorMessage}` });
     }
   }
 
   /**
-   * 输出插件信息JSON
+   * 输出插件信息JSON（作为 result 类型）
    */
   protected async outputPluginInfo(): Promise<void> {
     const info = this.getPluginInfo();
-    console.log(JSON.stringify(info, null, 2));
+    console.log(JSON.stringify({ type: 'result', success: true, data: info }));
   }
 
   /**
    * 运行插件逻辑（由子类实现）
    */
-  protected abstract runPlugin(args: string[]): Promise<void>;
+  protected abstract runPlugin(input: PluginInput): Promise<void>;
 
   /**
-   * 输出执行结果JSON
+   * 输出执行结果JSON（NDJSON 格式）
    */
   protected outputResult(result: PluginResult): void {
-    console.log(JSON.stringify(result));
+    console.log(JSON.stringify({ type: 'result', ...result }));
   }
 
   /**
-   * 输出错误信息
+   * 获取参数（从 input 中提取并进行类型转换）
    */
-  protected outputError(error: string): void {
-    console.log(JSON.stringify({ success: false, error }));
-  }
-
-  /**
-   * 从命令行参数中解析参数
-   */
-  protected parseParams(args: string[]): Record<string, any> {
-    const paramsArg = args.find(arg => arg.startsWith('--params='));
-    if (paramsArg) {
-      try {
-        const parsed = JSON.parse(paramsArg.substring(9));
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          return this.coerceParamsFromSchema(parsed as Record<string, unknown>);
-        }
-        return {};
-      } catch (e) {
-        console.error('Failed to parse params:', e);
-        return {};
-      }
+  protected getParams(): Record<string, any> {
+    if (!this.input?.params) {
+      return {};
     }
-    return {};
+    return this.coerceParamsFromSchema(this.input.params);
   }
 
   private coerceParamsFromSchema(params: Record<string, unknown>): Record<string, unknown> {
@@ -199,12 +235,5 @@ export abstract class BasePlugin {
     } catch {
       return '"<unserializable>"';
     }
-  }
-
-  /**
-   * 获取oneshot参数
-   */
-  protected getOneshotParam(args: string[]): string {
-    return args.find(arg => arg.startsWith('--oneshot='))?.substring(10) || '';
   }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env deno run --allow-net --allow-read
 
-import { BasePlugin, PluginInfo, PluginParameter, PluginResult } from '../base_plugin.ts';
+import { BasePlugin, PluginInfo, PluginInput, PluginResult } from '../base_plugin.ts';
 
 /**
  * E-Hentai元数据插件
@@ -37,20 +37,18 @@ class EHentaiMetadataPlugin extends BasePlugin {
     };
   }
 
-  protected async runPlugin(args: string[]): Promise<void> {
+  protected async runPlugin(input: PluginInput): Promise<void> {
     try {
-      const params = this.parseParams(args);
-      const oneshotParam = this.getOneshotParam(args);
-      const loginCookies = this.parseLoginCookies(args);
-      const archiveId = Deno.env.get('ARCHIVE_ID') || '';
+      this.reportProgress(5, '初始化元数据搜索...');
+      const params = this.getParams();
       const debug = !!params.debug;
 
       await this.logInfo("run:start", {
-        archive_id: archiveId,
-        has_oneshot: !!oneshotParam,
-        title_len: (Deno.env.get('ARCHIVE_TITLE') || '').length,
-        has_thumbhash: !!(Deno.env.get('THUMBNAIL_HASH') || ''),
-        login_cookie_count: loginCookies.length,
+        archive_id: input.archiveId || '',
+        has_oneshot: !!input.oneshotParam,
+        title_len: (input.archiveTitle || '').length,
+        has_thumbhash: !!(input.thumbnailHash || ''),
+        login_cookie_count: (input.loginCookies || []).length,
         usethumbs: !!params.usethumbs,
         search_gid: !!params.search_gid,
         enablepanda: !!params.enablepanda,
@@ -58,16 +56,20 @@ class EHentaiMetadataPlugin extends BasePlugin {
         debug
       });
 
-      // 从环境变量或参数中获取必要信息
+      this.reportProgress(10, '准备搜索参数...');
+
+      // 从 input 中获取必要信息
       const lrrInfo = {
-        archive_title: Deno.env.get('ARCHIVE_TITLE') || '',
-        existing_tags: Deno.env.get('EXISTING_TAGS') || '',
-        thumbnail_hash: Deno.env.get('THUMBNAIL_HASH') || '',
-        login_cookies: loginCookies,
-        oneshot_param: oneshotParam,
-        archive_id: archiveId,
+        archive_title: input.archiveTitle || '',
+        existing_tags: input.existingTags || '',
+        thumbnail_hash: input.thumbnailHash || '',
+        login_cookies: input.loginCookies || [],
+        oneshot_param: input.oneshotParam || '',
+        archive_id: input.archiveId || '',
         debug
       };
+
+      this.reportProgress(20, '开始搜索 E-Hentai...');
 
       const result = await this.getTags(
         lrrInfo,
@@ -80,10 +82,11 @@ class EHentaiMetadataPlugin extends BasePlugin {
         params.expunged || false
       );
 
+      this.reportProgress(100, '元数据获取完成');
       this.outputResult(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.outputError(`Plugin execution failed: ${errorMessage}`);
+      this.outputResult({ success: false, error: `Plugin execution failed: ${errorMessage}` });
     }
   }
 
@@ -441,31 +444,6 @@ class EHentaiMetadataPlugin extends BasePlugin {
       .replace(/&#39;/g, "'");
   }
 
-  private parseLoginCookies(
-    args: string[]
-  ): Array<{ name: string; value: string; domain?: string; path?: string }> {
-    const raw = args.find(arg => arg.startsWith('--login_cookies='))?.substring('--login_cookies='.length) || '';
-    if (!raw) {
-      return [];
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-      return parsed
-        .map((c: any) => ({
-          name: String(c?.name ?? ''),
-          value: String(c?.value ?? ''),
-          domain: c?.domain ? String(c.domain) : undefined,
-          path: c?.path ? String(c.path) : undefined
-        }))
-        .filter(c => c.name && c.value);
-    } catch {
-      return [];
-    }
-  }
-
   private cookieHeaderForUrl(
     url: string,
     cookies: Array<{ name: string; value: string; domain?: string; path?: string }>
@@ -521,5 +499,5 @@ class EHentaiMetadataPlugin extends BasePlugin {
 // 运行插件
 if (import.meta.main) {
   const plugin = new EHentaiMetadataPlugin();
-  await plugin.handleCommand(Deno.args);
+  await plugin.handleCommand();
 }

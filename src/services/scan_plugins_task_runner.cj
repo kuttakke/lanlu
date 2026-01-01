@@ -4,6 +4,7 @@ import std.fs.*
 import std.process.*
 import std.time.*
 import std.convert.*
+import std.io.*
 import stdx.encoding.json.*
 import lrr4cj.models.*
 import lrr4cj.utils.*
@@ -246,53 +247,54 @@ public class ScanPluginsTaskRunner {
         try {
             TaskIO.appendLog(taskId, "Parsing plugin metadata: ${filePath}")
 
-            // 使用 Deno 运行插件并传入 --action=plugin_info 参数
-            let (exitCode, stdout, stderr) = executeWithOutput(taskId, "deno", ["run", "--quiet", filePath, "--action=plugin_info"])
+            // 使用 stdio 方式运行插件获取信息
+            let (exitCode, stdout, stderr) = executePluginInfoWithStdio(taskId, filePath)
 
             if (exitCode == 0 && stdout.size > 0) {
                 let jsonStr = String.fromUtf8(stdout).trimAscii()
                 TaskIO.appendLog(taskId, "Plugin metadata raw output: ${jsonStr}")
 
-                let json = JsonValue.fromStr(jsonStr)
-                match (json) {
-                    case jsonObj: JsonObject =>
-                        let nameValue = getJsonString(jsonObj, "name")
-                        metadata.name = if (nameValue.size > 0) { nameValue } else { Path(filePath).fileName.toString() }
-                        metadata.namespace = getJsonString(jsonObj, "namespace")
-                        metadata.version = getJsonString(jsonObj, "version")
-                        metadata.description = getJsonString(jsonObj, "description")
-                        metadata.author = getJsonString(jsonObj, "author")
-                        metadata.tags = getJsonString(jsonObj, "tags")
-                        metadata.permissions = getJsonString(jsonObj, "permissions")
+                // 解析 NDJSON 格式的输出，查找 result 类型的消息
+                let pluginInfo = parsePluginInfoFromNdjson(jsonStr)
+                if (pluginInfo.size > 0) {
+                    let json = JsonValue.fromStr(pluginInfo)
+                    match (json) {
+                        case jsonObj: JsonObject =>
+                            let nameValue = getJsonString(jsonObj, "name")
+                            metadata.name = if (nameValue.size > 0) { nameValue } else { Path(filePath).fileName.toString() }
+                            metadata.namespace = getJsonString(jsonObj, "namespace")
+                            metadata.version = getJsonString(jsonObj, "version")
+                            metadata.description = getJsonString(jsonObj, "description")
+                            metadata.author = getJsonString(jsonObj, "author")
+                            metadata.tags = getJsonString(jsonObj, "tags")
+                            metadata.permissions = getJsonString(jsonObj, "permissions")
 
-                        // 解析parameters字段
-                        if (jsonObj.getFields().contains("parameters")) {
-                            let paramsValue = jsonObj.getFields()["parameters"]
-                            match (paramsValue) {
-                                case paramsArray: JsonArray =>
-                                    metadata.parameters = paramsArray.toString()
-                                    metadata.has_schema = paramsArray.size() > 0
-                                case _ =>
-                                    metadata.parameters = "[]"
-                                    metadata.has_schema = false
+                            // 解析parameters字段
+                            if (jsonObj.getFields().contains("parameters")) {
+                                let paramsValue = jsonObj.getFields()["parameters"]
+                                match (paramsValue) {
+                                    case paramsArray: JsonArray =>
+                                        metadata.parameters = paramsArray.toString()
+                                        metadata.has_schema = paramsArray.size() > 0
+                                    case _ =>
+                                        metadata.parameters = "[]"
+                                        metadata.has_schema = false
+                                }
                             }
-                        }
 
-                        // 解析其他可选字段
-                        metadata.url_regex = getJsonString(jsonObj, "url_regex")
-                        metadata.login_from = getJsonString(jsonObj, "login_from")
-                        metadata.icon = getJsonString(jsonObj, "icon")
+                            // 解析其他可选字段
+                            metadata.url_regex = getJsonString(jsonObj, "url_regex")
+                            metadata.login_from = getJsonString(jsonObj, "login_from")
+                            metadata.icon = getJsonString(jsonObj, "icon")
 
-                        TaskIO.appendLog(taskId, "Successfully parsed plugin metadata: name=${metadata.name}, namespace=${metadata.namespace}, version=${metadata.version}, has_schema=${metadata.has_schema}")
-                    case _ =>
-                        // 解析失败，使用文件名作为默认信息
-                        let fileNameOnly = Path(filePath).fileName.toString()
-                        metadata.name = fileNameOnly
-                        metadata.namespace = "plugin." + pluginType.toAsciiLower() + "." + fileNameOnly.replace(".ts", "")
-                        metadata.version = "1.0"
-                        metadata.description = "${pluginType} plugin"
-                        metadata.author = "Unknown"
-                        TaskIO.appendLog(taskId, "WARN: Failed to parse plugin metadata JSON, using defaults for ${filePath}")
+                            TaskIO.appendLog(taskId, "Successfully parsed plugin metadata: name=${metadata.name}, namespace=${metadata.namespace}, version=${metadata.version}, has_schema=${metadata.has_schema}")
+                        case _ =>
+                            setDefaultMetadata(metadata, filePath, pluginType)
+                            TaskIO.appendLog(taskId, "WARN: Failed to parse plugin metadata JSON, using defaults for ${filePath}")
+                    }
+                } else {
+                    setDefaultMetadata(metadata, filePath, pluginType)
+                    TaskIO.appendLog(taskId, "WARN: No result message found in plugin output, using defaults for ${filePath}")
                 }
             } else {
                 // 执行失败，使用文件名作为默认信息
@@ -436,5 +438,112 @@ public class ScanPluginsTaskRunner {
      */
     private static func getCurrentTimeMillis(): Int64 {
         return DateTime.now().toUnixTimeStamp().toSeconds() * 1000
+    }
+
+    /**
+     * 设置默认元数据
+     */
+    private static func setDefaultMetadata(metadata: PluginMetadata, filePath: String, pluginType: String): Unit {
+        let fileNameOnly = Path(filePath).fileName.toString()
+        metadata.name = fileNameOnly
+        metadata.namespace = "plugin." + pluginType.toAsciiLower() + "." + fileNameOnly.replace(".ts", "")
+        metadata.version = "1.0"
+        metadata.description = "${pluginType} plugin"
+        metadata.author = "Unknown"
+    }
+
+    /**
+     * 从 NDJSON 输出中解析 plugin info
+     * 查找 type=result 且 success=true 的消息，返回其 data 字段
+     */
+    private static func parsePluginInfoFromNdjson(ndjsonOutput: String): String {
+        let lines = ndjsonOutput.split("\n")
+        for (line in lines) {
+            let trimmed = line.trimAscii()
+            if (trimmed.size == 0) {
+                continue
+            }
+
+            try {
+                let jsonVal = JsonValue.fromStr(trimmed)
+                match (jsonVal) {
+                    case obj: JsonObject =>
+                        let fields = obj.getFields()
+                        // 检查是否是 result 类型
+                        match (fields.get("type")) {
+                            case Some(typeVal) =>
+                                match (typeVal) {
+                                    case typeStr: JsonString =>
+                                        if (typeStr.getValue() == "result") {
+                                            // 检查 success 字段
+                                            match (fields.get("success")) {
+                                                case Some(successVal) =>
+                                                    match (successVal) {
+                                                        case successBool: JsonBool =>
+                                                            if (successBool.getValue()) {
+                                                                // 返回 data 字段
+                                                                match (fields.get("data")) {
+                                                                    case Some(dataVal) =>
+                                                                        return dataVal.toString()
+                                                                    case None => ()
+                                                                }
+                                                            }
+                                                        case _ => ()
+                                                    }
+                                                case None => ()
+                                            }
+                                        }
+                                    case _ => ()
+                                }
+                            case None => ()
+                        }
+                    case _ => ()
+                }
+            } catch (_: Exception) {
+                // 解析失败，跳过这一行
+            }
+        }
+        return ""
+    }
+
+    /**
+     * 使用 stdio 方式执行插件获取 plugin_info
+     */
+    private static func executePluginInfoWithStdio(taskId: Int64, filePath: String): (Int32, Array<UInt8>, Array<UInt8>) {
+        try {
+            // 构建 deno 命令
+            let cmd = "deno run --allow-read '${filePath}'"
+            TaskIO.appendLog(taskId, "Executing: ${cmd}")
+
+            // 启动进程
+            let process = launch("sh", "-c", cmd,
+                stdIn: ProcessRedirect.Pipe,
+                stdOut: ProcessRedirect.Pipe,
+                stdErr: ProcessRedirect.Pipe)
+
+            // 写入 plugin_info 请求到 stdin
+            let inputJson = "{\"action\":\"plugin_info\",\"pluginType\":\"\"}\n"
+            process.stdInPipe.write(inputJson.toArray())
+            process.stdInPipe.flush()
+
+            // 读取 stdout
+            let reader = StringReader<InputStream>(process.stdOutPipe)
+            var output = ""
+            for (line in reader.lines()) {
+                output += line + "\n"
+            }
+
+            // 等待进程完成
+            let exitCode = process.wait()
+
+            // 读取 stderr
+            let stderrReader = StringReader<InputStream>(process.stdErrPipe)
+            let stderrContent = stderrReader.readToEnd()
+
+            return (Int32(exitCode), output.toArray(), stderrContent.toArray())
+        } catch (e: Exception) {
+            TaskIO.appendLog(taskId, "ERROR: executePluginInfoWithStdio failed: ${e.message}")
+            return (1, Array<UInt8>(), Array<UInt8>())
+        }
     }
 }

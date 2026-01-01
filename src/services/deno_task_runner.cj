@@ -3,6 +3,8 @@ package lrr4cj.services
 import std.process.*
 import std.collection.*
 import std.fs.*
+import std.io.*
+import std.convert.*
 import stdx.encoding.json.*
 import stdx.log.*
 import lrr4cj.dao.*
@@ -452,10 +454,233 @@ public class DenoTaskRunner {
     }
 
     /**
+     * 构建 stdin JSON 输入
+     */
+    private static func buildStdinJson(
+        action: String,
+        pluginType: String,
+        archiveId: String,
+        archiveTitle: String,
+        existingTags: String,
+        thumbnailHash: String,
+        oneshotParam: String,
+        params: String,
+        loginCookies: String,
+        url: String
+    ): String {
+        var json = JsonObject()
+        let fields = json.getFields()
+        fields["action"] = JsonString(action)
+        fields["pluginType"] = JsonString(pluginType)
+        fields["archiveId"] = JsonString(archiveId)
+        fields["archiveTitle"] = JsonString(archiveTitle)
+        fields["existingTags"] = JsonString(existingTags)
+        fields["thumbnailHash"] = JsonString(thumbnailHash)
+        fields["oneshotParam"] = JsonString(oneshotParam)
+        fields["url"] = JsonString(url)
+
+        // params 是 JSON 字符串，需要解析后嵌入
+        if (params.trimAscii().size > 0) {
+            try {
+                let paramsVal = JsonValue.fromStr(params)
+                fields["params"] = paramsVal
+            } catch (_: Exception) {
+                fields["params"] = JsonObject()
+            }
+        } else {
+            fields["params"] = JsonObject()
+        }
+
+        // loginCookies 是 JSON 数组字符串
+        if (loginCookies.trimAscii().size > 0) {
+            try {
+                let cookiesVal = JsonValue.fromStr(loginCookies)
+                fields["loginCookies"] = cookiesVal
+            } catch (_: Exception) {
+                fields["loginCookies"] = JsonArray()
+            }
+        } else {
+            fields["loginCookies"] = JsonArray()
+        }
+
+        return json.toString()
+    }
+
+    /**
+     * 解析插件输出的 NDJSON 消息
+     * 返回: (type, progress, message, success, data/error)
+     */
+    private static func parsePluginMessage(line: String): (String, Int32, String, Bool, String) {
+        let trimmed = line.trimAscii()
+        if (trimmed.size == 0) {
+            return ("", 0, "", false, "")
+        }
+
+        try {
+            let jsonVal = JsonValue.fromStr(trimmed)
+            match (jsonVal) {
+                case obj: JsonObject =>
+                    let fields = obj.getFields()
+                    let msgType = getJsonStringValue(fields, "type")
+
+                    match (msgType) {
+                        case "progress" =>
+                            let progress = getJsonIntValue(fields, "progress")
+                            let message = getJsonStringValue(fields, "message")
+                            return ("progress", progress, message, false, "")
+                        case "log" =>
+                            let level = getJsonStringValue(fields, "level")
+                            let message = getJsonStringValue(fields, "message")
+                            return ("log", 0, "[${level}] ${message}", false, "")
+                        case "data" =>
+                            let key = getJsonStringValue(fields, "key")
+                            let value = match (fields.get("value")) {
+                                case Some(v) => v.toString()
+                                case None => ""
+                            }
+                            return ("data", 0, key, false, value)
+                        case "result" =>
+                            let success = getJsonBool(fields, "success")
+                            let data = match (fields.get("data")) {
+                                case Some(v) => v.toString()
+                                case None => ""
+                            }
+                            let error = getJsonStringValue(fields, "error")
+                            return ("result", 0, "", success, if (success) { data } else { error })
+                        case _ =>
+                            return ("unknown", 0, trimmed, false, "")
+                    }
+                case _ =>
+                    return ("raw", 0, trimmed, false, "")
+            }
+        } catch (_: Exception) {
+            return ("raw", 0, trimmed, false, "")
+        }
+    }
+
+    private static func getJsonIntValue(fields: HashMap<String, JsonValue>, key: String): Int32 {
+        match (fields.get(key)) {
+            case Some(v) =>
+                match (v) {
+                    case n: JsonInt => return Int32(n.getValue())
+                    case n: JsonFloat => return Int32(n.getValue())
+                    case s: JsonString =>
+                        try {
+                            return Int32.parse(s.getValue())
+                        } catch (_: Exception) {
+                            return 0
+                        }
+                    case _ => return 0
+                }
+            case None => return 0
+        }
+    }
+
+    /**
+     * 通过 stdio 执行 Deno 插件
+     * 支持实时进度回报和流式数据输出
+     */
+    private static func executeWithStdio(
+        taskId: Int64,
+        command: String,
+        args: ArrayList<String>,
+        inputJson: String
+    ): DenoExecutionResult {
+        let logger = getLogger("deno_task")
+
+        try {
+            // 构建完整命令
+            var fullCmd = command
+            for (arg in args.toArray()) {
+                fullCmd += " " + escapeShellArg(arg)
+            }
+
+            // 启动进程，设置 stdin/stdout/stderr 为 Pipe
+            let process = launch("sh", "-c", fullCmd,
+                stdIn: ProcessRedirect.Pipe,
+                stdOut: ProcessRedirect.Pipe,
+                stdErr: ProcessRedirect.Pipe)
+
+            // 写入 JSON 到 stdin 并刷新
+            let inputBytes = inputJson.toArray()
+            process.stdInPipe.write(inputBytes)
+            process.stdInPipe.write("\n".toArray())  // 添加换行符表示输入结束
+            process.stdInPipe.flush()
+
+            // 逐行读取 stdout 并解析 NDJSON
+            let reader = StringReader<InputStream>(process.stdOutPipe)
+            var finalSuccess = false
+            var finalData = ""
+            var finalError = ""
+            var dataCollector = ArrayList<String>()
+
+            for (line in reader.lines()) {
+                let trimmed = line.trimAscii()
+                if (trimmed.size == 0) {
+                    continue
+                }
+
+                let (msgType, progress, message, success, data) = parsePluginMessage(trimmed)
+
+                match (msgType) {
+                    case "progress" =>
+                        TaskModel.updateTaskProgress(taskId, progress, message)
+                        TaskIO.appendLog(taskId, "[PROGRESS] ${progress}% - ${message}")
+                    case "log" =>
+                        TaskIO.appendLog(taskId, message)
+                    case "data" =>
+                        // message 是 key，data 是 value
+                        TaskIO.appendLog(taskId, "[DATA] ${message}")
+                        dataCollector.add(data)
+                    case "result" =>
+                        finalSuccess = success
+                        if (success) {
+                            finalData = data
+                        } else {
+                            finalError = data
+                        }
+                    case _ =>
+                        // 未知格式，作为原始日志记录
+                        TaskIO.appendLog(taskId, "[RAW] ${trimmed}")
+                }
+            }
+
+            // 等待进程完成
+            let exitCode = process.wait()
+
+            // 读取 stderr
+            let stderrReader = StringReader<InputStream>(process.stdErrPipe)
+            let stderrContent = stderrReader.readToEnd()
+            if (stderrContent.trimAscii().size > 0) {
+                TaskIO.appendLog(taskId, "[STDERR] ${stderrContent}")
+                if (!finalSuccess && finalError.size == 0) {
+                    finalError = stderrContent
+                }
+            }
+
+            // 构建最终输出 JSON
+            var outputJson = if (finalSuccess) {
+                if (finalData.size > 0) {
+                    "{\"success\":true,\"data\":${finalData}}"
+                } else {
+                    "{\"success\":true}"
+                }
+            } else {
+                "{\"success\":false,\"error\":\"${escapeJson(finalError)}\"}"
+            }
+
+            return DenoExecutionResult(finalSuccess, finalError, outputJson, "", Int32(exitCode))
+
+        } catch (e: Exception) {
+            logger.error("executeWithStdio failed", ("error", e.message))
+            return DenoExecutionResult(false, e.message, "", "", 1)
+        }
+    }
+
+    /**
      * 执行登录插件
      */
-    private static func executeLoginPluginDirect(_: Int64, plugin: PluginData): DenoExecutionResult {
-        let logger = getLogger("deno_task")
+    private static func executeLoginPluginDirect(taskId: Int64, plugin: PluginData): DenoExecutionResult {
         let pluginFile = "./data/plugins/${plugin.namespace}/Login.ts"
 
         if (!exists(pluginFile)) {
@@ -464,24 +689,23 @@ public class DenoTaskRunner {
 
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
         denoArgs.add(pluginFile)
-        denoArgs.add("--action=run")
 
-        // 添加插件参数
+        // 构建 stdin JSON
         let paramsJson = buildPluginParametersJson(plugin)
-        if (paramsJson.size > 0) {
-            denoArgs.add("--params=${paramsJson}")
-        }
+        let inputJson = buildStdinJson(
+            "run",
+            "Login",
+            "",
+            "",
+            "",
+            "",
+            "",
+            paramsJson,
+            "",
+            ""
+        )
 
-        let (exitCode, stdout, stderr) = executeWithOutput("deno", denoArgs.toArray())
-
-        if (exitCode == 0) {
-            let output = String.fromUtf8(stdout)
-            return DenoExecutionResult(true, "", output, "", exitCode)
-        } else {
-            let errorOutput = String.fromUtf8(stderr)
-            logger.error("Login plugin failed", ("namespace", plugin.namespace), ("error", errorOutput))
-            return DenoExecutionResult(false, errorOutput, "", "", exitCode)
-        }
+        return executeWithStdio(taskId, "deno", denoArgs, inputJson)
     }
 
     /**
@@ -555,14 +779,13 @@ public class DenoTaskRunner {
      * 执行元数据插件
      */
     private static func executeMetadataPlugin(
-        _: Int64,
+        taskId: Int64,
         plugin: PluginData,
         archiveId: String,
         oneshotParam: String,
         extraParams: String,
         loginCookiesJson: String
     ): DenoExecutionResult {
-        let logger = getLogger("deno_task")
         let pluginFile = "./data/plugins/${plugin.namespace}/Metadata.ts"
 
         if (!exists(pluginFile)) {
@@ -578,49 +801,29 @@ public class DenoTaskRunner {
 
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
         denoArgs.add("--allow-read=./data/thumb")
-        denoArgs.add("--allow-env=ARCHIVE_TITLE,EXISTING_TAGS,THUMBNAIL_HASH,ARCHIVE_ID")
-
         denoArgs.add(pluginFile)
-        denoArgs.add("--action=run")
-        denoArgs.add("--archive_id=${archiveId}")
-        denoArgs.add("--archive_title=${archive.title}")
-
-        if (oneshotParam.size > 0) {
-            denoArgs.add("--oneshot=${oneshotParam}")
-        }
 
         // 合并参数
         let baseParams = buildPluginParametersJson(plugin)
         let mergedParams = mergeParamsJson(baseParams, extraParams)
-        if (mergedParams.size > 0) {
-            denoArgs.add("--params=${mergedParams}")
-        }
 
-        if (loginCookiesJson.size > 0) {
-            denoArgs.add("--login_cookies=${loginCookiesJson}")
-        }
+        // 构建 stdin JSON
+        let inputJson = buildStdinJson(
+            "run",
+            "Metadata",
+            archiveId,
+            archive.title,
+            tagsString,
+            archive.thumbhash,
+            oneshotParam,
+            mergedParams,
+            loginCookiesJson,
+            ""
+        )
 
-        // 通过 env 注入环境变量
-        var envArgs = ArrayList<String>()
-        envArgs.add("ARCHIVE_TITLE=${archive.title}")
-        envArgs.add("EXISTING_TAGS=${tagsString}")
-        envArgs.add("THUMBNAIL_HASH=${archive.thumbhash}")
-        envArgs.add("ARCHIVE_ID=${archiveId}")
-        envArgs.add("deno")
-        for (arg in denoArgs.toArray()) {
-            envArgs.add(arg)
-        }
-
-        let (exitCode, stdout, stderr) = executeWithOutput("env", envArgs.toArray())
-
-        if (exitCode == 0) {
-            let output = String.fromUtf8(stdout)
-            return DenoExecutionResult(true, "", output, loginCookiesJson, exitCode)
-        } else {
-            let errorOutput = String.fromUtf8(stderr)
-            logger.error("Metadata plugin failed", ("namespace", plugin.namespace))
-            return DenoExecutionResult(false, errorOutput, "", "", exitCode)
-        }
+        let result = executeWithStdio(taskId, "deno", denoArgs, inputJson)
+        // 保留 loginCookiesJson 用于后续处理
+        return DenoExecutionResult(result.success, result.error, result.output, loginCookiesJson, result.exitCode)
     }
 
     /**
@@ -667,12 +870,11 @@ public class DenoTaskRunner {
      * 执行下载插件
      */
     private static func executeDownloadPlugin(
-        _: Int64,
+        taskId: Int64,
         plugin: PluginData,
         url: String,
         loginCookiesJson: String
     ): DenoExecutionResult {
-        let logger = getLogger("deno_task")
         let pluginFile = "./data/plugins/${plugin.namespace}/Download.ts"
 
         if (!exists(pluginFile)) {
@@ -681,27 +883,23 @@ public class DenoTaskRunner {
 
         let denoArgs = buildDenoPermissions(plugin, pluginFile)
         denoArgs.add(pluginFile)
-        denoArgs.add("--action=run")
-        denoArgs.add("--url=${url}")
 
+        // 构建 stdin JSON
         let paramsJson = buildPluginParametersJson(plugin)
-        if (paramsJson.size > 0) {
-            denoArgs.add("--params=${paramsJson}")
-        }
+        let inputJson = buildStdinJson(
+            "run",
+            "Download",
+            "",
+            "",
+            "",
+            "",
+            "",
+            paramsJson,
+            loginCookiesJson,
+            url
+        )
 
-        if (loginCookiesJson.size > 0) {
-            denoArgs.add("--login_cookies=${loginCookiesJson}")
-        }
-
-        let (exitCode, stdout, stderr) = executeWithOutput("deno", denoArgs.toArray())
-
-        if (exitCode == 0) {
-            let output = String.fromUtf8(stdout)
-            return DenoExecutionResult(true, "", output, loginCookiesJson, exitCode)
-        } else {
-            let errorOutput = String.fromUtf8(stderr)
-            logger.error("Download plugin failed", ("namespace", plugin.namespace))
-            return DenoExecutionResult(false, errorOutput, "", "", exitCode)
-        }
+        let result = executeWithStdio(taskId, "deno", denoArgs, inputJson)
+        return DenoExecutionResult(result.success, result.error, result.output, loginCookiesJson, result.exitCode)
     }
 }
