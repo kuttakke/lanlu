@@ -489,6 +489,7 @@
     "categoryDeleteConfirmTitle": "确认删除分类",
     "categoryDeleteConfirm": "确定要删除此分类吗？此操作无法撤销。",
     "categoryDeleteFailed": "删除分类失败",
+    "categoryDeleteFailedHasArchives": "无法删除包含档案的分类，请先删除或移动分类下的所有档案",
     "categoryDeletedSuccess": "分类删除成功",
     "categoryScanTooltip": "扫描此分类的档案",
     "categoryScan": "扫描",

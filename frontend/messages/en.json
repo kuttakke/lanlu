@@ -483,6 +483,7 @@
     "categoryDeleteConfirmTitle": "Confirm Delete Category",
     "categoryDeleteConfirm": "Are you sure you want to delete this category? This action cannot be undone.",
     "categoryDeleteFailed": "Failed to delete category",
+    "categoryDeleteFailedHasArchives": "Cannot delete category with archives. Please delete or move all archives in this category first.",
     "categoryDeletedSuccess": "Category deleted successfully",
     "categoryScanTooltip": "Scan archives in this category",
     "categoryScan": "Scan",

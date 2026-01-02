@@ -188,9 +188,18 @@ export default function CategoriesSettingsPage() {
 
     setLoading(true);
     try {
-      await CategoryService.deleteCategory(catid);
-      await loadCategories();
-      success(t('settings.categoryDeletedSuccess'));
+      const result = await CategoryService.deleteCategory(catid);
+      if (result.success) {
+        await loadCategories();
+        success(t('settings.categoryDeletedSuccess'));
+      } else {
+        // Handle specific error messages with i18n
+        if (result.error === 'Cannot delete category with archives') {
+          showError(t('settings.categoryDeleteFailedHasArchives'));
+        } else {
+          showError(result.error || t('settings.categoryDeleteFailed'));
+        }
+      }
     } catch (e: any) {
       showError(e?.response?.data?.message || e?.message || t('settings.categoryDeleteFailed'));
     } finally {
