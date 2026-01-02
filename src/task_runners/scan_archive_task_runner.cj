@@ -190,6 +190,12 @@ public class ScanArchiveTaskRunner {
             let pageCount = handler.getMediaCount(filePath)
             logger.debug("Archive ${filePath} (type: ${archiveType}) contains ${pageCount} media files")
 
+            // 如果没有媒体文件，跳过入库和封面生成
+            if (pageCount == 0) {
+                logger.debug("No media files found in archive, skipping: ${filePath}")
+                return ProcessResultData(true, "", "")
+            }
+
             let dbResult = addArchiveToDatabase(filePath, archiveBasePath, config.categoryId, archiveType)
             if (!dbResult.success) {
                 return dbResult
