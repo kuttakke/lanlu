@@ -50,6 +50,10 @@ export const useConfirm = () => {
         open={true}
         onOpenChange={(open) => {
           if (!open) {
+            // 处理取消：resolve Promise 为 false
+            if (confirmStateRef.current.resolve) {
+              confirmStateRef.current.resolve(false);
+            }
             handleClose();
           }
         }}
