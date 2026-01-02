@@ -485,7 +485,7 @@ function ArchiveDetailContent() {
                         />
                       </div>
                       {/* 无封面占位符 */}
-                      <div className="hidden absolute inset-0 bg-muted rounded-md flex items-center justify-center">
+                      <div className="absolute inset-0 bg-muted rounded-md hidden items-center justify-center">
                         <div className="text-center text-muted-foreground">
                           <div className="text-3xl mb-2">📚</div>
                           <div className="text-sm">{t('archive.noCover')}</div>
