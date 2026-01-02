@@ -1,106 +1,14 @@
 package lrr4cj.utils
 
 import std.fs.*
-import std.convert.*
 import stdx.log.*
 
 /**
  * 目录扫描工具类
- * 负责递归扫描目录中的压缩包文件和文件夹归档
+ * 提供文件系统操作的基础方法
  */
 public class DirectoryScanner {
     private static let logger = getLogger("directory_scanner")
-
-    // 支持的压缩包格式
-    private static let SUPPORTED_ARCHIVE_EXTENSIONS: Array<String> = [
-        "zip", "rar", "7z", "tar", "cbz", "cbr", "cb7", "cbt", "tar.gz", "tgz", "pdf", "epub"
-    ]
-
-    // 支持的图片格式
-    private static let SUPPORTED_IMAGE_EXTENSIONS: Array<String> = [
-        "jpg", "jpeg", "png", "gif", "bmp", "webp"
-    ]
-
-    /**
-     * 递归查找压缩包文件和文件夹归档
-     */
-    public static func findArchiveFiles(dirPath: String): Array<String> {
-        var result: Array<String> = Array<String>()
-
-        try {
-            logger.debug("=== findArchiveFiles: Starting scan of ${dirPath} ===")
-
-            if (!directoryExists(dirPath)) {
-                logger.error("Directory does not exist: ${dirPath}")
-                return result
-            }
-
-            let entries = listDirectory(dirPath)
-            logger.debug("Scanning directory ${dirPath}, found ${entries.size.toString()} entries")
-
-            if (entries.size == 0) {
-                logger.warn("Directory ${dirPath} is empty")
-            }
-
-            for (entry in entries) {
-                try {
-                    let fullPath = joinPath(dirPath, entry)
-
-                    // 记录处理的每个条目（每10个输出一次）
-                    if (result.size % 10 == 0) {
-                        logger.debug("Processing entry ${entry}, current archive count: ${result.size.toString()}")
-                    }
-
-                    if (directoryExists(fullPath)) {
-                        logger.debug("Entry ${entry} is a directory, checking if it contains images...")
-                        // 检查目录是否包含图片文件（可能是folder类型的archive）
-                        if (directoryContainsImages(fullPath)) {
-                            logger.debug("Directory ${entry} contains images, treating as folder archive: ${fullPath}")
-                            result = addFileToArray(result, fullPath)
-                        }
-
-                        // 递归处理子目录
-                        logger.debug("Recursing into subdirectory: ${entry}")
-                        let subFiles = findArchiveFiles(fullPath)
-                        result = combineArrays(result, subFiles)
-
-                        if (subFiles.size > 0) {
-                            logger.debug("Completed scanning subdirectory: ${entry}, found ${subFiles.size.toString()} archives")
-                        }
-                    } else if (fileExists(fullPath)) {
-                        logger.debug("Entry ${entry} is a file, checking extension...")
-                        // 检查文件扩展名
-                        let ext = getFileExtension(fullPath)
-
-                        var isSupported = false
-                        for (supportedExt in SUPPORTED_ARCHIVE_EXTENSIONS) {
-                            if (ext == supportedExt) {
-                                isSupported = true
-                                break
-                            }
-                        }
-
-                        if (isSupported) {
-                            logger.debug("Found supported archive: ${fullPath} (ext: ${ext})")
-                            result = addFileToArray(result, fullPath)
-                        } else {
-                            logger.debug("Skipping unsupported file: ${fullPath} (ext: ${ext})")
-                        }
-                    } else {
-                        logger.warn("Entry ${entry} is neither file nor directory, skipping")
-                    }
-                } catch (e: Exception) {
-                    logger.warn("Failed to process entry '${entry}' in directory ${dirPath}: ${e.message}, skipping this entry")
-                }
-            }
-
-            logger.debug("=== Completed scanning directory ${dirPath}, total archives: ${result.size.toString()} ===")
-        } catch (e: Exception) {
-            logger.error("Error scanning directory ${dirPath}: ${e.message}")
-        }
-
-        return result
-    }
 
     /**
      * 合并数组
@@ -316,33 +224,5 @@ public class DirectoryScanner {
             return ext.toAsciiLower()
         }
         return ""
-    }
-
-    /**
-     * 检查目录是否包含图片文件
-     */
-    public static func directoryContainsImages(dirPath: String): Bool {
-        try {
-            if (!directoryExists(dirPath)) {
-                return false
-            }
-
-            let entries = listDirectory(dirPath)
-            for (entry in entries) {
-                let fullPath = joinPath(dirPath, entry)
-                if (fileExists(fullPath)) {
-                    let ext = getFileExtension(fullPath)
-                    for (imageExt in SUPPORTED_IMAGE_EXTENSIONS) {
-                        if (ext == imageExt) {
-                            return true
-                        }
-                    }
-                }
-            }
-            return false
-        } catch (e: Exception) {
-            logger.error("Error checking directory for images", ("path", dirPath), ("error", e.message))
-            return false
-        }
     }
 }

@@ -134,6 +134,18 @@ public class ScanArchiveTaskRunner {
 
     private static func processArchiveInternal(filePath: String, config: ArchiveConfig, notifier: TaskNotifier): ProcessResultData {
         try {
+            // 首先检查是否有 handler 能处理该路径
+            let factory = ArchiveHandlerFactory.getInstance()
+            let handlerOpt = factory.getHandlerByPath(filePath)
+            match (handlerOpt) {
+                case None =>
+                    logger.debug("No handler can handle this path, skipping: ${filePath}")
+                    return ProcessResultData(true, "", "")  // 返回成功但无 archiveId，表示跳过
+                case Some(_) => ()
+            }
+            let handler = handlerOpt.getOrThrow()
+            let archiveType = handler.getType()
+
             let archiveBasePath = if (config.categoryId.size > 0) {
                 match (CategoryDao.getCategoryById(config.categoryId)) {
                     case Some(cat) => cat.scanPath
@@ -158,8 +170,6 @@ public class ScanArchiveTaskRunner {
                         logger.debug("Thumbnail hash is empty, submitting thumbnail generation task for existing archive: ${archive.id}")
 
                         // 提交缩略图生成任务（异步）
-                        // 使用 ArchiveHandlerFactory 自动检测类型
-                        let archiveType = ArchiveHandlerFactory.getInstance().detectType(filePath)
                         let taskSubmitted = submitThumbnailTask(filePath, archive.id, archiveType, notifier)
                         if (!taskSubmitted) {
                             logger.error("Failed to submit thumbnail generation task for archive: ${archive.id}")
@@ -176,16 +186,11 @@ public class ScanArchiveTaskRunner {
                     logger.debug("Archive not found in database, processing new file: ${filePath}")
             }
 
-            // 使用 ArchiveHandlerFactory 自动检测类型并获取处理器
-            let factory = ArchiveHandlerFactory.getInstance()
-            let handler = factory.getHandlerByPath(filePath)
-            let archiveType = handler.getType()
-
             // 使用 Handler 获取媒体文件数量
             let pageCount = handler.getMediaCount(filePath)
             logger.debug("Archive ${filePath} (type: ${archiveType}) contains ${pageCount} media files")
 
-            let dbResult = addArchiveToDatabase(filePath, archiveBasePath, config.categoryId)
+            let dbResult = addArchiveToDatabase(filePath, archiveBasePath, config.categoryId, archiveType)
             if (!dbResult.success) {
                 return dbResult
             }
@@ -220,7 +225,7 @@ public class ScanArchiveTaskRunner {
         }
     }
 
-    private static func addArchiveToDatabase(filePath: String, archiveBasePath: String, catid: String): ProcessResultData {
+    private static func addArchiveToDatabase(filePath: String, archiveBasePath: String, catid: String, archiveType: String): ProcessResultData {
         try {
             let archiveId = ArchiveUtils.generateArchiveId(filePath)
 
@@ -230,8 +235,6 @@ public class ScanArchiveTaskRunner {
             let fileModTime = ArchiveUtils.getArchiveFileModTime(filePath)
 
             let relativePath = ArchiveUtils.calculateRelativePath(filePath, archiveBasePath)
-
-            let archiveType = ArchiveHandlerFactory.getInstance().detectType(filePath)
 
             let categoryId = CategoryDao.getInternalId(catid)
             if (categoryId == 0) {

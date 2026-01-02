@@ -44,35 +44,20 @@ public class ScanSingleCategoryTaskRunner {
             let triggerSource = if (triggerSourceParam.size > 0) { triggerSourceParam } else { "manual" }
             let childPriority = if (childPriorityParam > 0) { childPriorityParam } else { 30i32 }
             let catid = catidParam
+            let groupId = "scan_single_category:${taskId}"
 
             TaskIO.appendLog(taskId, "Parsed parameters: scanPath=${scanPath}, triggerSource=${triggerSource}, childPriority=${childPriority}, categoryId=${catid}")
             TaskModel.updateTaskProgress(taskId, 10, "Scanning directory ${scanPath}")
 
-            TaskIO.appendLog(taskId, "Starting directory scan...")
-            let archiveFiles = DirectoryScanner.findArchiveFiles(scanPath)
-            let total = archiveFiles.size
-            TaskIO.appendLog(taskId, "Found ${total} archive candidates in ${scanPath}")
+            TaskIO.appendLog(taskId, "Starting directory scan with streaming task submission...")
 
-            if (total == 0) {
-                let summary = "{\"success\":1,\"created\":0,\"total\":0}"
-                TaskIO.appendLog(taskId, "No archives found, completing task")
-                TaskModel.updateTaskProgress(taskId, 100, "No archives found")
-                TaskModel.completeTask(taskId, summary)
-                TaskIO.writeOutput(taskId, summary)
-                TaskIO.appendLog(taskId, "scan_single_category task completed with no files")
-                return
-            }
-
+            // 使用流式遍历，发现即提交
+            var total: Int64 = 0
             var created: Int64 = 0
-            let groupId = "scan_single_category:${taskId}"
-            TaskIO.appendLog(taskId, "Creating scan_archive tasks for ${total} files...")
-            TaskModel.updateTaskProgress(taskId, 50, "Creating scan_archive tasks...")
-
-            for (filePath in archiveFiles) {
-                if (enqueueScanArchiveTask(filePath, groupId, triggerSource, childPriority, catid, scanPath, context.notifyTaskAvailable)) {
-                    created++
-                }
-            }
+            let scanContext = ScanContext(groupId, triggerSource, childPriority, catid, scanPath, context.notifyTaskAvailable)
+            let (scannedTotal, createdCount) = scanDirectoryRecursive(scanPath, scanContext)
+            total = scannedTotal
+            created = createdCount
 
             let summary = "{\"success\":1,\"created\":${created},\"total\":${total}}"
             TaskIO.appendLog(taskId, "Task creation completed: created=${created}, total=${total}")
@@ -90,8 +75,48 @@ public class ScanSingleCategoryTaskRunner {
         }
     }
 
-    private static func enqueueScanArchiveTask(filePath: String, groupId: String, triggerSource: String, priority: Int32, catid: String, basePath: String, notifier: TaskNotifier): Bool {
-        let relativePath = ArchiveUtils.calculateRelativePath(filePath, basePath)
+    /**
+     * 递归扫描目录，发现路径立即提交任务
+     * 返回 (扫描总数, 创建任务数)
+     */
+    private static func scanDirectoryRecursive(dirPath: String, ctx: ScanContext): (Int64, Int64) {
+        let logger = getLogger("scan_single_category")
+        var total: Int64 = 0
+        var created: Int64 = 0
+
+        if (!DirectoryScanner.directoryExists(dirPath)) {
+            logger.warn("Directory does not exist: ${dirPath}")
+            return (total, created)
+        }
+
+        let entries = DirectoryScanner.listDirectory(dirPath)
+        for (entry in entries) {
+            try {
+                let fullPath = DirectoryScanner.joinPath(dirPath, entry)
+                total++
+
+                // 对于每个路径（无论是文件还是目录），都尝试提交任务
+                // 由 scan_archive 的 ArchiveHandler.canHandle 决定是否处理
+                if (enqueueScanArchiveTask(fullPath, ctx)) {
+                    created++
+                }
+
+                // 如果是目录，递归扫描子目录
+                if (DirectoryScanner.isDirectory(fullPath)) {
+                    let (subTotal, subCreated) = scanDirectoryRecursive(fullPath, ctx)
+                    total += subTotal
+                    created += subCreated
+                }
+            } catch (e: Exception) {
+                logger.warn("Failed to process entry '${entry}' in ${dirPath}: ${e.message}, skipping")
+            }
+        }
+
+        return (total, created)
+    }
+
+    private static func enqueueScanArchiveTask(filePath: String, ctx: ScanContext): Bool {
+        let relativePath = ArchiveUtils.calculateRelativePath(filePath, ctx.basePath)
         let fileName = ArchiveUtils.getFullFileName(filePath)
 
         let existingArchive = ArchiveDao.getByPathAndFilename(relativePath, fileName)
@@ -107,10 +132,10 @@ public class ScanSingleCategoryTaskRunner {
                 getLogger("scan_single_category").debug("Archive not found in database, will process: ${filePath}")
         }
 
-        let params = "{\"archive_path\":\"${escapeJson(filePath)}\",\"category_id\":\"${escapeJson(catid)}\"}"
-        let childTask = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, priority, groupId, triggerSource)
+        let params = "{\"archive_path\":\"${escapeJson(filePath)}\",\"category_id\":\"${escapeJson(ctx.catid)}\"}"
+        let childTask = TaskModel.createTaskWithOptions("扫描档案", "scan_archive", params, ctx.priority, ctx.groupId, ctx.triggerSource)
         if (childTask.id > 0) {
-            notifier()
+            ctx.notifier()
             return true
         }
         return false
@@ -161,5 +186,26 @@ public class ScanSingleCategoryTaskRunner {
         escaped = escaped.replace("\r", "\\r")
         escaped = escaped.replace("\t", "\\t")
         return escaped
+    }
+}
+
+/**
+ * 扫描上下文，用于传递参数到递归函数
+ */
+class ScanContext {
+    public let groupId: String
+    public let triggerSource: String
+    public let priority: Int32
+    public let catid: String
+    public let basePath: String
+    public let notifier: TaskNotifier
+
+    public init(groupId: String, triggerSource: String, priority: Int32, catid: String, basePath: String, notifier: TaskNotifier) {
+        this.groupId = groupId
+        this.triggerSource = triggerSource
+        this.priority = priority
+        this.catid = catid
+        this.basePath = basePath
+        this.notifier = notifier
     }
 }

@@ -62,21 +62,25 @@ public class ArchiveHandlerFactory {
 
     /**
      * 根据文件路径自动检测并获取处理器
+     * 如果没有处理器能处理该路径，返回 None
      */
-    public func getHandlerByPath(filePath: String): ArchiveHandler {
+    public func getHandlerByPath(filePath: String): Option<ArchiveHandler> {
         for (handler in handlers) {
             if (handler.canHandle(filePath)) {
-                return handler
+                return Some(handler)
             }
         }
-        // 默认返回压缩包处理器
-        return typeMap.get(ArchiveTypes.ARCHIVE).getOrThrow()
+        return None
     }
 
     /**
      * 检测文件路径对应的类型
+     * 如果没有处理器能处理该路径，返回空字符串
      */
     public func detectType(filePath: String): String {
-        return getHandlerByPath(filePath).getType()
+        match (getHandlerByPath(filePath)) {
+            case Some(handler) => return handler.getType()
+            case None => return ""
+        }
     }
 }

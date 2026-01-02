@@ -105,12 +105,22 @@ public class ArchiveFileHandler <: ArchiveHandler {
         return ("", "")
     }
 
+    // 支持的压缩包扩展名
+    private static let SUPPORTED_EXTENSIONS: Array<String> = [
+        "zip", "rar", "7z", "tar", "cbz", "cbr", "cb7", "cbt", "gz", "tgz"
+    ]
+
     public func canHandle(filePath: String): Bool {
         if (DirectoryScanner.isDirectory(filePath)) {
             return false
         }
         let ext = ArchiveUtils.getFileExtension(filePath).toAsciiLower()
-        return ext != "pdf"
+        for (supportedExt in SUPPORTED_EXTENSIONS) {
+            if (ext == supportedExt) {
+                return true
+            }
+        }
+        return false
     }
 
     public func getCoverImage(archivePath: String): (Int64, Array<UInt8>, Array<UInt8>) {
