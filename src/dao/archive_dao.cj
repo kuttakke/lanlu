@@ -666,7 +666,7 @@ public class ArchiveDao {
     /**
      * 插入归档记录 - 专门为 ShinobuService 提供的方法
      */
-    public static func insertArchive(archiveId: String, title: String, fileName: String, fileSize: Int64, _: Int64, filePath: String, archiveType: String, categoryId: Int64): Bool {
+    public static func insertArchive(archiveId: String, title: String, fileName: String, fileSize: Int64, _: Int64, relativePath: String, archiveType: String, categoryId: Int64): Bool {
         let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -682,7 +682,7 @@ public class ArchiveDao {
                         stmt.set(2, fileName)
                         stmt.set(3, "")  // summary
                         stmt.set(4, "")  // thumbhash
-                        stmt.set(5, filePath)  // relative_path
+                        stmt.set(5, relativePath)  // 相对路径
                         stmt.set(6, fileSize)
                         stmt.set(7, 0)  // pagecount
                         stmt.set(8, archiveType)
