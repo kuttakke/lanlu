@@ -43,50 +43,54 @@ public class DirectoryScanner {
             }
 
             for (entry in entries) {
-                let fullPath = joinPath(dirPath, entry)
+                try {
+                    let fullPath = joinPath(dirPath, entry)
 
-                // 记录处理的每个条目（每10个输出一次）
-                if (result.size % 10 == 0) {
-                    logger.debug("Processing entry ${entry}, current archive count: ${result.size.toString()}")
-                }
-
-                if (directoryExists(fullPath)) {
-                    logger.debug("Entry ${entry} is a directory, checking if it contains images...")
-                    // 检查目录是否包含图片文件（可能是folder类型的archive）
-                    if (directoryContainsImages(fullPath)) {
-                        logger.debug("Directory ${entry} contains images, treating as folder archive: ${fullPath}")
-                        result = addFileToArray(result, fullPath)
+                    // 记录处理的每个条目（每10个输出一次）
+                    if (result.size % 10 == 0) {
+                        logger.debug("Processing entry ${entry}, current archive count: ${result.size.toString()}")
                     }
 
-                    // 递归处理子目录
-                    logger.debug("Recursing into subdirectory: ${entry}")
-                    let subFiles = findArchiveFiles(fullPath)
-                    result = combineArrays(result, subFiles)
-
-                    if (subFiles.size > 0) {
-                        logger.debug("Completed scanning subdirectory: ${entry}, found ${subFiles.size.toString()} archives")
-                    }
-                } else if (fileExists(fullPath)) {
-                    logger.debug("Entry ${entry} is a file, checking extension...")
-                    // 检查文件扩展名
-                    let ext = getFileExtension(fullPath)
-
-                    var isSupported = false
-                    for (supportedExt in SUPPORTED_ARCHIVE_EXTENSIONS) {
-                        if (ext == supportedExt) {
-                            isSupported = true
-                            break
+                    if (directoryExists(fullPath)) {
+                        logger.debug("Entry ${entry} is a directory, checking if it contains images...")
+                        // 检查目录是否包含图片文件（可能是folder类型的archive）
+                        if (directoryContainsImages(fullPath)) {
+                            logger.debug("Directory ${entry} contains images, treating as folder archive: ${fullPath}")
+                            result = addFileToArray(result, fullPath)
                         }
-                    }
 
-                    if (isSupported) {
-                        logger.debug("Found supported archive: ${fullPath} (ext: ${ext})")
-                        result = addFileToArray(result, fullPath)
+                        // 递归处理子目录
+                        logger.debug("Recursing into subdirectory: ${entry}")
+                        let subFiles = findArchiveFiles(fullPath)
+                        result = combineArrays(result, subFiles)
+
+                        if (subFiles.size > 0) {
+                            logger.debug("Completed scanning subdirectory: ${entry}, found ${subFiles.size.toString()} archives")
+                        }
+                    } else if (fileExists(fullPath)) {
+                        logger.debug("Entry ${entry} is a file, checking extension...")
+                        // 检查文件扩展名
+                        let ext = getFileExtension(fullPath)
+
+                        var isSupported = false
+                        for (supportedExt in SUPPORTED_ARCHIVE_EXTENSIONS) {
+                            if (ext == supportedExt) {
+                                isSupported = true
+                                break
+                            }
+                        }
+
+                        if (isSupported) {
+                            logger.debug("Found supported archive: ${fullPath} (ext: ${ext})")
+                            result = addFileToArray(result, fullPath)
+                        } else {
+                            logger.debug("Skipping unsupported file: ${fullPath} (ext: ${ext})")
+                        }
                     } else {
-                        logger.debug("Skipping unsupported file: ${fullPath} (ext: ${ext})")
+                        logger.warn("Entry ${entry} is neither file nor directory, skipping")
                     }
-                } else {
-                    logger.warn("Entry ${entry} is neither file nor directory, skipping")
+                } catch (e: Exception) {
+                    logger.warn("Failed to process entry '${entry}' in directory ${dirPath}: ${e.message}, skipping this entry")
                 }
             }
 
@@ -244,8 +248,13 @@ public class DirectoryScanner {
                     logger.debug("listDirectory: Found ${entries.size} entries in ${targetPath}")
 
                     for (entry in entries) {
-                        if (entry.isRegular() || entry.isDirectory() || entry.isSymbolicLink()) {
-                            files = addFileToArray(files, entry.name.toString())
+                        try {
+                            if (entry.isRegular() || entry.isDirectory() || entry.isSymbolicLink()) {
+                                let entryName = entry.name.toString()
+                                files = addFileToArray(files, entryName)
+                            }
+                        } catch (e: Exception) {
+                            logger.warn("Failed to process entry with invalid name in ${path}: ${e.message}, skipping this entry")
                         }
                     }
                     logger.debug("listDirectory: Returning ${files.size} files/dirs/symlinks")
