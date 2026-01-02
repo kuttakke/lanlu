@@ -62,4 +62,17 @@ export class PluginService {
       throw error;
     }
   }
+
+  /**
+   * 获取 Metadata 类型的插件列表
+   */
+  static async getMetadataPlugins(): Promise<Plugin[]> {
+    try {
+      const plugins = await this.getAllPlugins();
+      return plugins.filter(p => p.plugin_type.toLowerCase() === 'metadata');
+    } catch (error) {
+      console.error('Failed to fetch metadata plugins:', error);
+      throw error;
+    }
+  }
 }

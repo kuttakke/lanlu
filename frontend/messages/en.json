@@ -476,6 +476,8 @@
     "categoryEdit": "Edit Category",
     "categorySaving": "Saving...",
     "categorySaveChanges": "Save Changes",
+    "categoryPlugins": "Metadata Plugins",
+    "categoryPluginsDescription": "Select metadata plugins to run automatically when scanning archives",
     "categoryUpdateFailed": "Failed to update category",
     "categoryUpdatedSuccess": "Category updated successfully",
     "categoryDeleteConfirmTitle": "Confirm Delete Category",

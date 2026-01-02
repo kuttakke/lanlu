@@ -482,6 +482,8 @@
     "categoryEdit": "编辑分类",
     "categorySaving": "保存中...",
     "categorySaveChanges": "保存修改",
+    "categoryPlugins": "元数据插件",
+    "categoryPluginsDescription": "选择扫描档案时自动运行的元数据插件",
     "categoryUpdateFailed": "更新分类失败",
     "categoryUpdatedSuccess": "分类更新成功",
     "categoryDeleteConfirmTitle": "确认删除分类",

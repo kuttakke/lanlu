@@ -8,6 +8,7 @@ export interface Category {
   icon: string;
   sort_order: number;
   enabled: boolean;
+  plugins: string[];
   archive_count: number;
   created_at: string;
   updated_at: string;
@@ -20,6 +21,7 @@ export interface CategoryCreateRequest {
   icon?: string;
   sort_order?: number;
   enabled?: boolean;
+  plugins?: string[];
 }
 
 export interface CategoryUpdateRequest {
@@ -29,6 +31,7 @@ export interface CategoryUpdateRequest {
   icon?: string;
   sort_order?: number;
   enabled?: boolean;
+  plugins?: string[];
 }
 
 interface CategoryResponse {

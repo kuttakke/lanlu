@@ -43,6 +43,7 @@ public class CategoryController {
         json += "\"icon\":\"${escapeJson(cat.icon)}\","
         json += "\"sort_order\":${cat.sortOrder},"
         json += "\"enabled\":${cat.enabled},"
+        json += "\"plugins\":${cat.plugins},"
         json += "\"archive_count\":${cat.archiveCount},"
         json += "\"created_at\":\"${escapeJson(cat.createdAt)}\","
         json += "\"updated_at\":\"${escapeJson(cat.updatedAt)}\""
@@ -99,6 +100,7 @@ public class CategoryController {
             var icon = ""
             var sortOrder: Int32 = 0
             var enabled = true
+            var plugins = "[]"
 
             if (body.size > 0) {
                 let jsonVal = JsonValue.fromStr(body)
@@ -117,6 +119,12 @@ public class CategoryController {
                         if (fields.contains("enabled")) {
                             let enabledStr = getJsonString(obj, "enabled")
                             enabled = enabledStr == "true" || enabledStr == "1"
+                        }
+                        if (fields.contains("plugins")) {
+                            match (fields["plugins"]) {
+                                case arr: JsonArray => plugins = arr.toString()
+                                case _ => ()
+                            }
                         }
                     case _ => ()
                 }
@@ -153,6 +161,7 @@ public class CategoryController {
             data.icon = icon
             data.sortOrder = sortOrder
             data.enabled = enabled
+            data.plugins = plugins
 
             match (CategoryDao.createCategory(data)) {
                 case Some(created) =>
@@ -194,6 +203,7 @@ public class CategoryController {
             var icon = existing.icon
             var sortOrder = existing.sortOrder
             var enabled = existing.enabled
+            var plugins = existing.plugins
 
             if (body.size > 0) {
                 let jsonVal = JsonValue.fromStr(body)
@@ -216,6 +226,12 @@ public class CategoryController {
                         if (fields.contains("enabled")) {
                             let enabledStr = getJsonString(obj, "enabled")
                             enabled = enabledStr == "true" || enabledStr == "1"
+                        }
+                        if (fields.contains("plugins")) {
+                            match (fields["plugins"]) {
+                                case arr: JsonArray => plugins = arr.toString()
+                                case _ => ()
+                            }
                         }
                     case _ => ()
                 }
@@ -244,6 +260,7 @@ public class CategoryController {
             data.icon = icon
             data.sortOrder = sortOrder
             data.enabled = enabled
+            data.plugins = plugins
 
             if (CategoryDao.updateCategory(catid, data)) {
                 ctx.json("{\"operation\":\"update_category\",\"success\":1}")

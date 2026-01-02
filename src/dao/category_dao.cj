@@ -18,6 +18,7 @@ public class CategoryData {
     public var icon: String = ""
     public var sortOrder: Int32 = 0
     public var enabled: Bool = true
+    public var plugins: String = "[]"
     public var createdAt: String = ""
     public var updatedAt: String = ""
     public var archiveCount: Int64 = 0
@@ -40,12 +41,12 @@ public class CategoryDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                               c.sort_order, c.enabled, c.created_at, c.updated_at,
+                               c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at,
                                COUNT(a.id) as archive_count
                         FROM categories c
                         LEFT JOIN archives a ON a.category_id = c.id
                         GROUP BY c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                                 c.sort_order, c.enabled, c.created_at, c.updated_at
+                                 c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at
                         ORDER BY c.sort_order, c.id
                     """)
                     try {
@@ -61,9 +62,10 @@ public class CategoryDao {
                                 cat.icon = rs.getOrNull<String>(5) ?? ""
                                 cat.sortOrder = rs.getOrNull<Int32>(6) ?? 0
                                 cat.enabled = rs.getOrNull<Bool>(7) ?? true
-                                cat.createdAt = rs.getOrNull<String>(8) ?? ""
-                                cat.updatedAt = rs.getOrNull<String>(9) ?? ""
-                                cat.archiveCount = rs.getOrNull<Int64>(10) ?? 0
+                                cat.plugins = rs.getOrNull<String>(8) ?? "[]"
+                                cat.createdAt = rs.getOrNull<String>(9) ?? ""
+                                cat.updatedAt = rs.getOrNull<String>(10) ?? ""
+                                cat.archiveCount = rs.getOrNull<Int64>(11) ?? 0
                                 categories.add(cat)
                             }
                         } finally {
@@ -97,13 +99,13 @@ public class CategoryDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                               c.sort_order, c.enabled, c.created_at, c.updated_at,
+                               c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at,
                                COUNT(a.id) as archive_count
                         FROM categories c
                         LEFT JOIN archives a ON a.category_id = c.id
                         WHERE c.enabled = true
                         GROUP BY c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                                 c.sort_order, c.enabled, c.created_at, c.updated_at
+                                 c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at
                         ORDER BY c.sort_order, c.id
                     """)
                     try {
@@ -119,9 +121,10 @@ public class CategoryDao {
                                 cat.icon = rs.getOrNull<String>(5) ?? ""
                                 cat.sortOrder = rs.getOrNull<Int32>(6) ?? 0
                                 cat.enabled = rs.getOrNull<Bool>(7) ?? true
-                                cat.createdAt = rs.getOrNull<String>(8) ?? ""
-                                cat.updatedAt = rs.getOrNull<String>(9) ?? ""
-                                cat.archiveCount = rs.getOrNull<Int64>(10) ?? 0
+                                cat.plugins = rs.getOrNull<String>(8) ?? "[]"
+                                cat.createdAt = rs.getOrNull<String>(9) ?? ""
+                                cat.updatedAt = rs.getOrNull<String>(10) ?? ""
+                                cat.archiveCount = rs.getOrNull<Int64>(11) ?? 0
                                 categories.add(cat)
                             }
                         } finally {
@@ -154,13 +157,13 @@ public class CategoryDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                               c.sort_order, c.enabled, c.created_at, c.updated_at,
+                               c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at,
                                COUNT(a.id) as archive_count
                         FROM categories c
                         LEFT JOIN archives a ON a.category_id = c.id
                         WHERE c.catid = ?
                         GROUP BY c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                                 c.sort_order, c.enabled, c.created_at, c.updated_at
+                                 c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at
                     """)
                     try {
                         stmt.set(0, catid)
@@ -176,9 +179,10 @@ public class CategoryDao {
                                 cat.icon = rs.getOrNull<String>(5) ?? ""
                                 cat.sortOrder = rs.getOrNull<Int32>(6) ?? 0
                                 cat.enabled = rs.getOrNull<Bool>(7) ?? true
-                                cat.createdAt = rs.getOrNull<String>(8) ?? ""
-                                cat.updatedAt = rs.getOrNull<String>(9) ?? ""
-                                cat.archiveCount = rs.getOrNull<Int64>(10) ?? 0
+                                cat.plugins = rs.getOrNull<String>(8) ?? "[]"
+                                cat.createdAt = rs.getOrNull<String>(9) ?? ""
+                                cat.updatedAt = rs.getOrNull<String>(10) ?? ""
+                                cat.archiveCount = rs.getOrNull<Int64>(11) ?? 0
                                 return Some(cat)
                             }
                         } finally {
@@ -211,13 +215,13 @@ public class CategoryDao {
                 try {
                     let stmt = conn.prepareStatement("""
                         SELECT c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                               c.sort_order, c.enabled, c.created_at, c.updated_at,
+                               c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at,
                                COUNT(a.id) as archive_count
                         FROM categories c
                         LEFT JOIN archives a ON a.category_id = c.id
                         WHERE c.id = ?
                         GROUP BY c.id, c.catid, c.name, c.scan_path, c.description, c.icon,
-                                 c.sort_order, c.enabled, c.created_at, c.updated_at
+                                 c.sort_order, c.enabled, c.plugins, c.created_at, c.updated_at
                     """)
                     try {
                         stmt.set(0, id)
@@ -233,9 +237,10 @@ public class CategoryDao {
                                 cat.icon = rs.getOrNull<String>(5) ?? ""
                                 cat.sortOrder = rs.getOrNull<Int32>(6) ?? 0
                                 cat.enabled = rs.getOrNull<Bool>(7) ?? true
-                                cat.createdAt = rs.getOrNull<String>(8) ?? ""
-                                cat.updatedAt = rs.getOrNull<String>(9) ?? ""
-                                cat.archiveCount = rs.getOrNull<Int64>(10) ?? 0
+                                cat.plugins = rs.getOrNull<String>(8) ?? "[]"
+                                cat.createdAt = rs.getOrNull<String>(9) ?? ""
+                                cat.updatedAt = rs.getOrNull<String>(10) ?? ""
+                                cat.archiveCount = rs.getOrNull<Int64>(11) ?? 0
                                 return Some(cat)
                             }
                         } finally {
@@ -267,8 +272,8 @@ public class CategoryDao {
                 
                 try {
                     let stmt = conn.prepareStatement("""
-                        INSERT INTO categories (catid, name, scan_path, description, icon, sort_order, enabled)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO categories (catid, name, scan_path, description, icon, sort_order, enabled, plugins)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         RETURNING id, created_at, updated_at
                     """)
                     try {
@@ -279,6 +284,7 @@ public class CategoryDao {
                         stmt.set(4, data.icon)
                         stmt.set(5, data.sortOrder)
                         stmt.set(6, data.enabled)
+                        stmt.set(7, data.plugins)
                         let rs = stmt.query()
                         try {
                             if (rs.next()) {
@@ -319,7 +325,7 @@ public class CategoryDao {
                     let stmt = conn.prepareStatement("""
                         UPDATE categories
                         SET name = ?, scan_path = ?, description = ?, icon = ?,
-                            sort_order = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP
+                            sort_order = ?, enabled = ?, plugins = ?, updated_at = CURRENT_TIMESTAMP
                         WHERE catid = ?
                     """)
                     try {
@@ -329,7 +335,8 @@ public class CategoryDao {
                         stmt.set(3, data.icon)
                         stmt.set(4, data.sortOrder)
                         stmt.set(5, data.enabled)
-                        stmt.set(6, catid)
+                        stmt.set(6, data.plugins)
+                        stmt.set(7, catid)
                         let result = stmt.update()
                         return result.rowCount > 0
                     } finally {

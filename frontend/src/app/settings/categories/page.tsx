@@ -14,8 +14,10 @@ import { Folder, Plus, Search, Edit2, Trash2, Play, FolderOpen } from 'lucide-re
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CategoryService, type Category, type CategoryCreateRequest, type CategoryUpdateRequest } from '@/lib/category-service';
+import { PluginService, type Plugin } from '@/lib/plugin-service';
 import { useToast } from '@/hooks/use-toast';
 import { useConfirmContext } from '@/contexts/ConfirmProvider';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function CategoriesSettingsPage() {
   const { t } = useLanguage();
@@ -41,6 +43,7 @@ export default function CategoriesSettingsPage() {
     icon: '',
     sort_order: 0,
     enabled: true,
+    plugins: [],
   });
 
   // Create dialog
@@ -50,6 +53,9 @@ export default function CategoriesSettingsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editForm, setEditForm] = useState<CategoryUpdateRequest>({});
+
+  // Metadata plugins
+  const [metadataPlugins, setMetadataPlugins] = useState<Plugin[]>([]);
 
   // Check if current user is admin
   const isAdmin = useMemo(() => {
@@ -90,6 +96,21 @@ export default function CategoriesSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, searchQuery, enabledFilter]);
 
+  // Load metadata plugins
+  useEffect(() => {
+    const loadMetadataPlugins = async () => {
+      try {
+        const plugins = await PluginService.getMetadataPlugins();
+        setMetadataPlugins(plugins);
+      } catch (e) {
+        console.error('Failed to load metadata plugins:', e);
+      }
+    };
+    if (isAuthenticated) {
+      void loadMetadataPlugins();
+    }
+  }, [isAuthenticated]);
+
   const handleCreateCategory = async () => {
     if (!createForm.name.trim() || !createForm.scan_path.trim()) {
       showError(t('settings.categoryNamePathRequired'));
@@ -127,6 +148,7 @@ export default function CategoriesSettingsPage() {
       icon: category.icon,
       sort_order: category.sort_order,
       enabled: category.enabled,
+      plugins: category.plugins || [],
     });
     setEditDialogOpen(true);
   };
@@ -375,6 +397,7 @@ export default function CategoriesSettingsPage() {
             icon: '',
             sort_order: 0,
             enabled: true,
+            plugins: [],
           });
         }
       }}>
@@ -448,6 +471,36 @@ export default function CategoriesSettingsPage() {
                 <Label htmlFor="create-enabled">{t('settings.categoryEnabled')}</Label>
               </div>
             </div>
+            {metadataPlugins.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t('settings.categoryPlugins')}</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t('settings.categoryPluginsDescription')}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {metadataPlugins.map((plugin) => (
+                    <div key={plugin.namespace} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`create-plugin-${plugin.namespace}`}
+                        checked={createForm.plugins?.includes(plugin.namespace) || false}
+                        onCheckedChange={(checked) => {
+                          const current = createForm.plugins || [];
+                          if (checked) {
+                            setCreateForm({ ...createForm, plugins: [...current, plugin.namespace] });
+                          } else {
+                            setCreateForm({ ...createForm, plugins: current.filter(p => p !== plugin.namespace) });
+                          }
+                        }}
+                        disabled={loading}
+                      />
+                      <Label htmlFor={`create-plugin-${plugin.namespace}`} className="text-sm cursor-pointer">
+                        {plugin.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button
@@ -549,6 +602,36 @@ export default function CategoriesSettingsPage() {
                 <Label htmlFor="edit-enabled">{t('settings.categoryEnabled')}</Label>
               </div>
             </div>
+            {metadataPlugins.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t('settings.categoryPlugins')}</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {t('settings.categoryPluginsDescription')}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {metadataPlugins.map((plugin) => (
+                    <div key={plugin.namespace} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-plugin-${plugin.namespace}`}
+                        checked={editForm.plugins?.includes(plugin.namespace) || false}
+                        onCheckedChange={(checked) => {
+                          const current = editForm.plugins || [];
+                          if (checked) {
+                            setEditForm({ ...editForm, plugins: [...current, plugin.namespace] });
+                          } else {
+                            setEditForm({ ...editForm, plugins: current.filter(p => p !== plugin.namespace) });
+                          }
+                        }}
+                        disabled={loading}
+                      />
+                      <Label htmlFor={`edit-plugin-${plugin.namespace}`} className="text-sm cursor-pointer">
+                        {plugin.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button

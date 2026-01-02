@@ -3,6 +3,7 @@ package lrr4cj.task_runners
 import stdx.encoding.json.*
 import stdx.log.*
 import std.convert.*
+import std.collection.*
 import lrr4cj.models.*
 import lrr4cj.utils.*
 import lrr4cj.dao.*
@@ -210,6 +211,9 @@ public class ScanArchiveTaskRunner {
                 logger.error("Failed to submit thumbnail generation task for archive: ${dbResult.archiveId}")
             }
 
+            // 提交元数据插件任务（根据分类配置）
+            submitMetadataPluginTasks(config.categoryId, dbResult.archiveId, notifier)
+
             return ProcessResultData(true, dbResult.archiveId, "")
         } catch (e: Exception) {
             return ProcessResultData(false, "", "Error processing file: ${e.message}")
@@ -272,6 +276,78 @@ public class ScanArchiveTaskRunner {
             }
         } catch (e: Exception) {
             logger.error("Exception submitting thumbnail task", ("archive_id", archiveId), ("exception", e.message))
+            return false
+        }
+    }
+
+    /**
+     * 根据分类配置提交元数据插件任务
+     */
+    private static func submitMetadataPluginTasks(categoryId: String, archiveId: String, notifier: TaskNotifier): Unit {
+        if (categoryId.size == 0) {
+            return
+        }
+
+        let categoryOpt = CategoryDao.getCategoryById(categoryId)
+        match (categoryOpt) {
+            case Some(category) =>
+                let pluginNamespaces = parsePluginsArray(category.plugins)
+                for (namespace in pluginNamespaces) {
+                    let submitted = submitMetadataPluginTask(archiveId, namespace, notifier)
+                    if (!submitted) {
+                        logger.error("Failed to submit metadata plugin task", ("archive_id", archiveId), ("namespace", namespace))
+                    }
+                }
+            case None =>
+                logger.debug("Category not found for metadata plugin tasks", ("category_id", categoryId))
+        }
+    }
+
+    /**
+     * 解析 plugins JSON 数组
+     */
+    private static func parsePluginsArray(pluginsJson: String): Array<String> {
+        var namespaces = ArrayList<String>()
+        try {
+            let jsonVal = JsonValue.fromStr(pluginsJson)
+            match (jsonVal) {
+                case arr: JsonArray =>
+                    for (item in arr.getItems()) {
+                        match (item) {
+                            case s: JsonString => namespaces.add(s.getValue().trimAscii())
+                            case _ => ()
+                        }
+                    }
+                case _ => ()
+            }
+        } catch (_: Exception) {}
+        return namespaces.toArray()
+    }
+
+    /**
+     * 提交单个元数据插件任务
+     */
+    private static func submitMetadataPluginTask(archiveId: String, namespace: String, notifier: TaskNotifier): Bool {
+        try {
+            let parameters = "{\"archive_id\":\"${escapeJson(archiveId)}\",\"namespace\":\"${escapeJson(namespace)}\"}"
+            let task = TaskModel.createTaskWithOptions(
+                "元数据扫描: ${namespace}",
+                "metadata_plugin",
+                parameters,
+                15i32,
+                archiveId,
+                "scan_archive"
+            )
+
+            if (task.id > 0) {
+                notifier()
+                logger.debug("Submitted metadata plugin task", ("archive_id", archiveId), ("namespace", namespace))
+                return true
+            } else {
+                return false
+            }
+        } catch (e: Exception) {
+            logger.error("Exception submitting metadata plugin task", ("archive_id", archiveId), ("namespace", namespace), ("error", e.message))
             return false
         }
     }

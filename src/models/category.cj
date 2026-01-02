@@ -13,6 +13,7 @@ public class Category {
     public var icon: String = ""
     public var sortOrder: Int32 = 0
     public var enabled: Bool = true
+    public var plugins: String = "[]"    // 启用的元数据插件列表 (JSON数组)
     public var createdAt: String = ""
     public var updatedAt: String = ""
     public var archiveCount: Int64 = 0   // 分类下的档案数量

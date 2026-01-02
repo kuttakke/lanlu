@@ -442,6 +442,17 @@ public class DatabaseConfig {
                 }
             }
 
+            // 检查是否需要添加 plugins 列
+            if (!columnExists(conn, "categories", "plugins")) {
+                logger.debug("categories表缺少plugins列，正在添加")
+                try {
+                    execUpdate(conn, "ALTER TABLE categories ADD COLUMN plugins TEXT DEFAULT '[]'")
+                    logger.debug("categories表plugins列添加成功")
+                } catch (e: Exception) {
+                    logger.error("添加plugins列失败: ${e.toString()}")
+                }
+            }
+
             // 删除旧的 archive_categories 表（如果存在）
             if (tableExists(conn, "archive_categories")) {
                 logger.debug("检测到旧的archive_categories表，正在删除")
