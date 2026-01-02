@@ -106,7 +106,7 @@ public class GenerateThumbnailTaskRunner {
         logger.debug("Calculated thumbhash: ${thumbHash}")
 
         // 使用thumbhash作为缩略图文件名
-        let thumbnailFilePath = FileUtils.joinPath(thumbnailPath, "${thumbHash}.jpg")
+        let thumbnailFilePath = FileUtils.joinPath(thumbnailPath, "${thumbHash}.avif")
         TaskIO.appendLog(taskId, "Thumbnail file path: ${thumbnailFilePath}")
 
         // 如果文件已存在，先删除（避免重复）
@@ -125,8 +125,8 @@ public class GenerateThumbnailTaskRunner {
             }
         }
 
-        TaskIO.appendLog(taskId, "Converting image to JPG format...")
-        let convertResult = ArchiveUtils.convertImageToJpg(tempImagePath, thumbnailFilePath, taskTempDir)
+        TaskIO.appendLog(taskId, "Converting image to AVIF format...")
+        let convertResult = ArchiveUtils.convertImageToAvif(tempImagePath, thumbnailFilePath, taskTempDir)
 
         // 清理临时文件和目录
         try {

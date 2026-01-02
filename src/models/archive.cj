@@ -241,7 +241,7 @@ public class ArchiveModel {
         // 优先使用数据库记录的 thumbhash（LANraragi 兼容：data/thumb/<thumbhash>.jpg）
         let thumbhash = ArchiveDao.getThumbnailHash(id)
         if (thumbhash.size > 0) {
-            let exts = ["jpg", "jpeg", "png", "webp"]
+            let exts = ["avif", "jpg", "jpeg", "png", "webp"]
             for (ext in exts) {
                 let byHashPath = "${thumbnailDir}/${thumbhash}.${ext}"
                 println("Trying thumbhash path: ${byHashPath}")
@@ -278,7 +278,7 @@ public class ArchiveModel {
         let thumbnailDir = DatabaseConfig.getThumbnailPath()
 
         // 优先检查 data/thumb/<thumbhash>.<ext>
-        let exts = ["jpg", "jpeg", "png", "webp"]
+        let exts = ["avif", "jpg", "jpeg", "png", "webp"]
         for (ext in exts) {
             let byHashPath = "${thumbnailDir}/${thumbhash}.${ext}"
             println("Checking if thumbnail exists at: ${byHashPath}")

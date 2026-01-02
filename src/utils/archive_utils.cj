@@ -332,16 +332,16 @@ public class ArchiveUtils {
     }
 
     /**
-     * 转换图片为JPG格式
+     * 转换图片为AVIF格式
      */
-    public static func convertImageToJpg(inputPath: String, outputPath: String, tempPath: String): ProcessResultData {
+    public static func convertImageToAvif(inputPath: String, outputPath: String, tempPath: String): ProcessResultData {
         try {
             let outputDir = FileUtils.getParentDirectory(outputPath)
             if (!directoryExists(outputDir)) {
                 Directory.create(outputDir, recursive: true)
             }
 
-            let resizedPath = joinPath(tempPath, "temp_resized.jpg")
+            let resizedPath = joinPath(tempPath, "temp_resized.avif")
             let resizeProcess = launch("convert", inputPath, "-resize", "500x1000>", resizedPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
             let (resizeExitCode, _, resizeStderr) = resizeProcess.waitOutput()
 

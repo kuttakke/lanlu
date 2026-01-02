@@ -360,7 +360,7 @@ public class ArchiveController {
 
                 // 设置缓存头
                 CacheUtils.setStaticCacheHeaders(ctx, etag)
-                ctx.header("Content-Type", "image/jpeg")
+                ctx.header("Content-Type", "image/avif")
                 ctx.status(HttpStatusCode.STATUS_OK)
                 // 直接返回二进制数据
                 ctx.data(imageData)
@@ -382,7 +382,7 @@ public class ArchiveController {
             // 使用fallback，返回占位符图像（不缓存临时内容）
             let placeholderImage = getPlaceholderThumbnail()
             CacheUtils.setNoCacheHeaders(ctx)
-            ctx.header("Content-Type", "image/jpeg")
+            ctx.header("Content-Type", "image/avif")
             ctx.status(HttpStatusCode.STATUS_OK)
             // 直接返回二进制数据
             ctx.data(placeholderImage)
@@ -588,7 +588,7 @@ public class ArchiveController {
                 // 删除缩略图文件
                 if (archive.thumbhash.size > 0) {
                     let thumbnailDir = DatabaseConfig.getThumbnailPath()
-                    let exts = ["jpg", "jpeg", "png", "webp"]
+                    let exts = ["avif", "jpg", "jpeg", "png", "webp"]
                     for (ext in exts) {
                         let thumbPath = "${thumbnailDir}/${archive.thumbhash}.${ext}"
                         try {
@@ -817,6 +817,8 @@ public class ArchiveController {
             return "image/bmp"
         } else if (lowerPath.endsWith(".webp")) {
             return "image/webp"
+        } else if (lowerPath.endsWith(".avif")) {
+            return "image/avif"
         // 视频类型
         } else if (lowerPath.endsWith(".mp4") || lowerPath.endsWith(".m4v")) {
             return "video/mp4"
