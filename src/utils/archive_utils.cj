@@ -4,11 +4,9 @@ import std.fs.*
 import std.process.*
 import std.convert.*
 import std.time.*
-import std.collection.*
 import stdx.crypto.digest.*
 import stdx.encoding.hex.*
 import stdx.log.*
-import std.io.*
 
 let logger = getLogger("archive_utils")
 
