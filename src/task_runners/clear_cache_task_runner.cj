@@ -299,24 +299,6 @@ public class ClearCacheTaskRunner {
     }
 
     /**
-     * 获取文件或目录大小（字节）
-     */
-    private static func getFileOrDirectorySize(path: String): Int64 {
-        try {
-            let fileInfo = FileInfo(Path(path))
-            if (fileInfo.isDirectory()) {
-                // 目录：计算目录及其内容的大小
-                return calculateDirectorySize(path)
-            } else {
-                // 文件：直接返回文件大小
-                return fileInfo.size
-            }
-        } catch (_: Exception) {
-            return 0
-        }
-    }
-
-    /**
      * 递归计算目录大小
      */
     private static func calculateDirectorySize(dirPath: String): Int64 {
