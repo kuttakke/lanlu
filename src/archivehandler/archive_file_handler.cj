@@ -109,10 +109,6 @@ public class ArchiveFileHandler <: ArchiveHandler {
 
     // ==================== 私有工具方法 ====================
 
-    private func fileExists(path: String): Bool {
-        return DirectoryScanner.fileExists(path)
-    }
-
     private func directoryExists(path: String): Bool {
         return DirectoryScanner.directoryExists(path)
     }
