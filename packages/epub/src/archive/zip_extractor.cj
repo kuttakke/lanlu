@@ -1,18 +1,18 @@
 /**
- * ZIP 解压封装 (使用 bsdtar)
+ * ZIP 解压封装 (使用 Archive 包)
  */
 package epub.archive
 
 import std.fs.*
 import std.io.*
-import std.process.*
 import std.collection.*
 import std.time.*
 import epub.error.*
+import archive.Archive
 
 /**
  * ZIP 文件解压器
- * 封装 bsdtar 命令行工具进行 ZIP 解压操作
+ * 封装 Archive 包进行 ZIP 解压操作
  */
 public class ZipExtractor {
     private var archivePath: String
@@ -61,21 +61,12 @@ public class ZipExtractor {
      * 列出档案中的所有文件
      */
     public func listEntries(): ArrayList<String> {
-        let process = launch("bsdtar", "-tf", archivePath,
-            stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-        let reader = StringReader<InputStream>(process.stdOutPipe)
-        let output = reader.readToEnd()
-        process.wait()
-
-        let lines = output.split('\n')
-        var entries = ArrayList<String>()
-        for (line in lines) {
-            let trimmed = line.trimAscii()
-            if (trimmed.size > 0) {
-                entries.add(trimmed)
-            }
+        let entries = Archive.listEntries(archivePath)
+        var result = ArrayList<String>()
+        for (entry in entries) {
+            result.add(entry)
         }
-        return entries
+        return result
     }
 
     /**
@@ -99,9 +90,11 @@ public class ZipExtractor {
             return (1i64, Array<UInt8>(), "Empty entry name".toArray())
         }
 
-        let process = launch("bsdtar", "-xO", "-f", archivePath, entryName,
-            stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-        return process.waitOutput()
+        let data = Archive.extractEntry(archivePath, entryName)
+        if (data.size > 0) {
+            return (0i64, data, Array<UInt8>())
+        }
+        return (1i64, Array<UInt8>(), "Entry not found".toArray())
     }
 
     /**

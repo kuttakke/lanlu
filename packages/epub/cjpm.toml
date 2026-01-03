@@ -12,3 +12,4 @@
   package-configuration = {}
 
 [dependencies]
+  archive = { path = "../archive" }
