@@ -44,8 +44,11 @@ jobs:
         run: |
           mkdir -p app
           mkdir -p app/frontend
+          mv cangjie/runtime/lib/linux_x86_64_llvm/libsecurec.so app/
+          mv cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-std-core.so app/
+          mv cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-std-collection.so app/
           mv cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-runtime.so app/
-          cp target/release/archive/libarchive.so app/
+          mv target/release/archive_ffi/libarchive_ffi.so app/
           cp target/release/bin/main app/
           cp -r plugins app/plugins
           cp -r frontend/out app/frontend/out
