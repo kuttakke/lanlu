@@ -183,16 +183,6 @@ class EhdbMetadataPlugin extends BasePlugin {
         return { success: false, error: "Database not connected" };
       }
 
-      // 提取 artist 标签
-      const artistMatch = tags.match(/.*artist:\s?([^,]*),*.*/gi);
-      let artistFilter = '';
-      if (artistMatch && artistMatch[0]) {
-        const artist = artistMatch[0].replace(/.*artist:\s?([^,]*),*.*/gi, '$1').trim();
-        if (/^[\x00-\x7F]*$/.test(artist)) {
-          artistFilter = artist;
-        }
-      }
-
       // 构建查询
       let query = `
         SELECT gid, token, title, title_jpn
@@ -210,20 +200,10 @@ class EhdbMetadataPlugin extends BasePlugin {
         paramIndex++;
       }
 
-      // Artist 标签过滤（使用 JSONB 查询）
-      if (artistFilter) {
-        query += ` AND EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(tags) AS tag
-          WHERE tag = $${paramIndex}
-        )`;
-        params.push(`artist:${artistFilter}`);
-        paramIndex++;
-      }
-
       // 按发布时间倒序排列，限制 1 个结果
       query += ` ORDER BY posted DESC LIMIT 1`;
 
-      await this.logInfo("search:query", { title: title.slice(0, 100), artist: artistFilter });
+      await this.logInfo("search:query", { title: title.slice(0, 100) });
 
       const result = await this.dbClient.queryObject(query, params);
 
