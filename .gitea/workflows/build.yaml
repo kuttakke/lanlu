@@ -47,10 +47,6 @@ jobs:
           cp target/release/bin/main app/
           cp -r plugins app/plugins
           cp -r frontend/out app/frontend/out
-      - name: Add runtime libraries
-        run: |
-            mv cangjie/runtime/lib/linux_x86_64_llvm/lib*.so app/
-            mv target/release/archive_ffi/libarchive_ffi.so app/
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
