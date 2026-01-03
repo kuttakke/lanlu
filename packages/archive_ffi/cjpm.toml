@@ -1,6 +1,6 @@
 [package]
   cjc-version = "1.0.4"
-  name = "archive"
+  name = "archive_ffi"
   description = "nothing here"
   version = "1.0.0"
   target-dir = ""

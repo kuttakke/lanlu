@@ -1,4 +1,4 @@
-package archive
+package archive_ffi
 
 import std.collection.*
 

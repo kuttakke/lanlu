@@ -1,6 +1,6 @@
 // cjbind 0.2.3 生成，请勿编辑, DO NOT EDIT
 
-package archive
+package archive_ffi
 
 public const ARCHIVE_VERSION_NUMBER: Int64 = 3008001
 public const ARCHIVE_EOF: Int64 = 1

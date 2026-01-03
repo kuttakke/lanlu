@@ -8,7 +8,7 @@ import std.io.*
 import std.collection.*
 import std.time.*
 import epub.error.*
-import archive.Archive
+import archive_ffi.Archive
 
 /**
  * ZIP 文件解压器

@@ -2,7 +2,7 @@ package lrr4cj.archivehandler
 
 import std.fs.*
 import std.collection.*
-import archive.Archive
+import archive_ffi.Archive
 import lrr4cj.models.ArchiveTypes
 import lrr4cj.utils.{ArchiveUtils, DirectoryScanner}
 

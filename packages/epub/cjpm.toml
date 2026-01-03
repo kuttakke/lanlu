@@ -12,4 +12,4 @@
   package-configuration = {}
 
 [dependencies]
-  archive = { path = "../archive" }
+  archive_ffi = { path = "../archive_ffi" }
