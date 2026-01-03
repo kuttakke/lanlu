@@ -150,6 +150,13 @@ export class ArchiveService {
   }
 
   static getDownloadUrl(id: string): string {
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('auth_token')
+      : null;
+
+    if (token) {
+      return `/api/archives/${id}/download?token=${encodeURIComponent(token)}`;
+    }
     return `/api/archives/${id}/download`;
   }
 
