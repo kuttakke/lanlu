@@ -93,8 +93,12 @@ export class ArchiveService {
 
   static async getFiles(id: string): Promise<{ pages: PageInfo[]; progress: number }> {
     const response = await apiClient.get(`/api/archives/${id}/files`);
+    const pages = (response.data.pages || []).map((page: PageInfo) => ({
+      ...page,
+      url: this.addTokenToUrl(page.url)
+    }));
     return {
-      pages: response.data.pages || [],
+      pages,
       progress: response.data.progress || 0
     };
   }
@@ -158,6 +162,22 @@ export class ArchiveService {
       return `/api/archives/${id}/download?token=${encodeURIComponent(token)}`;
     }
     return `/api/archives/${id}/download`;
+  }
+
+  /**
+   * 为 URL 添加认证 token 参数
+   */
+  static addTokenToUrl(url: string): string {
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('auth_token')
+      : null;
+
+    if (!token) {
+      return url;
+    }
+
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}token=${encodeURIComponent(token)}`;
   }
 
   static async getServerInfo(): Promise<ServerInfo> {

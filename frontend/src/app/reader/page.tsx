@@ -477,7 +477,7 @@ function ReaderContent() {
                 if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
                   const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
                   const encodedPath = encodeURIComponent(fullPath);
-                  const apiPath = `/api/archives/${id}/page?path=${encodedPath}`;
+                  const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
                   return `${attr}="${apiPath}"`;
                 }
                 return match;
@@ -494,7 +494,7 @@ function ReaderContent() {
                 if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
                   const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
                   const encodedPath = encodeURIComponent(fullPath);
-                  const apiPath = `/api/archives/${id}/page?path=${encodedPath}`;
+                  const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
                   return `url(${apiPath})`;
                 }
                 return match;
@@ -534,7 +534,7 @@ function ReaderContent() {
                   }
                 } else {
                   // 非HTML文件（如图片），转换为API路径
-                  link.setAttribute('href', `/api/archives/${id}/page?path=${encodedPath}`);
+                  link.setAttribute('href', ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`));
                 }
               }
             });

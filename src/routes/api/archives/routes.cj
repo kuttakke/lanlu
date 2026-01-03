@@ -56,8 +56,9 @@ public class ArchiveRoutes {
             ArchiveController.downloadArchive(ctx)
         })
 
-        // 获取归档页面（无需认证）
+        // 获取归档页面
         router.get("/api/archives/{id}/page", { ctx =>
+            if (!AuthMiddleware.requiredAuth(ctx)) { return }
             ArchiveController.getPage(ctx)
         })
 
