@@ -301,7 +301,7 @@ public class ArchiveUtils {
             }
 
             let resizedPath = joinPath(tempPath, "temp_resized.avif")
-            let resizeProcess = launch("convert", inputPath, "-resize", "500x1000>", resizedPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+            let resizeProcess = launch("convert", inputPath, "-resize", "500x1000>", "-strip", resizedPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
             let (resizeExitCode, _, resizeStderr) = resizeProcess.waitOutput()
 
             if (resizeExitCode != 0) {
@@ -309,7 +309,7 @@ public class ArchiveUtils {
                 return ProcessResultData(false, "", error)
             }
 
-            let qualityProcess = launch("convert", resizedPath, "-quality", "85", outputPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
+            let qualityProcess = launch("convert", resizedPath, "-quality", "85", "-strip", outputPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
             let (qualityExitCode, _, qualityStderr) = qualityProcess.waitOutput()
 
             // 清理临时文件
