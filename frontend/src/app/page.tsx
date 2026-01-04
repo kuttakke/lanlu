@@ -48,7 +48,7 @@ function HomePageContent() {
 
   // 读取URL参数
   const urlQuery = searchParams?.get('q') || '';
-  const urlSortBy = searchParams?.get('sortby') || 'date_added';
+  const urlSortBy = searchParams?.get('sortby') || (urlQuery ? 'relevance' : 'date_added');
   const urlSortOrder = searchParams?.get('order') || 'desc';
   const urlNewonly = searchParams?.get('newonly') === 'true';
   const urlUntaggedonly = searchParams?.get('untaggedonly') === 'true';
@@ -231,7 +231,12 @@ function HomePageContent() {
     groupby_tanks?: boolean;
   }) => {
     setSearchQuery(params.query || '');
-    if (params.sortBy) setSortBy(params.sortBy);
+    // 当有搜索查询且没有指定排序时，默认使用相关度排序
+    if (params.sortBy) {
+      setSortBy(params.sortBy);
+    } else if (params.query) {
+      setSortBy('relevance');
+    }
     if (params.sortOrder) setSortOrder(params.sortOrder);
     if (typeof params.dateFrom === 'string') setDateFrom(params.dateFrom);
     if (typeof params.dateTo === 'string') setDateTo(params.dateTo);
@@ -328,11 +333,13 @@ function HomePageContent() {
                           {sortBy === 'lastread' && t('home.lastRead')}
                           {sortBy === 'date_added' && t('home.dateAdded')}
                           {sortBy === 'title' && t('home.titleSort')}
+                          {sortBy === 'relevance' && t('home.relevance')}
                           {sortBy === 'pagecount' && t('home.pageCount')}
                           {sortBy === '_default' && t('settings.smartFilterDefault')}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="relevance">{t('home.relevance')}</SelectItem>
                         <SelectItem value="lastread">{t('home.lastRead')}</SelectItem>
                         <SelectItem value="date_added">{t('home.dateAdded')}</SelectItem>
                         <SelectItem value="title">{t('home.titleSort')}</SelectItem>

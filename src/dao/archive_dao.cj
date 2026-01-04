@@ -205,6 +205,39 @@ public class ArchiveDao {
         return searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, false, "", "", userId)
     }
 
+    /**
+     * 构建相关度评分 SQL 表达式
+     * @param filter 搜索词
+     * @return 相关度评分表达式字符串
+     */
+    private static func buildRelevanceExpr(filter: String): String {
+        var searchWords: ArrayList<String> = ArrayList<String>()
+        for (w in filter.split(" ")) {
+            if (w.size > 0) {
+                searchWords.add(w)
+            }
+        }
+
+        if (searchWords.size == 0) {
+            return "1"  // 无搜索词时返回常量
+        }
+
+        // 构建 ILIKE 条件用于评分
+        var ilikeScoreExpr = "0"
+        for (word in searchWords) {
+            let escapedWord = word.replace("'", "''")
+            ilikeScoreExpr = ilikeScoreExpr + " + CASE WHEN title ILIKE '%" + escapedWord + "%' THEN 0.15 ELSE 0 END"
+            ilikeScoreExpr = ilikeScoreExpr + " + CASE WHEN filename ILIKE '%" + escapedWord + "%' THEN 0.1 ELSE 0 END"
+            ilikeScoreExpr = ilikeScoreExpr + " + CASE WHEN tags ILIKE '%" + escapedWord + "%' THEN 0.05 ELSE 0 END"
+        }
+
+        // 构建完整的评分表达式
+        let escapedFilter = filter.replace("'", "''")
+        let relevanceExpr = "COALESCE(ts_rank(search_tsv, websearch_to_tsquery('simple', '" + escapedFilter + "')) * 2, 0) + (" + ilikeScoreExpr + ") + GREATEST(similarity(title, '" + escapedFilter + "'), similarity(filename, '" + escapedFilter + "')) * 0.3"
+
+        return relevanceExpr
+    }
+
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, favoriteOnly: Bool, dateFrom: String, dateTo: String, userId: Int64): (Array<ArchiveData>, Int64) {
         let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
@@ -418,9 +451,13 @@ public class ArchiveDao {
                     whereConditions.add("created_at <= ?")
                     filterParams.add(dateTo + " 23:59:59")
                 }
-                
+
+                // 构建相关度评分表达式（用于过滤）
+                let relevanceExpr = buildRelevanceExpr(filter)
+                let minRelevanceThreshold = 0.05  // 最低相关度阈值
+
                 // 组合 WHERE 条件
-                if (whereConditions.size > 0) {
+                if (whereConditions.size > 0 || filter.size > 0) {
                     var whereClause = ""
                     for (i in 0..whereConditions.size) {
                         if (i > 0) {
@@ -428,6 +465,15 @@ public class ArchiveDao {
                         }
                         whereClause += whereConditions[i]
                     }
+
+                    // 当有搜索词时，添加相关度阈值过滤
+                    if (filter.size > 0) {
+                        if (whereClause.size > 0) {
+                            whereClause += " AND "
+                        }
+                        whereClause += "(" + relevanceExpr + ") >= " + minRelevanceThreshold.toString()
+                    }
+
                     countSql += " WHERE " + whereClause
                 }
                 
@@ -452,12 +498,12 @@ public class ArchiveDao {
                     countRs.close()
                     countStmt.close()
                 }
-                
+
                 // 然后查询分页数据，使用archives_with_tags视图获取标签信息
                 var sql = "SELECT id, arcid, filename, title, summary, thumbhash, created_at, updated_at, relative_path, file_size, pagecount, archive_type, tags FROM archives_with_tags"
-                
-                // 使用相同的 WHERE 条件
-                if (whereConditions.size > 0) {
+
+                // 使用相同的 WHERE 条件（包含相关度阈值过滤）
+                if (whereConditions.size > 0 || filter.size > 0) {
                     var whereClause = ""
                     for (i in 0..whereConditions.size) {
                         if (i > 0) {
@@ -465,6 +511,15 @@ public class ArchiveDao {
                         }
                         whereClause += whereConditions[i]
                     }
+
+                    // 当有搜索词时，添加相关度阈值过滤
+                    if (filter.size > 0) {
+                        if (whereClause.size > 0) {
+                            whereClause += " AND "
+                        }
+                        whereClause += "(" + relevanceExpr + ") >= " + minRelevanceThreshold.toString()
+                    }
+
                     sql += " WHERE " + whereClause
                 }
                 
@@ -490,6 +545,9 @@ public class ArchiveDao {
                 } else if (sortby == "size") {
                     let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }
                     sql += " ORDER BY file_size ${orderDirection}"
+                } else if (sortby == "relevance" && filter.size > 0) {
+                    // 相关度排序：使用已构建的评分表达式
+                    sql += " ORDER BY (" + relevanceExpr + ") DESC, created_at DESC"
                 } else {
                     // 默认按标题排序
                     let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }

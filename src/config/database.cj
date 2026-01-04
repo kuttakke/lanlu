@@ -569,6 +569,51 @@ public class DatabaseConfig {
                         execUpdate(conn, createSql)
                     }
                 } catch (_: Exception) {}
+
+                // 启用 pg_trgm 扩展（用于模糊搜索）
+                try {
+                    execUpdate(conn, "CREATE EXTENSION IF NOT EXISTS pg_trgm")
+                    logger.debug("pg_trgm扩展已启用")
+                } catch (e: Exception) {
+                    logger.warn("启用pg_trgm扩展失败（可忽略）: ${e.toString()}")
+                }
+
+                // 添加 title_tsv 列（用于全文搜索）
+                if (!columnExists(conn, "archives", "title_tsv")) {
+                    logger.debug("archives表缺少title_tsv列，添加中")
+                    try {
+                        execUpdate(conn, """
+                            ALTER TABLE archives ADD COLUMN title_tsv tsvector
+                            GENERATED ALWAYS AS (
+                                setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
+                                setweight(to_tsvector('simple', coalesce(filename, '')), 'B')
+                            ) STORED
+                        """)
+                        logger.debug("title_tsv列添加成功")
+                    } catch (e: Exception) {
+                        logger.warn("添加title_tsv列失败: ${e.toString()}")
+                    }
+                }
+
+                // 创建全文搜索 GIN 索引
+                try {
+                    if (!indexExists(conn, "idx_archives_title_tsv")) {
+                        execUpdate(conn, "CREATE INDEX idx_archives_title_tsv ON archives USING GIN (title_tsv)")
+                        logger.debug("title_tsv GIN索引创建成功")
+                    }
+                } catch (e: Exception) {
+                    logger.warn("创建title_tsv索引失败（可忽略）: ${e.toString()}")
+                }
+
+                // 创建 trigram 索引（用于模糊匹配）
+                try {
+                    if (!indexExists(conn, "idx_archives_title_trgm")) {
+                        execUpdate(conn, "CREATE INDEX idx_archives_title_trgm ON archives USING GIN (title gin_trgm_ops)")
+                        logger.debug("title trigram索引创建成功")
+                    }
+                } catch (e: Exception) {
+                    logger.warn("创建title trigram索引失败（可忽略）: ${e.toString()}")
+                }
             }
 
             // tags 表（新结构：namespace + name + translations JSONB）
@@ -1180,14 +1225,20 @@ public class DatabaseConfig {
                         CASE WHEN t.namespace != '' AND t.namespace IS NOT NULL
                              THEN t.namespace || ':' || t.name
                              ELSE t.name
-                        END, ',' ORDER BY t.namespace, t.name), '') AS tags
+                        END, ',' ORDER BY t.namespace, t.name), '') AS tags,
+                    a.title_tsv ||
+                        setweight(to_tsvector('simple', COALESCE(string_agg(
+                            CASE WHEN t.namespace != '' AND t.namespace IS NOT NULL
+                                 THEN t.namespace || ' ' || t.name
+                                 ELSE t.name
+                            END, ' '), '')), 'C') AS search_tsv
                 FROM archives a
                 LEFT JOIN archive_tags atg ON atg.archive_id = a.id
                 LEFT JOIN tags t ON t.id = atg.tag_id
                 GROUP BY
                     a.id, a.arcid, a.filename, a.title, a.summary, a.thumbhash,
                     a.created_at, a.updated_at, a.relative_path, a.file_size,
-                    a.pagecount, a.archive_type, a.category_id
+                    a.pagecount, a.archive_type, a.category_id, a.title_tsv
             """)
 
             logger.debug("归档/标签相关表与视图初始化完成")
