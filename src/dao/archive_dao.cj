@@ -272,8 +272,7 @@ public class ArchiveDao {
 
                 getLogger("archive_dao").info("搜索过滤器解析结果",
                     ("filter", filter),
-                    ("terms", searchResult.terms.size.toString()),
-                    ("exactTagTerms", searchResult.exactTagTerms.size.toString()))
+                    ("terms", searchResult.terms.size.toString()))
 
                 // 处理普通搜索词（支持通配符和翻译搜索）
                 if (searchResult.terms.size > 0) {
@@ -353,74 +352,6 @@ public class ArchiveDao {
                     }
                 }
 
-                // 处理精确标签（支持翻译搜索）
-                if (searchResult.exactTagTerms.size > 0) {
-                    for (tagTerm in searchResult.exactTagTerms) {
-                        getLogger("archive_dao").info("处理精确标签", ("tagTerm", tagTerm))
-                        // 精确标签匹配：标签必须完全匹配（不区分大小写）
-                        // 标签格式可能是 "namespace:name" 或 "name"
-                        var tagConditions: ArrayList<String> = ArrayList<String>()
-
-                        // 原有的精确匹配条件
-                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                        filterParams.add("%, " + tagTerm + ",%")
-                        filterParams.add(tagTerm + ",%")
-
-                        // 查询翻译精确匹配的标签
-                        let translatedTags = TagDao.findTagsByExactTranslation(tagTerm)
-                        getLogger("archive_dao").info("翻译匹配结果", ("count", translatedTags.size.toString()))
-                        for (matchedTag in translatedTags) {
-                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                            filterParams.add("%, " + matchedTag + ",%")
-                            filterParams.add(matchedTag + ",%")
-                        }
-
-                        // 组合所有条件
-                        var combined = ""
-                        for (i in 0..tagConditions.size) {
-                            if (i > 0) {
-                                combined += " OR "
-                            }
-                            combined += tagConditions[i]
-                        }
-                        whereConditions.add("(" + combined + ")")
-                    }
-                }
-
-                // 处理排除的精确标签（支持翻译搜索）
-                if (searchResult.exactTagExcludeTerms.size > 0) {
-                    for (tagTerm in searchResult.exactTagExcludeTerms) {
-                        var tagConditions: ArrayList<String> = ArrayList<String>()
-
-                        // 原有的精确匹配条件
-                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                        tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                        filterParams.add("%, " + tagTerm + ",%")
-                        filterParams.add(tagTerm + ",%")
-
-                        // 查询翻译精确匹配的标签
-                        let translatedTags = TagDao.findTagsByExactTranslation(tagTerm)
-                        for (matchedTag in translatedTags) {
-                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                            tagConditions.add("LOWER(tags) LIKE LOWER(?) ESCAPE '\\'")
-                            filterParams.add("%, " + matchedTag + ",%")
-                            filterParams.add(matchedTag + ",%")
-                        }
-
-                        // 组合所有条件
-                        var combined = ""
-                        for (i in 0..tagConditions.size) {
-                            if (i > 0) {
-                                combined += " OR "
-                            }
-                            combined += tagConditions[i]
-                        }
-                        whereConditions.add("NOT (" + combined + ")")
-                    }
-                }
-                
                 // newOnly 过滤 - 使用用户级别的已读状态
                 // 当 newOnly=true 且 userId > 0 时，排除用户已读的归档
                 if (newOnly && userId > 0) {

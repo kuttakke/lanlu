@@ -12,10 +12,6 @@ public class SearchFilterResult {
     public var excludeTerms: ArrayList<String> = ArrayList<String>()
     // 精确短语（引号内的内容）
     public var exactTerms: ArrayList<String> = ArrayList<String>()
-    // 精确标签（以$结尾）
-    public var exactTagTerms: ArrayList<String> = ArrayList<String>()
-    // 排除的精确标签
-    public var exactTagExcludeTerms: ArrayList<String> = ArrayList<String>()
 
     public init() {}
 }
@@ -25,7 +21,6 @@ public class SearchFilterResult {
  * 支持以下特殊字符：
  * - 引号 ("..."): 精确短语搜索
  * - 减号 (-): 排除词
- * - 美元符号 ($): 精确标签搜索
  */
 public class SearchFilter {
 
@@ -156,20 +151,8 @@ public class SearchFilter {
             t = t[1..t.size-1]
         }
 
-        // 检查是否是精确标签（以 $ 结尾）
-        let isExactTag = t.endsWith("$") && t.size > 1
-        if (isExactTag) {
-            t = t[0..t.size-1]
-        }
-
         // 根据类型添加到对应列表
-        if (isExactTag) {
-            if (isExclude) {
-                result.exactTagExcludeTerms.add(t)
-            } else {
-                result.exactTagTerms.add(t)
-            }
-        } else if (isQuoted) {
+        if (isQuoted) {
             if (isExclude) {
                 result.excludeTerms.add(t)
             } else {

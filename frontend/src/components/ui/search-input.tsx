@@ -154,8 +154,8 @@ export const SearchInput = React.forwardRef<{ getInputValue?: () => string }, Se
       // 移除所有末尾的+号、空格和制表符
       currentValue = currentValue.replace(/[+\s\t]+$/g, '')
 
-      // 使用 namespace:value$ 格式
-      const formattedValue = `${suggestion.value}$`
+      // 使用 namespace:value 格式
+      const formattedValue = suggestion.value
 
       // 将输入值分割成单词
       const words = currentValue.trim().split(/\s+/).filter(w => w.trim())

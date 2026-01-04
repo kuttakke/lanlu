@@ -173,8 +173,8 @@ function ArchiveDetailContent() {
       originalTag = fullTag;
     }
 
-    // 使用原始标签进行精确搜索（添加$后缀）
-    const searchQuery = `${originalTag}$`;
+    // 使用原始标签进行精确搜索
+    const searchQuery = originalTag;
     router.push(`/?q=${encodeURIComponent(searchQuery)}`);
   };
 

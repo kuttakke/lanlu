@@ -950,64 +950,6 @@ public class TagDao {
         return result
     }
 
-    /**
-     * 根据翻译文本精确查找标签（所有语言）
-     * 用于精确标签搜索（$后缀）的翻译匹配
-     * @param searchTerm 搜索词（精确匹配翻译的 text 字段）
-     * @return 匹配的标签全名列表
-     */
-    public static func findTagsByExactTranslation(searchTerm: String): ArrayList<String> {
-        var result: ArrayList<String> = ArrayList<String>()
-
-        if (searchTerm.size == 0) {
-            return result
-        }
-
-        let connOpt = DatabaseConfig.getPooledConnection()
-        match (connOpt) {
-            case Some(conn) =>
-                
-                try {
-                    let sql = "SELECT namespace, name, translations FROM tags"
-                    let stmt = conn.prepareStatement(sql)
-                    try {
-                        let rs = stmt.query()
-                        try {
-                            while (rs.next()) {
-                                let namespace = rs.getOrNull<String>(0) ?? ""
-                                let name = rs.getOrNull<String>(1) ?? ""
-                                let translationsJson = rs.getOrNull<String>(2) ?? "{}"
-                                let translations = parseTranslationsJson(translationsJson)
-
-                                // 检查任意语言的翻译是否精确匹配（直接比较，支持中文）
-                                for ((_, t) in translations) {
-                                    if (t.text == searchTerm) {
-                                        let fullName = if (namespace.size > 0) {
-                                            "${namespace}:${name}"
-                                        } else {
-                                            name
-                                        }
-                                        result.add(fullName)
-                                        break  // 找到匹配就跳出内层循环
-                                    }
-                                }
-                            }
-                        } finally {
-                            rs.close()
-                        }
-                    } finally {
-                        stmt.close()
-                    }
-                } catch (e: Exception) {
-                    getLogger("tag_dao").error("根据精确翻译查找标签失败", ("error", e.message), ("searchTerm", searchTerm))
-                } finally {
-                    try { conn.close() } catch (_: Exception) {}
-                }
-            case None => ()
-        }
-        return result
-    }
-
     // ============ JSON 序列化/反序列化辅助方法 ============
 
     /**
