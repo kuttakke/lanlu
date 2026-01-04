@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { TagInput } from '@/components/ui/tag-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Header } from '@/components/layout/Header';
-import { BookOpen, Download, Info, X, Eye, Edit, CheckCircle, RotateCcw, Play, Heart } from 'lucide-react';
+import { BookOpen, Download, Info, X, Eye, Edit, CheckCircle, RotateCcw, Play, Heart, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -650,21 +650,39 @@ function ArchiveDetailContent() {
                       ) : tags.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {tags.map((fullTag) => {
-	                            const label = displayTag(fullTag);
-	                            return (
-	                              <Link key={fullTag} href={`/?q=${encodeURIComponent(label)}`}>
-	                                <Badge
-	                                  variant="secondary"
-	                                  className="px-2.5 py-1 text-sm cursor-pointer select-none transition-colors hover:bg-secondary/80"
-	                                  title={fullTag}
-	                                >
-	                                  {label}
-	                                </Badge>
-	                              </Link>
-	                            );
-	                          })}
-	                        </div>
-	                      ) : (
+                            const label = displayTag(fullTag);
+                            const colonIdx = fullTag.indexOf(':');
+                            const namespace = colonIdx > 0 ? fullTag.slice(0, colonIdx).trim().toLowerCase() : '';
+                            const isSource = namespace === 'source';
+                            const sourceUrl = isSource ? (label.startsWith('http') ? label : `https://${label}`) : '';
+
+                            return (
+                              <Badge
+                                key={fullTag}
+                                variant="secondary"
+                                className="px-2.5 py-1 text-sm cursor-pointer select-none transition-colors hover:bg-secondary/80 flex items-center gap-1"
+                                title={fullTag}
+                              >
+                                <Link href={`/?q=${encodeURIComponent(label)}`}>
+                                  {label}
+                                </Link>
+                                {isSource && sourceUrl && (
+                                  <a
+                                    href={sourceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:text-primary transition-colors"
+                                    title={sourceUrl}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      ) : (
 	                        <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">
 	                          {t('archive.noTags')}
 	                        </div>
