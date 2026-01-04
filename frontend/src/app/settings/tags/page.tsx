@@ -413,185 +413,177 @@ export default function TagsSettingsPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('settings.tagsList')}</CardTitle>
-          <CardDescription>{t('settings.tagsListDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('settings.tagSearchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="pl-8"
-              />
-            </div>
-            <Select value={selectedNamespace} onValueChange={(value) => {
-              setSelectedNamespace(value);
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t('settings.tagSearchPlaceholder')}
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
               setCurrentPage(1);
-            }}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={t('settings.tagAllNamespaces')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('settings.tagAllNamespaces')}</SelectItem>
-                {namespaces.map((ns) => (
-                  <SelectItem key={ns} value={ns}>
-                    {ns}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedNamespace('all');
-                setCurrentPage(1);
-              }}
+            }}
+            className="pl-8"
+          />
+        </div>
+        <Select value={selectedNamespace} onValueChange={(value) => {
+          setSelectedNamespace(value);
+          setCurrentPage(1);
+        }}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder={t('settings.tagAllNamespaces')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('settings.tagAllNamespaces')}</SelectItem>
+            {namespaces.map((ns) => (
+              <SelectItem key={ns} value={ns}>
+                {ns}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchQuery('');
+            setSelectedNamespace('all');
+            setCurrentPage(1);
+          }}
+        >
+          {t('common.clear')}
+        </Button>
+      </div>
+
+      {tagsLoading ? (
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+      ) : tags.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('settings.tagNoTags')}</p>
+      ) : (
+        <div className="space-y-2">
+          {tags.map((tag) => (
+            <div
+              key={tag.id}
+              className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-start sm:justify-between"
             >
-              {t('common.clear')}
-            </Button>
-          </div>
-
-          {tagsLoading ? (
-            <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
-          ) : tags.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('settings.tagNoTags')}</p>
-          ) : (
-            <div className="space-y-2">
-              {tags.map((tag) => (
-                <div
-                  key={tag.id}
-                  className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-start sm:justify-between"
-                >
-                  <div className="min-w-0 space-y-1 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {tag.namespace && (
-                        <Badge variant="secondary">{tag.namespace}</Badge>
-                      )}
-                      <span className="font-medium">{tag.name}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      {tag.translations.zh?.text && (
-                        <div>中文: {tag.translations.zh.text}</div>
-                      )}
-                      {tag.translations.en?.text && (
-                        <div>English: {tag.translations.en.text}</div>
-                      )}
-                      {tag.links && (
-                        <div>Links: {tag.links}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditTag(tag)}
-                      disabled={loading}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteTag(tag.id)}
-                      disabled={loading}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+              <div className="min-w-0 space-y-1 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {tag.namespace && (
+                    <Badge variant="secondary">{tag.namespace}</Badge>
+                  )}
+                  <span className="font-medium">{tag.name}</span>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {totalTags > pageSize && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {t('settings.tagShowingRange', { from: ((currentPage - 1) * pageSize) + 1, to: Math.min(currentPage * pageSize, totalTags), total: totalTags })}
-              </p>
-              <div className="flex items-center gap-1">
+                <div className="text-xs text-muted-foreground space-y-1">
+                  {tag.translations.zh?.text && (
+                    <div>中文: {tag.translations.zh.text}</div>
+                  )}
+                  {tag.translations.en?.text && (
+                    <div>English: {tag.translations.en.text}</div>
+                  )}
+                  {tag.links && (
+                    <div>Links: {tag.links}</div>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1 || loading}
+                  onClick={() => handleEditTag(tag)}
+                  disabled={loading}
                 >
-                  «
+                  <Edit2 className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1 || loading}
+                  onClick={() => handleDeleteTag(tag.id)}
+                  disabled={loading}
                 >
-                  ‹
-                </Button>
-                {(() => {
-                  const totalPages = Math.ceil(totalTags / pageSize);
-                  const pages: (number | string)[] = [];
-                  const maxVisible = 5;
-
-                  if (totalPages <= maxVisible + 2) {
-                    for (let i = 1; i <= totalPages; i++) pages.push(i);
-                  } else {
-                    pages.push(1);
-                    if (currentPage > 3) pages.push('...');
-
-                    const start = Math.max(2, currentPage - 1);
-                    const end = Math.min(totalPages - 1, currentPage + 1);
-                    for (let i = start; i <= end; i++) pages.push(i);
-
-                    if (currentPage < totalPages - 2) pages.push('...');
-                    pages.push(totalPages);
-                  }
-
-                  return pages.map((page, idx) => (
-                    page === '...' ? (
-                      <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
-                    ) : (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setCurrentPage(page as number)}
-                        disabled={loading}
-                        className="min-w-[32px]"
-                      >
-                        {page}
-                      </Button>
-                    )
-                  ));
-                })()}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalTags / pageSize), prev + 1))}
-                  disabled={currentPage * pageSize >= totalTags || loading}
-                >
-                  ›
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.ceil(totalTags / pageSize))}
-                  disabled={currentPage * pageSize >= totalTags || loading}
-                >
-                  »
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      )}
+
+      {totalTags > pageSize && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {t('settings.tagShowingRange', { from: ((currentPage - 1) * pageSize) + 1, to: Math.min(currentPage * pageSize, totalTags), total: totalTags })}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1 || loading}
+            >
+              «
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1 || loading}
+            >
+              ‹
+            </Button>
+            {(() => {
+              const totalPages = Math.ceil(totalTags / pageSize);
+              const pages: (number | string)[] = [];
+              const maxVisible = 5;
+
+              if (totalPages <= maxVisible + 2) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+              } else {
+                pages.push(1);
+                if (currentPage > 3) pages.push('...');
+
+                const start = Math.max(2, currentPage - 1);
+                const end = Math.min(totalPages - 1, currentPage + 1);
+                for (let i = start; i <= end; i++) pages.push(i);
+
+                if (currentPage < totalPages - 2) pages.push('...');
+                pages.push(totalPages);
+              }
+
+              return pages.map((page, idx) => (
+                page === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                ) : (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(page as number)}
+                    disabled={loading}
+                    className="min-w-[32px]"
+                  >
+                    {page}
+                  </Button>
+                )
+              ));
+            })()}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalTags / pageSize), prev + 1))}
+              disabled={currentPage * pageSize >= totalTags || loading}
+            >
+              ›
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.ceil(totalTags / pageSize))}
+              disabled={currentPage * pageSize >= totalTags || loading}
+            >
+              »
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Tag Dialog - Create/Edit */}
       <TagDialog
