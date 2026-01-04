@@ -653,8 +653,11 @@ function ArchiveDetailContent() {
                             const label = displayTag(fullTag);
                             const colonIdx = fullTag.indexOf(':');
                             const namespace = colonIdx > 0 ? fullTag.slice(0, colonIdx).trim().toLowerCase() : '';
+                            const tagName = colonIdx > 0 ? fullTag.slice(colonIdx + 1).trim() : fullTag;
                             const isSource = namespace === 'source';
                             const sourceUrl = isSource ? (label.startsWith('http') ? label : `https://${label}`) : '';
+                            // 使用原始的 namespace:name$ 格式进行跳转
+                            const searchQuery = `${namespace}:${tagName}$`;
 
                             return (
                               <Badge
@@ -663,7 +666,7 @@ function ArchiveDetailContent() {
                                 className="px-2.5 py-1 text-sm cursor-pointer select-none transition-colors hover:bg-secondary/80 flex items-center gap-1"
                                 title={fullTag}
                               >
-                                <Link href={`/?q=${encodeURIComponent(label)}`}>
+                                <Link href={`/?q=${encodeURIComponent(searchQuery)}`}>
                                   {label}
                                 </Link>
                                 {isSource && sourceUrl && (
