@@ -139,14 +139,17 @@ export const SearchInput = React.forwardRef<{ getInputValue?: () => string }, Se
     const words = currentValue.split(/\s+/)
     const lastWordIndex = words.length - 1
 
+    // 使用 namespace:value$ 格式
+    const formattedValue = `${suggestion.value}$`
+
     // 替换最后一个词
     if (lastWordIndex >= 0) {
-      words[lastWordIndex] = suggestion.label
+      words[lastWordIndex] = formattedValue
       const newValue = words.join(' ')
       setInputValue(newValue)
       onChange(newValue)
     } else {
-      const newValue = suggestion.label
+      const newValue = formattedValue
       setInputValue(newValue)
       onChange(newValue)
     }
