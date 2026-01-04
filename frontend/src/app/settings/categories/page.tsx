@@ -286,125 +286,117 @@ export default function CategoriesSettingsPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('settings.categoriesList')}</CardTitle>
-          <CardDescription>{t('settings.categoriesListDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('settings.categorySearchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-            <Select value={enabledFilter} onValueChange={setEnabledFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={t('settings.categoryAllStatuses')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('settings.categoryAllStatuses')}</SelectItem>
-                <SelectItem value="enabled">{t('settings.categoryEnabled')}</SelectItem>
-                <SelectItem value="disabled">{t('settings.categoryDisabled')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchQuery('');
-                setEnabledFilter('all');
-              }}
-            >
-              {t('common.clear')}
-            </Button>
-            <Button
-              onClick={() => setCreateDialogOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              {t('settings.categoryCreate')}
-            </Button>
-          </div>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t('settings.categorySearchPlaceholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Select value={enabledFilter} onValueChange={setEnabledFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder={t('settings.categoryAllStatuses')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('settings.categoryAllStatuses')}</SelectItem>
+            <SelectItem value="enabled">{t('settings.categoryEnabled')}</SelectItem>
+            <SelectItem value="disabled">{t('settings.categoryDisabled')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchQuery('');
+            setEnabledFilter('all');
+          }}
+        >
+          {t('common.clear')}
+        </Button>
+        <Button
+          onClick={() => setCreateDialogOpen(true)}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          {t('settings.categoryCreate')}
+        </Button>
+      </div>
 
-          {categoriesLoading ? (
-            <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
-          ) : categories.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('settings.categoryNoCategories')}</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((category) => (
-                <Card key={category.catid} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        {category.icon && <span className="text-2xl">{category.icon}</span>}
-                        <CardTitle className="text-lg">{category.name}</CardTitle>
-                      </div>
-                      <Switch
-                        checked={category.enabled}
-                        onCheckedChange={(checked) => handleToggleEnabled(category.catid, checked)}
-                        disabled={loading}
-                      />
-                    </div>
-                    <CardDescription className="line-clamp-2">
-                      {category.description || t('settings.categoryNoDescription')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Folder className="w-4 h-4" />
-                        <span className="truncate">{category.scan_path}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Badge variant="outline" className="text-xs">
-                          {category.archive_count} {t('settings.categoryArchives')}
-                        </Badge>
-                        <span className="text-xs">
-                          {t('settings.categorySortOrder')}: {category.sort_order}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleScanCategory(category.catid)}
-                        disabled={loading || !category.enabled}
-                        title={t('settings.categoryScanTooltip')}
-                        className="flex-1"
-                      >
-                        <Play className="w-4 h-4 mr-1" />
-                        {t('settings.categoryScan')}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditCategory(category)}
-                        disabled={loading}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteCategory(category.catid)}
-                        disabled={loading}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {categoriesLoading ? (
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+      ) : categories.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('settings.categoryNoCategories')}</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {categories.map((category) => (
+            <Card key={category.catid} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    {category.icon && <span className="text-2xl">{category.icon}</span>}
+                    <CardTitle className="text-lg">{category.name}</CardTitle>
+                  </div>
+                  <Switch
+                    checked={category.enabled}
+                    onCheckedChange={(checked) => handleToggleEnabled(category.catid, checked)}
+                    disabled={loading}
+                  />
+                </div>
+                <CardDescription className="line-clamp-2">
+                  {category.description || t('settings.categoryNoDescription')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Folder className="w-4 h-4" />
+                    <span className="truncate">{category.scan_path}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Badge variant="outline" className="text-xs">
+                      {category.archive_count} {t('settings.categoryArchives')}
+                    </Badge>
+                    <span className="text-xs">
+                      {t('settings.categorySortOrder')}: {category.sort_order}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleScanCategory(category.catid)}
+                    disabled={loading || !category.enabled}
+                    title={t('settings.categoryScanTooltip')}
+                    className="flex-1"
+                  >
+                    <Play className="w-4 h-4 mr-1" />
+                    {t('settings.categoryScan')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditCategory(category)}
+                    disabled={loading}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteCategory(category.catid)}
+                    disabled={loading}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={(open) => {
