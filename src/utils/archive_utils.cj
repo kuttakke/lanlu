@@ -65,36 +65,50 @@ public class ArchiveUtils {
         "tgz"
     ]
 
-    // 支持的图片格式
+    // 支持的图片格式（与处理器保持一致）
     public static let SUPPORTED_IMAGE_EXTENSIONS: Array<String> = [
-        "jpg",
-        "jpeg",
-        "png",
-        "gif",
-        "bmp",
-        "webp"
+        "avif", "jpg", "jpeg", "png", "webp", "gif", "AVIF", "JPG", "JPEG", "PNG", "WEBP", "GIF"
+    ]
+
+    // 支持的视频格式（与处理器保持一致）
+    public static let SUPPORTED_VIDEO_EXTENSIONS: Array<String> = [
+        "mp4", "webm", "mkv", "avi", "mov", "m4v", "MP4", "WEBM", "MKV", "AVI", "MOV", "M4V"
     ]
 
     // ==================== 从 ShinobuService 迁移的工具方法 ====================
 
     /**
-     * 检查文件是否为图片格式
+     * 检查文件是否为图片格式（与处理器保持一致）
      */
     public static func isImageFile(filename: String): Bool {
-        return filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".png") ||
-            filename.endsWith(".gif") || filename.endsWith(".bmp") || filename.endsWith(".webp") || filename.endsWith(
-            ".JPG") || filename.endsWith(".JPEG") || filename.endsWith(".PNG") || filename.endsWith(".GIF") ||
-            filename.endsWith(".BMP") || filename.endsWith(".WEBP")
+        let parts = filename.split(".")
+        if (parts.size <= 1) {
+            return false
+        }
+        let extension = parts[parts.size - 1]
+        for (ext in SUPPORTED_IMAGE_EXTENSIONS) {
+            if (extension == ext) {
+                return true
+            }
+        }
+        return false
     }
 
     /**
-     * 检查文件是否为视频格式
+     * 检查文件是否为视频格式（与处理器保持一致）
      */
     public static func isVideoFile(filename: String): Bool {
-        return filename.endsWith(".mp4") || filename.endsWith(".webm") || filename.endsWith(".mkv") ||
-            filename.endsWith(".avi") || filename.endsWith(".mov") || filename.endsWith(".m4v") ||
-            filename.endsWith(".MP4") || filename.endsWith(".WEBM") || filename.endsWith(".MKV") ||
-            filename.endsWith(".AVI") || filename.endsWith(".MOV") || filename.endsWith(".M4V")
+        let parts = filename.split(".")
+        if (parts.size <= 1) {
+            return false
+        }
+        let extension = parts[parts.size - 1]
+        for (ext in SUPPORTED_VIDEO_EXTENSIONS) {
+            if (extension == ext) {
+                return true
+            }
+        }
+        return false
     }
 
     /**

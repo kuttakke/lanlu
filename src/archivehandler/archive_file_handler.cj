@@ -4,7 +4,7 @@ import std.fs.*
 import std.collection.*
 import archive_ffi.Archive
 import lrr4cj.models.ArchiveTypes
-import lrr4cj.utils.{ArchiveUtils, DirectoryScanner}
+import lrr4cj.utils.DirectoryScanner
 
 /**
  * 压缩包类型处理器
@@ -55,7 +55,7 @@ public class ArchiveFileHandler <: ArchiveHandler {
         let entries = listEntries(archivePath)
         var count: Int32 = 0
         for (entry in entries) {
-            if (ArchiveUtils.isMediaFile(entry)) {
+            if (isMediaFile(entry)) {
                 count++
             }
         }
@@ -65,7 +65,7 @@ public class ArchiveFileHandler <: ArchiveHandler {
     public func getFirstImage(archivePath: String): (String, String) {
         let entries = listEntries(archivePath)
         for (entry in entries) {
-            if (ArchiveUtils.isImageFile(entry)) {
+            if (isImageFile(entry)) {
                 return (entry, "")
             }
         }
@@ -77,11 +77,21 @@ public class ArchiveFileHandler <: ArchiveHandler {
         "zip", "rar", "7z", "tar", "cbz", "cbr", "cb7", "cbt", "gz", "tgz"
     ]
 
+    // 允许的图片文件扩展名（与 folder_handler 保持一致）
+    private static let ALLOWED_IMAGE_EXTENSIONS: Array<String> = [
+        "avif", "jpg", "jpeg", "png", "webp", "gif", "AVIF", "JPG", "JPEG", "PNG", "WEBP", "GIF"
+    ]
+
+    // 允许的视频文件扩展名（与 folder_handler 保持一致）
+    private static let ALLOWED_VIDEO_EXTENSIONS: Array<String> = [
+        "mp4", "webm", "mkv", "avi", "mov", "m4v", "MP4", "WEBM", "MKV", "AVI", "MOV", "M4V"
+    ]
+
     public func canHandle(filePath: String): Bool {
         if (DirectoryScanner.isDirectory(filePath)) {
             return false
         }
-        let ext = ArchiveUtils.getFileExtension(filePath).toAsciiLower()
+        let ext = getFileExtension(filePath).toAsciiLower()
         for (supportedExt in SUPPORTED_EXTENSIONS) {
             if (ext == supportedExt) {
                 return true
@@ -130,5 +140,67 @@ public class ArchiveFileHandler <: ArchiveHandler {
             return result
         }
         return "."
+    }
+
+    // ==================== 私有工具方法 - 媒体文件过滤 ====================
+
+    /**
+     * 检查文件是否为图片格式（与 folder_handler 保持一致）
+     */
+    private func isImageFile(filename: String): Bool {
+        let parts = filename.split(".")
+        if (parts.size <= 1) {
+            return false
+        }
+        let extension = parts[parts.size - 1]
+        for (ext in ALLOWED_IMAGE_EXTENSIONS) {
+            if (extension == ext) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * 检查文件是否为视频格式（与 folder_handler 保持一致）
+     */
+    private func isVideoFile(filename: String): Bool {
+        let parts = filename.split(".")
+        if (parts.size <= 1) {
+            return false
+        }
+        let extension = parts[parts.size - 1]
+        for (ext in ALLOWED_VIDEO_EXTENSIONS) {
+            if (extension == ext) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * 检查文件是否为媒体文件（图片或视频）
+     */
+    private func isMediaFile(filename: String): Bool {
+        return isImageFile(filename) || isVideoFile(filename)
+    }
+
+    /**
+     * 获取文件扩展名（小写）
+     */
+    private func getFileExtension(filePath: String): String {
+        let pathParts = filePath.split("/")
+        let fileName = if (pathParts.size > 0) {
+            pathParts[pathParts.size - 1]
+        } else {
+            filePath
+        }
+
+        let nameParts = fileName.split(".")
+        if (nameParts.size > 1) {
+            let ext = nameParts[nameParts.size - 1]
+            return ext.toAsciiLower()
+        }
+        return "tmp"
     }
 }

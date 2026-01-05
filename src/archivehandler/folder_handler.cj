@@ -3,7 +3,7 @@ package lrr4cj.archivehandler
 import std.fs.*
 import std.collection.*
 import lrr4cj.models.ArchiveTypes
-import lrr4cj.utils.{ArchiveUtils, DirectoryScanner}
+import lrr4cj.utils.DirectoryScanner
 
 /**
  * 文件夹类型处理器
@@ -13,6 +13,16 @@ public class FolderHandler <: ArchiveHandler {
     public func getType(): String {
         return ArchiveTypes.FOLDER
     }
+
+    // 允许的图片文件扩展名（与 archive_file_handler 保持一致）
+    private static let ALLOWED_IMAGE_EXTENSIONS: Array<String> = [
+        "avif", "jpg", "jpeg", "png", "webp", "gif", "AVIF", "JPG", "JPEG", "PNG", "WEBP", "GIF"
+    ]
+
+    // 允许的视频文件扩展名（与 archive_file_handler 保持一致）
+    private static let ALLOWED_VIDEO_EXTENSIONS: Array<String> = [
+        "mp4", "webm", "mkv", "avi", "mov", "m4v", "MP4", "WEBM", "MKV", "AVI", "MOV", "M4V"
+    ]
 
     public func listEntries(archivePath: String): Array<String> {
         return DirectoryScanner.listDirectory(archivePath)
@@ -60,7 +70,7 @@ public class FolderHandler <: ArchiveHandler {
         let entries = listEntries(archivePath)
         var count: Int32 = 0
         for (entry in entries) {
-            if (ArchiveUtils.isMediaFile(entry)) {
+            if (isMediaFile(entry)) {
                 count++
             }
         }
@@ -75,7 +85,7 @@ public class FolderHandler <: ArchiveHandler {
             if (DirectoryScanner.isDirectory(fullPath)) {
                 continue
             }
-            if (DirectoryScanner.fileExists(fullPath) && ArchiveUtils.isImageFile(entry)) {
+            if (DirectoryScanner.fileExists(fullPath) && isImageFile(entry)) {
                 return (entry, fullPath)
             }
         }
@@ -86,7 +96,7 @@ public class FolderHandler <: ArchiveHandler {
                 let subEntries = DirectoryScanner.listDirectory(fullPath)
                 for (subEntry in subEntries) {
                     let subFullPath = DirectoryScanner.joinPath(fullPath, subEntry)
-                    if (DirectoryScanner.fileExists(subFullPath) && ArchiveUtils.isImageFile(subEntry)) {
+                    if (DirectoryScanner.fileExists(subFullPath) && isImageFile(subEntry)) {
                         return (subEntry, subFullPath)
                     }
                 }
@@ -107,19 +117,6 @@ public class FolderHandler <: ArchiveHandler {
         // 如果目录为空，不处理
         if (entries.size == 0) {
             return false
-        }
-
-        // 允许的媒体文件扩展名（图片和视频格式）
-        let allowedExtensions = ["avif", "jpg", "jpeg", "png", "webp", "AVIF", "JPG", "JPEG", "PNG", "WEBP"]
-        // 允许的视频扩展名
-        let videoExtensions = ["mp4", "webm", "mkv", "avi", "mov", "m4v", "MP4", "WEBM", "MKV", "AVI", "MOV", "M4V"]
-        // 合并所有允许的扩展名
-        var allowedMediaExtensions = ArrayList<String>()
-        for (ext in allowedExtensions) {
-            allowedMediaExtensions.add(ext)
-        }
-        for (ext in videoExtensions) {
-            allowedMediaExtensions.add(ext)
         }
 
         // 检查每个条目
@@ -147,10 +144,18 @@ public class FolderHandler <: ArchiveHandler {
 
             // 检查扩展名是否在允许列表中（大小写敏感）
             var isAllowed = false
-            for (allowedExt in allowedMediaExtensions) {
+            for (allowedExt in ALLOWED_IMAGE_EXTENSIONS) {
                 if (extension == allowedExt) {
                     isAllowed = true
                     break
+                }
+            }
+            if (!isAllowed) {
+                for (allowedExt in ALLOWED_VIDEO_EXTENSIONS) {
+                    if (extension == allowedExt) {
+                        isAllowed = true
+                        break
+                    }
                 }
             }
 
@@ -203,5 +208,48 @@ public class FolderHandler <: ArchiveHandler {
             return result
         }
         return "."
+    }
+
+    // ==================== 私有工具方法 - 媒体文件过滤 ====================
+
+    /**
+     * 检查文件是否为图片格式（与 archive_file_handler 保持一致）
+     */
+    private func isImageFile(filename: String): Bool {
+        let parts = filename.split(".")
+        if (parts.size <= 1) {
+            return false
+        }
+        let extension = parts[parts.size - 1]
+        for (ext in ALLOWED_IMAGE_EXTENSIONS) {
+            if (extension == ext) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * 检查文件是否为视频格式（与 archive_file_handler 保持一致）
+     */
+    private func isVideoFile(filename: String): Bool {
+        let parts = filename.split(".")
+        if (parts.size <= 1) {
+            return false
+        }
+        let extension = parts[parts.size - 1]
+        for (ext in ALLOWED_VIDEO_EXTENSIONS) {
+            if (extension == ext) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * 检查文件是否为媒体文件（图片或视频）
+     */
+    private func isMediaFile(filename: String): Bool {
+        return isImageFile(filename) || isVideoFile(filename)
     }
 }
