@@ -200,11 +200,27 @@ class EhdbMetadataPlugin extends BasePlugin {
     let core = title;
     let artist = '';
 
-    // 提取并移除开头的 [作者/社团] 部分
-    const artistMatch = core.match(/^\s*[\[【\(（]([^\]】\)）]+)[\]】\)）]\s*/);
-    if (artistMatch) {
-      artist = artistMatch[1].trim();
-      core = core.replace(artistMatch[0], '');
+    // 改进的作者提取：优先匹配包含日文或英文字符的作者标记
+    const artistPatterns = [
+      // 匹配包含 "スタジオ"、"circle" 或明显作者名称的括号
+      /^\s*[\[【\(（]([^)\]】]*?(?:スタジオ|circle|_group|teamAuteur|Artwork|イラスト)[^)\]】]*?)[\]】\)）]\s*/i,
+      // 匹配包含日文假名/汉字/英文字母的作者名（排除纯数字和日期）
+      /^\s*[\[【\(（]([^\]】\)]*?[あ-んア-ン一-龯a-zA-Z][^\]】\)]*?)[\]】\)）]\s*/,
+      // 最后的备选：第一个括号内容
+      /^\s*[\[【\(（]([^\]】\)）]+)[\]】\)）]\s*/
+    ];
+
+    for (const pattern of artistPatterns) {
+      const artistMatch = core.match(pattern);
+      if (artistMatch) {
+        const extractedArtist = artistMatch[1].trim();
+        // 验证提取的作者是否合理（非纯数字，非日期）
+        if (!/^\d+$/.test(extractedArtist) && !/^\d{2,4}[-\/]\d{1,2}$/.test(extractedArtist)) {
+          artist = extractedArtist;
+          core = core.replace(artistMatch[0], '');
+          break;
+        }
+      }
     }
 
     // 移除常见的后缀标记
@@ -219,18 +235,20 @@ class EhdbMetadataPlugin extends BasePlugin {
       core = core.replace(pattern, '');
     }
 
-    // 移除剩余的方括号内容（保守处理）
+    // 移除剩余的方括号内容（保留圆括号中的重要描述）
     core = core.replace(/[\[【][^\]】]*[\]】]/g, ' ');
-    core = core.replace(/[\(（][^\)）]*[\)）]/g, ' ');
+
+    // 只移除明确标记的圆括号（保留描述性内容）
+    core = core.replace(/[\(（][^\)）]*(?:DL|Digital|翻訳|翻译|C\d+|COMIC)[^\)）]*[\)）]/g, ' ');
 
     // 清理多余空格
     core = core.replace(/\s+/g, ' ').trim();
 
-    // 提取关键词（用于分词搜索）
+    // 提取关键词（改进分词，保留更多有意义的词）
     const keywords = core
-      .split(/[\s\-_～~]+/)
+      .split(/[\s\-_～~、，]+/)
       .filter(k => k.length >= 2)
-      .slice(0, 8);
+      .slice(0, 10);
 
     return { core, keywords, artist };
   }
@@ -270,10 +288,12 @@ class EhdbMetadataPlugin extends BasePlugin {
       // 预处理标题
       const { core, keywords, artist } = this.preprocessTitle(title);
       await this.logInfo("search:preprocess", {
-        original: title.slice(0, 80),
-        core: core.slice(0, 80),
-        keywords: keywords.slice(0, 5),
-        artist
+        original: title,
+        core: core,
+        keywords: keywords,
+        artist: artist,
+        keyword_count: keywords.length,
+        has_japanese: /[あ-んア-ン一-龯]/.test(core)
       });
 
       // 从 existing_tags 提取 artist
@@ -319,12 +339,17 @@ class EhdbMetadataPlugin extends BasePlugin {
   /**
    * 策略1: 全文搜索 (使用 title_tsv)
    * artist 为优先匹配条件，匹配不到时回退到纯标题搜索
+   * 注意：对日文支持有限，会自动跳过
    */
   private async searchByFullText(core: string, artist: string): Promise<PluginResult> {
     // 构建 tsquery
     const words = core.split(/\s+/).filter(w => w.length >= 2);
-    if (words.length === 0) {
-      return { success: false, error: 'No valid search terms' };
+
+    // 检查是否包含日文字符（包含日文则跳过全文搜索）
+    const hasJapanese = /[あ-んア-ン一-龯]/.test(core);
+    if (hasJapanese || words.length === 0) {
+      await this.logInfo("search:skip_fulltext", { reason: hasJapanese ? "has_japanese" : "no_words" });
+      return { success: false, error: 'Skip fulltext search for Japanese text' };
     }
 
     const tsquery = words.map(w => w.replace(/['"\\]/g, '')).join(' & ');
@@ -340,13 +365,18 @@ class EhdbMetadataPlugin extends BasePlugin {
           AND (tags @> $2::jsonb OR tags @> $3::jsonb)
         ORDER BY rank DESC, posted DESC LIMIT 10
       `;
-      const result = await this.dbClient.queryObject(queryWithArtist, [
-        tsquery,
-        JSON.stringify([`artist:${artistLower}`]),
-        JSON.stringify([`group:${artistLower}`])
-      ]);
-      if (result.rows && result.rows.length > 0) {
-        return this.selectBestMatch(result.rows, core);
+      try {
+        const result = await this.dbClient.queryObject(queryWithArtist, [
+          tsquery,
+          JSON.stringify([`artist:${artistLower}`]),
+          JSON.stringify([`group:${artistLower}`])
+        ]);
+        if (result.rows && result.rows.length > 0) {
+          return this.selectBestMatch(result.rows, core);
+        }
+      } catch (error) {
+        await this.logWarn("search:fulltext_error", { error: String(error) });
+        return { success: false, error: 'Fulltext search failed' };
       }
     }
 
@@ -358,8 +388,13 @@ class EhdbMetadataPlugin extends BasePlugin {
       WHERE title_tsv @@ to_tsquery('simple', $1)
       ORDER BY rank DESC, posted DESC LIMIT 10
     `;
-    const result = await this.dbClient.queryObject(query, [tsquery]);
-    return this.selectBestMatch(result.rows, core);
+    try {
+      const result = await this.dbClient.queryObject(query, [tsquery]);
+      return this.selectBestMatch(result.rows, core);
+    } catch (error) {
+      await this.logWarn("search:fulltext_error", { error: String(error) });
+      return { success: false, error: 'Fulltext search failed' };
+    }
   }
 
   /**
@@ -447,8 +482,9 @@ class EhdbMetadataPlugin extends BasePlugin {
   /**
    * 从多个候选结果中选择最佳匹配
    * 相似度低于阈值的结果会被抛弃
+   * 注意：对日文标题降低阈值以提高匹配成功率
    */
-  private static readonly MIN_SIMILARITY_SCORE = 20;
+  private static readonly MIN_SIMILARITY_SCORE = 10;
 
   private selectBestMatch(rows: any[], input: string): PluginResult {
     if (!rows || rows.length === 0) {
