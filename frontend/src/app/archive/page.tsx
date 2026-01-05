@@ -15,7 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { TagInput } from '@/components/ui/tag-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Header } from '@/components/layout/Header';
-import { BookOpen, Download, Info, X, Eye, Edit, CheckCircle, RotateCcw, Play, Heart, ExternalLink } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { BookOpen, Download, Info, X, Eye, Edit, CheckCircle, RotateCcw, Play, Heart, ExternalLink, MoreHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -91,12 +92,26 @@ function ArchiveDetailContent() {
   const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set());
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [mobileActionsReady, setMobileActionsReady] = useState(true);
 
   // 标签翻译映射：原始标签 -> 翻译文本
   const [tagTranslations, setTagTranslations] = useState<Record<string, string>>({});
 
   // 每页显示的图片数量
   const pageSize = 10;
+
+  // 防止用户快速连点“更多”导致误触抽屉内按钮
+  useEffect(() => {
+    if (!mobileActionsOpen) {
+      setMobileActionsReady(true);
+      return;
+    }
+
+    setMobileActionsReady(false);
+    const timer = window.setTimeout(() => setMobileActionsReady(true), 350);
+    return () => window.clearTimeout(timer);
+  }, [mobileActionsOpen]);
 
   useEffect(() => {
     async function loadMetadata() {
@@ -520,7 +535,7 @@ function ArchiveDetailContent() {
 
   return (
     <div className="min-h-screen">        
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
+      <main className="container mx-auto px-4 pt-6 pb-24 sm:pb-6 max-w-7xl">
           {/* 主布局：封面图与信息左右布局 */}
           <div className="space-y-6">
             {/* 顶部：封面在左，标题/标签/操作在右 */}
@@ -746,7 +761,7 @@ function ArchiveDetailContent() {
 	                    </div>
 	
 	                    {/* 操作按钮：同一行 */}
-	                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+	                    <div className={`grid ${isEditing ? 'grid-cols-1 sm:grid-cols-2' : 'hidden sm:grid sm:grid-cols-2'} gap-2`}>
 	                      {isEditing ? (
 	                        <>
 	                          <Button className="w-full" onClick={saveEdit} disabled={isSaving}>
@@ -832,7 +847,7 @@ function ArchiveDetailContent() {
 	                              onClick={handleDeleteArchive}
 	                              disabled={deleteLoading}
 	                            >
-	                              <X className="w-4 h-4 mr-2" />
+	                              <Trash2 className="w-4 h-4 mr-2" />
 	                              {deleteLoading ? t('common.loading') : t('common.delete')}
 	                            </Button>
 	                          )}
@@ -1056,6 +1071,155 @@ function ArchiveDetailContent() {
             </Card>
           </div>
       </main>
+
+      {/* 移动端：首屏可见的阅读按钮 */}
+      {!isEditing && (
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+          <div className="mx-auto max-w-7xl px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <div className="flex items-center gap-2">
+              <Link href={`/reader?id=${metadata.arcid}`} className="flex-1">
+                <Button className="w-full">
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  {t('archive.startReading')}
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                className="shrink-0"
+                aria-label={t('common.actions')}
+                onClick={() => setMobileActionsOpen(true)}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          <Sheet open={mobileActionsOpen} onOpenChange={setMobileActionsOpen}>
+            <SheetContent
+              side="bottom"
+              className="px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] max-h-[85vh] overflow-y-auto rounded-t-xl"
+            >
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted" />
+              <SheetHeader className="mb-3">
+                <SheetTitle>{t('common.actions')}</SheetTitle>
+                <div className="text-sm text-muted-foreground line-clamp-2">{metadata.title}</div>
+              </SheetHeader>
+
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const downloadUrl = ArchiveService.getDownloadUrl(metadata.arcid);
+                    window.open(downloadUrl, '_blank');
+                    setMobileActionsOpen(false);
+                  }}
+                  disabled={!mobileActionsReady}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {t('archive.download')}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className={`w-full justify-start ${isFavorite ? 'text-red-500 border-red-500' : ''}`}
+                  onClick={async () => {
+                    await handleFavoriteClick();
+                    setMobileActionsOpen(false);
+                  }}
+                  disabled={!mobileActionsReady || favoriteLoading}
+                >
+                  <Heart className={`w-4 h-4 mr-2 ${isFavorite ? 'fill-current' : ''}`} />
+                  {favoriteLoading ? t('common.loading') : (isFavorite ? t('common.unfavorite') : t('common.favorite'))}
+                </Button>
+
+                {metadata.isnew ? (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={async () => {
+                      await handleMarkAsRead();
+                      setMobileActionsOpen(false);
+                    }}
+                    disabled={!mobileActionsReady || isNewStatusLoading}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {isNewStatusLoading ? t('common.loading') : t('archive.markAsRead')}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={async () => {
+                      await handleMarkAsNew();
+                      setMobileActionsOpen(false);
+                    }}
+                    disabled={!mobileActionsReady || isNewStatusLoading}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    {isNewStatusLoading ? t('common.loading') : t('archive.markAsNew')}
+                  </Button>
+                )}
+
+                <AddToTankoubonDialog
+                  archiveId={metadata.arcid}
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start" disabled={!mobileActionsReady}>
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      {t('tankoubon.addToCollection')}
+                    </Button>
+                  }
+                  onAdded={() => setMobileActionsOpen(false)}
+                />
+
+                {isAuthenticated ? (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      startEdit();
+                      setMobileActionsOpen(false);
+                    }}
+                    disabled={!mobileActionsReady}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    {t('common.edit')}
+                  </Button>
+                ) : (
+                  <Button variant="outline" className="w-full justify-start" disabled title="需要登录才能编辑">
+                    <Edit className="w-4 h-4 mr-2" />
+                    {t('common.edit')}
+                  </Button>
+                )}
+
+                {isAdmin && (
+                  <Button
+                    variant="destructive"
+                    className="w-full justify-start"
+                    onClick={async () => {
+                      await handleDeleteArchive();
+                      setMobileActionsOpen(false);
+                    }}
+                    disabled={!mobileActionsReady || deleteLoading}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {deleteLoading ? t('common.loading') : t('common.delete')}
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setMobileActionsOpen(false)}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  {t('common.close')}
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      )}
       
     </div>
   );
