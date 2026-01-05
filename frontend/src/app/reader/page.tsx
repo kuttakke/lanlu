@@ -117,7 +117,7 @@ function ReaderContent() {
   const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
   const [imagesLoading, setImagesLoading] = useState<Set<number>>(new Set());
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set()); // 跟踪已加载的图片
-  const [htmlContent, setHtmlContent] = useState<string>(''); // HTML内容缓存
+  const [htmlContents, setHtmlContents] = useState<Record<number, string>>({}); // HTML内容缓存（按页索引）
   const [showToolbar, setShowToolbar] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false); // 收藏状态
   const [archiveTitle, setArchiveTitle] = useState<string>(''); // 归档标题
@@ -131,6 +131,7 @@ function ReaderContent() {
   const lastTouchAtRef = useRef(0);
   const readerAreaRef = useRef<HTMLDivElement | null>(null);
   const webtoonContainerRef = useRef<HTMLDivElement>(null);
+  const webtoonPageElementRefs = useRef<(HTMLDivElement | null)[]>([]);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const currentPageRef = useRef<number>(0); // 用于跟踪最新的currentPage值
@@ -209,6 +210,8 @@ function ReaderContent() {
   const [doubleTapZoom, setDoubleTapZoom] = useDoubleTapZoom();
   const [autoHideEnabled, setAutoHideEnabled] = useAutoHideEnabled();
   const [tapTurnPageEnabled, setTapTurnPageEnabled] = useTapTurnPageEnabled();
+  const htmlContentsRef = useRef<Record<number, string>>({});
+  const htmlLoadingRef = useRef<Set<number>>(new Set());
 
   const isInteractiveTarget = useCallback((target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return false;
@@ -252,6 +255,65 @@ function ReaderContent() {
     if (minDist === rightDist || minDist === bottomDist) return 'next' as const;
     return 'prev' as const;
   }, []);
+
+  useEffect(() => {
+    htmlContentsRef.current = htmlContents;
+  }, [htmlContents]);
+
+  const loadHtmlPage = useCallback(async (pageIndex: number) => {
+    if (!id) return;
+    const page = pages[pageIndex];
+    if (!page || page.type !== 'html') return;
+    if (htmlContentsRef.current[pageIndex]) return;
+    if (htmlLoadingRef.current.has(pageIndex)) return;
+
+    htmlLoadingRef.current.add(pageIndex);
+    try {
+      const response = await fetch(page.url);
+      const html = await response.text();
+
+      // 重写相对路径为API路径，确保资源文件正确加载
+      const urlObj = new URL(page.url, window.location.origin);
+      const pathParam = urlObj.searchParams.get('path');
+      const currentDir = pathParam ? pathParam.substring(0, pathParam.lastIndexOf('/')) : '';
+
+      let processedHtml = html;
+
+      processedHtml = processedHtml.replace(
+        /(src|href)=["'](?!http|https|data:|mailto:|tel:)([^"']+)["']/gi,
+        (match, attr, relativePath) => {
+          if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
+            const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
+            const encodedPath = encodeURIComponent(fullPath);
+            const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
+            return `${attr}="${apiPath}"`;
+          }
+          return match;
+        }
+      );
+
+      processedHtml = processedHtml.replace(
+        /url\((?!['"]?(?:http|https|data:))([^'")]+)\)/gi,
+        (match, relativePath) => {
+          relativePath = relativePath.replace(/['"]/g, '');
+          if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
+            const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
+            const encodedPath = encodeURIComponent(fullPath);
+            const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
+            return `url(${apiPath})`;
+          }
+          return match;
+        }
+      );
+
+      setHtmlContents(prev => ({ ...prev, [pageIndex]: processedHtml }));
+    } catch (error) {
+      logger.error('Failed to load HTML page', error);
+      setError('Failed to load HTML content');
+    } finally {
+      htmlLoadingRef.current.delete(pageIndex);
+    }
+  }, [id, pages]);
 
   const clearAutoHideTimers = useCallback(() => {
     if (autoHideTimeoutRef.current) {
@@ -656,110 +718,23 @@ function ReaderContent() {
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
-  // 加载HTML页面内容
+  // 加载HTML页面内容（单页模式：当前页；条漫模式：可见范围内）
   useEffect(() => {
-    if (pages.length > 0 && currentPage >= 0 && currentPage < pages.length) {
-      const page = pages[currentPage];
+    if (!id || pages.length === 0) return;
 
-      if (page.type === 'html') {
-        // 加载HTML内容
-        fetch(page.url)
-          .then(response => response.text())
-          .then(html => {
-            // 重写相对路径为API路径，确保资源文件正确加载
-            // 提取当前页面的路径部分（从page.url中的path参数）
-            const urlObj = new URL(page.url, window.location.origin);
-            const pathParam = urlObj.searchParams.get('path');
-            const currentDir = pathParam ? pathParam.substring(0, pathParam.lastIndexOf('/')) : '';
-
-            // 重写HTML中的相对路径
-            let processedHtml = html;
-
-            // 1. 重写HTML标签中的src和href属性
-            processedHtml = processedHtml.replace(
-              /(src|href)=["'](?!http|https|data:|mailto:|tel:)([^"']+)["']/gi,
-              (match, attr, relativePath) => {
-                // 如果是相对路径，转换为API路径
-                if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
-                  const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
-                  const encodedPath = encodeURIComponent(fullPath);
-                  const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
-                  return `${attr}="${apiPath}"`;
-                }
-                return match;
-              }
-            );
-
-            // 2. 重写CSS中的url()引用
-            processedHtml = processedHtml.replace(
-              /url\((?!['"]?(?:http|https|data:))([^'")]+)\)/gi,
-              (match, relativePath) => {
-                // 清理路径中的引号
-                relativePath = relativePath.replace(/['"]/g, '');
-                // 如果是相对路径，转换为API路径
-                if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
-                  const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
-                  const encodedPath = encodeURIComponent(fullPath);
-                  const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
-                  return `url(${apiPath})`;
-                }
-                return match;
-              }
-            );
-
-            // 3. 处理EPUB内部导航链接（<a>标签的href）
-            // 创建一个临时DOM元素来解析HTML
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = processedHtml;
-
-            // 查找所有<a>标签
-            const links = tempDiv.querySelectorAll('a[href]');
-            links.forEach(link => {
-              const href = link.getAttribute('href');
-              if (href && !href.startsWith('http') && !href.startsWith('data:') && !href.startsWith('mailto:')) {
-                // 这是EPUB内部链接，转换为前端路由
-                const fullPath = currentDir ? `${currentDir}/${href}` : href;
-                const encodedPath = encodeURIComponent(fullPath);
-
-                // 检查是否是HTML文件
-                if (/\.(xhtml|html|htm)$/i.test(href)) {
-                  // 查找对应的页面索引
-                  const targetPageIndex = pages.findIndex(p => {
-                    const urlObj = new URL(p.url, window.location.origin);
-                    const pagePath = urlObj.searchParams.get('path');
-                    return pagePath === fullPath;
-                  });
-
-                  if (targetPageIndex >= 0) {
-                    // 使用javascript:void(0)阻止默认行为，然后导航到正确页面
-                    link.setAttribute('href', `#page-${targetPageIndex}`);
-                    link.addEventListener('click', (e) => {
-                      e.preventDefault();
-                      setCurrentPage(targetPageIndex);
-                    });
-                  }
-                } else {
-                  // 非HTML文件（如图片），转换为API路径
-                  link.setAttribute('href', ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`));
-                }
-              }
-            });
-
-            // 将处理后的HTML设置回去
-            processedHtml = tempDiv.innerHTML;
-
-            setHtmlContent(processedHtml);
-          })
-          .catch(error => {
-            logger.error('Failed to load HTML page', error);
-            setError('Failed to load HTML content');
-          });
-      } else {
-        // 非HTML页面清空HTML内容
-        setHtmlContent('');
+    if (readingMode === 'webtoon') {
+      for (let i = visibleRange.start; i <= visibleRange.end; i += 1) {
+        if (pages[i]?.type === 'html') {
+          void loadHtmlPage(i);
+        }
       }
+      return;
     }
-  }, [currentPage, pages, id]);
+
+    if (currentPage >= 0 && currentPage < pages.length && pages[currentPage]?.type === 'html') {
+      void loadHtmlPage(currentPage);
+    }
+  }, [id, pages, currentPage, readingMode, visibleRange, loadHtmlPage]);
 
   // 自动隐藏工具栏逻辑
   // - 显示条件：仅点击/轻触
@@ -1054,9 +1029,9 @@ function ReaderContent() {
     let endIndex = pages.length - 1;
     const bufferHeight = containerHeight * 3; // 增加缓冲区到3倍屏幕高度，确保快速滚动时不漏
 
-    // 条漫模式：所有图片都参与计算
-    for (let i = 0; i < imageHeights.length; i++) {
-      const imageHeight = imageHeights[i] || containerHeight;
+    // 条漫模式：所有页面都参与计算（包含HTML页）
+    for (let i = 0; i < pages.length; i++) {
+      const imageHeight = imageHeights[i] || containerHeight || window.innerHeight * 0.7;
 
       if (accumulatedHeight + imageHeight > scrollTop - bufferHeight) {
         startIndex = Math.max(0, i - 4); // 增加前置缓冲
@@ -1067,12 +1042,12 @@ function ReaderContent() {
 
     // 找到结束索引
     accumulatedHeight = 0;
-    for (let i = 0; i < imageHeights.length; i++) {
-      const imageHeight = imageHeights[i] || containerHeight;
+    for (let i = 0; i < pages.length; i++) {
+      const imageHeight = imageHeights[i] || containerHeight || window.innerHeight * 0.7;
 
       accumulatedHeight += imageHeight;
       if (accumulatedHeight > scrollTop + containerHeight + bufferHeight) {
-        endIndex = Math.min(imageHeights.length - 1, i + 4); // 增加后置缓冲
+        endIndex = Math.min(pages.length - 1, i + 4); // 增加后置缓冲
         break;
       }
     }
@@ -1090,6 +1065,29 @@ function ReaderContent() {
 
     return { start: startIndex, end: endIndex };
   }, [pages.length, imageHeights]);
+
+  // 条漫模式下测量HTML页高度，避免HTML页内部滚动/高度不准导致的滚动计算错误
+  useEffect(() => {
+    if (readingMode !== 'webtoon') return;
+
+    requestAnimationFrame(() => {
+      for (let i = visibleRange.start; i <= visibleRange.end; i += 1) {
+        if (pages[i]?.type !== 'html') continue;
+        const el = webtoonPageElementRefs.current[i];
+        if (!el) continue;
+        const measured = Math.ceil(el.getBoundingClientRect().height);
+        if (!measured || measured <= 0) continue;
+
+        setImageHeights(prev => {
+          const current = prev[i];
+          if (current && Math.abs(current - measured) <= 2) return prev;
+          const next = [...prev];
+          next[i] = measured;
+          return next;
+        });
+      }
+    });
+  }, [readingMode, visibleRange, pages, htmlContents]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement) return;
@@ -1135,6 +1133,14 @@ function ReaderContent() {
     // 隐藏条件：滑动/滚动
     if (autoHideEnabled && showToolbar) {
       hideToolbar();
+    }
+
+    // 条漫模式下仅允许自然滚动，不触发HTML边界倒计时跳转
+    if (readingMode === 'webtoon') {
+      if (showAutoNextCountdown) {
+        clearCountdown();
+      }
+      return;
     }
 
     // 检查当前页面是否为HTML类型
@@ -1291,14 +1297,25 @@ function ReaderContent() {
       } else if (deltaY < 0) {
         handlePrevPage();
       }
-    } else if (readingMode !== 'webtoon') {
+    } else {
       if (deltaX > 0 || deltaY > 0) {
         handleNextPage();
       } else if (deltaX < 0 || deltaY < 0) {
         handlePrevPage();
       }
     }
-  }, [handlePrevPage, handleNextPage, readingMode, pages, currentPage, showAutoNextCountdown, clearCountdown, autoHideEnabled, showToolbar, hideToolbar]);
+  }, [
+    handlePrevPage,
+    handleNextPage,
+    readingMode,
+    pages,
+    currentPage,
+    showAutoNextCountdown,
+    clearCountdown,
+    autoHideEnabled,
+    showToolbar,
+    hideToolbar,
+  ]);
 
   useEffect(() => {
     window.addEventListener('wheel', handleWheel);
@@ -1306,6 +1323,12 @@ function ReaderContent() {
       window.removeEventListener('wheel', handleWheel);
     };
   }, [handleWheel]);
+
+  useEffect(() => {
+    if (readingMode === 'webtoon' && showAutoNextCountdown) {
+      clearCountdown();
+    }
+  }, [readingMode, showAutoNextCountdown, clearCountdown]);
 
   // 计算两点距离
   const getDistance = (touch1: Touch, touch2: Touch) => {
@@ -2331,7 +2354,7 @@ function ReaderContent() {
                     ) : pages[currentPage]?.type === 'html' ? (
                       <div className="w-full h-full overflow-auto bg-white">
                         <HtmlRenderer
-                          html={htmlContent}
+                          html={htmlContents[currentPage] || ''}
                           className="max-w-4xl mx-auto p-4"
                         />
                       </div>
@@ -2394,7 +2417,7 @@ function ReaderContent() {
                       ) : pages[currentPage + 1]?.type === 'html' ? (
                         <div className="w-full h-full overflow-auto bg-white">
                           <HtmlRenderer
-                            html={htmlContent}
+                            html={htmlContents[currentPage + 1] || ''}
                             className="max-w-4xl mx-auto p-4"
                           />
                         </div>
@@ -2499,8 +2522,8 @@ function ReaderContent() {
                 let accumulatedHeight = 0;
                 let newPageIndex = 0;
 
-                // 按单个图片计算滚动位置
-                for (let i = 0; i < imageHeights.length; i++) {
+                // 按单个页面计算滚动位置（包含HTML页）
+                for (let i = 0; i < pages.length; i++) {
                   const imageHeight = imageHeights[i] || containerHeight || window.innerHeight * 0.7;
 
                   accumulatedHeight += imageHeight;
@@ -2526,13 +2549,10 @@ function ReaderContent() {
             <div
               className="flex flex-col items-center mx-auto relative"
               style={{
-                // 精确计算总高度，确保滚动条准确
-                height: `${imageHeights.length > 0
-                  ? imageHeights.reduce((sum, height) => {
-                      return sum + (height || containerHeight || window.innerHeight * 0.7);
-                    }, 0)
-                  : pages.length * (containerHeight || window.innerHeight * 0.7)
-                }px`,
+                // 精确计算总高度，确保滚动条准确（包含HTML页）
+                height: `${Array.from({ length: pages.length }, (_, i) => {
+                  return imageHeights[i] || containerHeight || window.innerHeight * 0.7;
+                }).reduce((sum, height) => sum + height, 0)}px`,
                 // 根据设备类型动态设置最大宽度
                 maxWidth: window.innerWidth >= 1024 ? '800px' : '1200px',
                 width: '100%',
@@ -2581,10 +2601,19 @@ function ReaderContent() {
 
                         <div
                           className="relative flex justify-center w-full"
-                          style={{
-                            height: `${imageHeight}px`,
-                            minHeight: '100px'
+                          ref={(el) => {
+                            if (readingMode === 'webtoon') {
+                              webtoonPageElementRefs.current[actualIndex] = el;
+                            }
                           }}
+                          style={
+                            readingMode === 'webtoon' && page.type === 'html'
+                              ? { minHeight: '100px' }
+                              : {
+                                  height: `${imageHeight}px`,
+                                  minHeight: '100px'
+                                }
+                          }
                         >
                           <div className="relative w-full h-full flex justify-center">
                             {page.type === 'video' ? (
@@ -2605,11 +2634,18 @@ function ReaderContent() {
                                 onError={() => handleImageError(actualIndex)}
                               />
                             ) : page.type === 'html' ? (
-                              <div className="w-full h-full overflow-auto bg-white">
-                                <HtmlRenderer
-                                  html={htmlContent}
-                                  className="max-w-4xl mx-auto p-4"
-                                />
+                              <div className={readingMode === 'webtoon' ? 'w-full bg-white' : 'w-full h-full overflow-auto bg-white'}>
+                                {htmlContents[actualIndex] ? (
+                                  <HtmlRenderer
+                                    html={htmlContents[actualIndex]}
+                                    className="max-w-4xl mx-auto p-4"
+                                    scrollable={readingMode !== 'webtoon'}
+                                  />
+                                ) : (
+                                  <div className="p-6 flex items-center justify-center">
+                                    <Spinner />
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <MemoizedImage

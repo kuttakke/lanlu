@@ -5,9 +5,10 @@ import { useState, useEffect } from 'react';
 interface HtmlRendererProps {
   html: string;
   className?: string;
+  scrollable?: boolean;
 }
 
-export function HtmlRenderer({ html, className }: HtmlRendererProps) {
+export function HtmlRenderer({ html, className, scrollable = true }: HtmlRendererProps) {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -33,10 +34,14 @@ export function HtmlRenderer({ html, className }: HtmlRendererProps) {
   return (
     <div
       className={`html-content-container ${className || ''}`}
-      style={{
-        overflowY: 'auto',
-        maxHeight: '100%',
-      }}
+      style={
+        scrollable
+          ? {
+              overflowY: 'auto',
+              maxHeight: '100%',
+            }
+          : undefined
+      }
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
