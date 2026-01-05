@@ -95,6 +95,10 @@ const MemoizedVideo = memo(function MemoizedVideo({
 
 MemoizedVideo.displayName = 'MemoizedVideo';
 
+const TAP_MOVE_THRESHOLD_PX = 10;
+const TAP_MAX_DURATION_MS = 350;
+const IGNORE_CLICK_AFTER_TOUCH_MS = 800;
+
 function ReaderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -120,6 +124,9 @@ function ReaderContent() {
   const [translateX, setTranslateX] = useState(0);
   const [translateY, setTranslateY] = useState(0);
   const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const tapStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const tapMovedRef = useRef(false);
+  const lastTouchAtRef = useRef(0);
   const webtoonContainerRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -130,8 +137,6 @@ function ReaderContent() {
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 图片加载防抖引用
   const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 自动隐藏定时器引用
   const AUTO_HIDE_DELAY = 3000; // 自动隐藏延迟时间（毫秒）
-  const mouseMoveTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 鼠标移动防抖引用
-  const MOUSE_MOVE_DEBOUNCE = 100; // 鼠标移动防抖延迟（毫秒）
 
   // 侧边栏状态管理
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -200,6 +205,41 @@ function ReaderContent() {
   const [isFullscreen, setIsFullscreen] = useFullscreenMode();
   const [doubleTapZoom, setDoubleTapZoom] = useDoubleTapZoom();
   const [autoHideEnabled, setAutoHideEnabled] = useAutoHideEnabled();
+
+  const clearAutoHideTimers = useCallback(() => {
+    if (autoHideTimeoutRef.current) {
+      clearTimeout(autoHideTimeoutRef.current);
+      autoHideTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleAutoHide = useCallback(() => {
+    if (!autoHideEnabled) return;
+    if (autoHideTimeoutRef.current) {
+      clearTimeout(autoHideTimeoutRef.current);
+    }
+    autoHideTimeoutRef.current = setTimeout(() => {
+      setShowToolbar(false);
+    }, AUTO_HIDE_DELAY);
+  }, [autoHideEnabled]);
+
+  const hideToolbar = useCallback(() => {
+    setShowToolbar(false);
+    clearAutoHideTimers();
+  }, [clearAutoHideTimers]);
+
+  const toggleToolbar = useCallback(() => {
+    if (!autoHideEnabled) return;
+    setShowToolbar(prev => {
+      const next = !prev;
+      if (next) {
+        scheduleAutoHide();
+      } else {
+        clearAutoHideTimers();
+      }
+      return next;
+    });
+  }, [autoHideEnabled, scheduleAutoHide, clearAutoHideTimers]);
 
   // 用于跟踪拆分封面模式的变化，避免无限循环
   const splitCoverModeRef = useRef(splitCoverMode);
@@ -664,81 +704,25 @@ function ReaderContent() {
     }
   }, [currentPage, pages, id]);
 
-  // 自动隐藏工具栏逻辑（合并版）
+  // 自动隐藏工具栏逻辑
+  // - 显示条件：仅点击/轻触
+  // - 隐藏条件：点击（切换）、滑动（触摸移动后抬起）、或显示后一段时间
   useEffect(() => {
-    // 清除所有定时器
-    if (autoHideTimeoutRef.current) {
-      clearTimeout(autoHideTimeoutRef.current);
-    }
-    if (mouseMoveTimeoutRef.current) {
-      clearTimeout(mouseMoveTimeoutRef.current);
-    }
+    clearAutoHideTimers();
 
-    // 如果未启用自动隐藏，不设置任何逻辑
     if (!autoHideEnabled) {
+      setShowToolbar(true);
       return;
     }
 
-    // 设置自动隐藏定时器
-    const scheduleAutoHide = () => {
-      if (autoHideTimeoutRef.current) {
-        clearTimeout(autoHideTimeoutRef.current);
-      }
-      autoHideTimeoutRef.current = setTimeout(() => {
-        setShowToolbar(false);
-      }, AUTO_HIDE_DELAY);
-    };
-
-    // 鼠标移动处理函数（带防抖）
-    const handleMouseMove = () => {
-      if (mouseMoveTimeoutRef.current) {
-        clearTimeout(mouseMoveTimeoutRef.current);
-      }
-
-      mouseMoveTimeoutRef.current = setTimeout(() => {
-        if (!showToolbar) {
-          setShowToolbar(true);
-        }
-        // 显示工具栏后，重新安排自动隐藏
-        scheduleAutoHide();
-      }, MOUSE_MOVE_DEBOUNCE);
-    };
-
-    // 触摸移动处理函数（移动端支持）
-    const handleTouchMove = () => {
-      if (mouseMoveTimeoutRef.current) {
-        clearTimeout(mouseMoveTimeoutRef.current);
-      }
-
-      mouseMoveTimeoutRef.current = setTimeout(() => {
-        if (!showToolbar) {
-          setShowToolbar(true);
-        }
-        scheduleAutoHide();
-      }, MOUSE_MOVE_DEBOUNCE);
-    };
-
-    // 如果工具栏当前可见，立即设置自动隐藏定时器
     if (showToolbar) {
       scheduleAutoHide();
     }
 
-    // 添加事件监听
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
-
-    // 清理函数
     return () => {
-      if (autoHideTimeoutRef.current) {
-        clearTimeout(autoHideTimeoutRef.current);
-      }
-      if (mouseMoveTimeoutRef.current) {
-        clearTimeout(mouseMoveTimeoutRef.current);
-      }
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('touchmove', handleTouchMove);
+      clearAutoHideTimers();
     };
-  }, [showToolbar, autoHideEnabled]);
+  }, [autoHideEnabled, showToolbar, scheduleAutoHide, clearAutoHideTimers]);
 
   // 重置变换
   const resetTransform = useCallback(() => {
@@ -1047,6 +1031,11 @@ function ReaderContent() {
   const handleWheel = useCallback((e: WheelEvent) => {
     if (e.target instanceof HTMLInputElement) return;
 
+    // 隐藏条件：滑动/滚动
+    if (autoHideEnabled && showToolbar) {
+      hideToolbar();
+    }
+
     // 检查当前页面是否为HTML类型
     const isHtmlPage = pages[currentPage]?.type === 'html';
 
@@ -1208,7 +1197,7 @@ function ReaderContent() {
         handlePrevPage();
       }
     }
-  }, [handlePrevPage, handleNextPage, readingMode, pages, currentPage, showAutoNextCountdown, clearCountdown]);
+  }, [handlePrevPage, handleNextPage, readingMode, pages, currentPage, showAutoNextCountdown, clearCountdown, autoHideEnabled, showToolbar, hideToolbar]);
 
   useEffect(() => {
     window.addEventListener('wheel', handleWheel);
@@ -1226,11 +1215,23 @@ function ReaderContent() {
 
   // 触摸开始
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // 条漫模式下不阻止默认行为，让页面可以自然滚动
-    if (readingMode === 'webtoon') {
-      return;
+    lastTouchAtRef.current = Date.now();
+
+    if (e.touches.length === 1) {
+      tapStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        time: Date.now(),
+      };
+      tapMovedRef.current = false;
+    } else {
+      tapStartRef.current = null;
+      tapMovedRef.current = true;
     }
-    
+
+    // 条漫模式下不阻止默认行为，让页面可以自然滚动
+    if (readingMode === 'webtoon') return;
+
     if (e.touches.length === 1) {
       setTouchEnd(null);
       setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
@@ -1244,11 +1245,21 @@ function ReaderContent() {
 
   // 触摸移动
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    // 条漫模式下不阻止默认行为，让页面可以自然滚动
-    if (readingMode === 'webtoon') {
-      return;
+    lastTouchAtRef.current = Date.now();
+
+    if (e.touches.length === 1 && tapStartRef.current) {
+      const dx = e.touches[0].clientX - tapStartRef.current.x;
+      const dy = e.touches[0].clientY - tapStartRef.current.y;
+      if (Math.abs(dx) > TAP_MOVE_THRESHOLD_PX || Math.abs(dy) > TAP_MOVE_THRESHOLD_PX) {
+        tapMovedRef.current = true;
+      }
+    } else if (e.touches.length > 1) {
+      tapMovedRef.current = true;
     }
-    
+
+    // 条漫模式下不阻止默认行为，让页面可以自然滚动
+    if (readingMode === 'webtoon') return;
+
     if (e.touches.length === 1 && touchStart) {
       setTouchEnd({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     } else if (e.touches.length === 2) {
@@ -1264,7 +1275,38 @@ function ReaderContent() {
   }, [touchStart, lastTouchDistance, readingMode]);
 
   // 触摸结束
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    lastTouchAtRef.current = Date.now();
+
+    const start = tapStartRef.current;
+    const now = Date.now();
+    const duration = start ? now - start.time : Infinity;
+    const endTouch = e.changedTouches?.[0];
+    const movedByEnd =
+      Boolean(start && endTouch) &&
+      (Math.abs(endTouch.clientX - start!.x) > TAP_MOVE_THRESHOLD_PX ||
+        Math.abs(endTouch.clientY - start!.y) > TAP_MOVE_THRESHOLD_PX);
+    const moved = tapMovedRef.current || movedByEnd;
+    const isTap = Boolean(start && !moved && duration <= TAP_MAX_DURATION_MS);
+
+    if (isTap) {
+      toggleToolbar();
+      tapStartRef.current = null;
+      tapMovedRef.current = false;
+      setTouchStart(null);
+      setTouchEnd(null);
+      setLastTouchDistance(0);
+      return;
+    }
+
+    // 滑动结束：如果工具栏当前可见，立即隐藏
+    if (autoHideEnabled && showToolbar && moved) {
+      hideToolbar();
+    }
+
+    tapStartRef.current = null;
+    tapMovedRef.current = false;
+
     if (!touchStart || !touchEnd) {
       setLastTouchDistance(0);
       return;
@@ -1314,7 +1356,7 @@ function ReaderContent() {
     setTouchStart(null);
     setTouchEnd(null);
     setLastTouchDistance(0);
-  }, [touchStart, touchEnd, handleNextPage, handlePrevPage, readingMode]);
+  }, [touchStart, touchEnd, handleNextPage, handlePrevPage, readingMode, toggleToolbar, autoHideEnabled, showToolbar, hideToolbar]);
 
   const getReadingModeIcon = () => {
     switch (readingMode) {
@@ -1939,10 +1981,9 @@ function ReaderContent() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={() => {
-          // 当启用自动隐藏时，点击屏幕可以切换工具栏显示/隐藏
-          if (autoHideEnabled) {
-            setShowToolbar(!showToolbar);
-          }
+          // 显示条件只有点击：触摸后的合成 click 一律忽略（避免滑动触发）
+          if (Date.now() - lastTouchAtRef.current < IGNORE_CLICK_AFTER_TOUCH_MS) return;
+          toggleToolbar();
         }}
       >
         {/* 侧边栏导航 */}
