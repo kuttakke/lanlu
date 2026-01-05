@@ -108,77 +108,104 @@ export default function SettingsCronPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            {t('settings.cronManagement.title')}
-          </h2>
-          <p className="text-sm text-muted-foreground">{t('settings.cronManagement.description')}</p>
+      <div className="space-y-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              {t('settings.cronManagement.title')}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Mobile: icon buttons */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              className="sm:hidden"
+              aria-label={t('common.refresh')}
+              title={t('common.refresh')}
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              onClick={handleCreateTask}
+              className="sm:hidden"
+              aria-label={t('settings.cronManagement.createTask')}
+              title={t('settings.cronManagement.createTask')}
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+
+            {/* Desktop: text buttons */}
+            <Button variant="outline" onClick={handleRefresh} className="hidden sm:inline-flex">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              {t('common.refresh')}
+            </Button>
+            <Button onClick={handleCreateTask} className="hidden sm:inline-flex">
+              <Plus className="w-4 h-4 mr-2" />
+              {t('settings.cronManagement.createTask')}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleRefresh}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            {t('common.refresh')}
-          </Button>
-          <Button onClick={handleCreateTask}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('settings.cronManagement.createTask')}
-          </Button>
-        </div>
+        <p className="text-sm text-muted-foreground">{t('settings.cronManagement.description')}</p>
       </div>
 
       {/* Service Status Card */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">{t('settings.cronManagement.serviceStatus')}</CardTitle>
-            </div>
-            <div className="flex items-center gap-2">
-              {status?.running ? (
-                <>
-                  <Badge variant="default" className="bg-green-500">
-                    {t('settings.cronManagement.serviceRunning')}
-                  </Badge>
-                  <Button variant="outline" size="sm" onClick={handleStopService}>
-                    <Square className="w-4 h-4 mr-1" />
-                    {t('settings.cronManagement.stopService')}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Badge variant="secondary">
-                    {t('settings.cronManagement.serviceStopped')}
-                  </Badge>
-                  <Button variant="outline" size="sm" onClick={handleStartService}>
-                    <Play className="w-4 h-4 mr-1" />
-                    {t('settings.cronManagement.startService')}
-                  </Button>
-                </>
-              )}
+        <CardHeader className="pb-4">
+          {/* Row 1: title + badge */}
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base">{t('settings.cronManagement.serviceStatus')}</CardTitle>
+            {status?.running ? (
+              <Badge variant="default" className="bg-green-500 whitespace-nowrap">
+                {t('settings.cronManagement.serviceRunning')}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="whitespace-nowrap">
+                {t('settings.cronManagement.serviceStopped')}
+              </Badge>
+            )}
+          </div>
+
+          {/* Row 2: action + stats */}
+          <div className="flex items-center justify-between gap-3">
+            {status?.running ? (
+              <Button variant="outline" size="sm" onClick={handleStopService} className="whitespace-nowrap">
+                <Square className="w-4 h-4 mr-1" />
+                {t('settings.cronManagement.stopService')}
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={handleStartService} className="whitespace-nowrap">
+                <Play className="w-4 h-4 mr-1" />
+                {t('settings.cronManagement.startService')}
+              </Button>
+            )}
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="text-right">
+                <span className="text-muted-foreground">{t('settings.cronManagement.totalTasks')}: </span>
+                <span className="font-medium">{status?.totalTasks ?? 0}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-muted-foreground">{t('settings.cronManagement.enabledTasks')}: </span>
+                <span className="font-medium">{status?.enabledTasks ?? 0}</span>
+              </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-6 text-sm">
-            <div>
-              <span className="text-muted-foreground">{t('settings.cronManagement.totalTasks')}: </span>
-              <span className="font-medium">{status?.totalTasks ?? 0}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">{t('settings.cronManagement.enabledTasks')}: </span>
-              <span className="font-medium">{status?.enabledTasks ?? 0}</span>
-            </div>
-          </div>
-        </CardContent>
       </Card>
 
       {/* Tabs for Scheduled Tasks and Startup Settings */}
       <Tabs defaultValue="scheduled" className="w-full">
-        <TabsList>
-          <TabsTrigger value="scheduled">{t('settings.cronManagement.scheduledTasks')}</TabsTrigger>
-          <TabsTrigger value="startup">{t('settings.cronManagement.startupTasks')}</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="scheduled" className="flex-1 sm:flex-none">
+            {t('settings.cronManagement.scheduledTasks')}
+          </TabsTrigger>
+          <TabsTrigger value="startup" className="flex-1 sm:flex-none">
+            {t('settings.cronManagement.startupTasks')}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="scheduled" className="mt-4">

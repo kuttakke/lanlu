@@ -100,8 +100,8 @@ export function StartupTaskSettings() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Enable Initial Scan */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-0.5 min-w-0">
             <Label htmlFor="enableInitialScan" className="text-base">
               {t('settings.cronManagement.startupSettings.enableInitialScan')}
             </Label>
@@ -118,8 +118,8 @@ export function StartupTaskSettings() {
         </div>
 
         {/* Enable Initial DB Check */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-0.5 min-w-0">
             <Label htmlFor="enableInitialDbCheck" className="text-base">
               {t('settings.cronManagement.startupSettings.enableInitialDbCheck')}
             </Label>
@@ -136,8 +136,8 @@ export function StartupTaskSettings() {
         </div>
 
         {/* Enable Initial Plugin Scan */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-0.5 min-w-0">
             <Label htmlFor="enableInitialPluginScan" className="text-base">
               {t('settings.cronManagement.startupSettings.enableInitialPluginScan')}
             </Label>

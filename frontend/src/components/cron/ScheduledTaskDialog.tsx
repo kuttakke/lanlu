@@ -234,7 +234,7 @@ export function ScheduledTaskDialog({ open, taskId, onClose, onSaved }: Schedule
               {/* Cron Expression */}
               <div className="space-y-2">
                 <Label htmlFor="cronExpression">{t('settings.cronManagement.cronExpression')} *</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
                     id="cronExpression"
                     value={cronExpression}
@@ -250,6 +250,7 @@ export function ScheduledTaskDialog({ open, taskId, onClose, onSaved }: Schedule
                     variant="outline"
                     onClick={handleValidate}
                     disabled={validating || !cronExpression.trim()}
+                    className="w-full sm:w-auto"
                   >
                     {validating ? '...' : t('settings.cronManagement.validateExpression')}
                   </Button>

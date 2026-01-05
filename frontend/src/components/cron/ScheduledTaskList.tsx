@@ -136,11 +136,11 @@ export function ScheduledTaskList({ onEdit, onRefresh }: ScheduledTaskListProps)
         {tasks.map((task) => (
           <Card key={task.id}>
             <CardContent className="py-4">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 {/* Task Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-medium truncate">{task.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <h3 className="font-medium truncate max-w-full">{task.name}</h3>
                     <Badge variant={task.enabled ? 'default' : 'secondary'}>
                       {task.enabled ? t('settings.cronManagement.enabled') : t('settings.cronManagement.disabled')}
                     </Badge>
@@ -149,10 +149,12 @@ export function ScheduledTaskList({ onEdit, onRefresh }: ScheduledTaskListProps)
                     </Badge>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
                     <div>
                       <span className="text-muted-foreground">{t('settings.cronManagement.cronExpression')}: </span>
-                      <code className="bg-muted px-1 rounded text-xs">{task.cronExpression}</code>
+                      <code className="bg-muted px-1 rounded text-xs font-mono break-all whitespace-pre-wrap">
+                        {task.cronExpression}
+                      </code>
                     </div>
                     <div>
                       <span className="text-muted-foreground">{t('settings.cronManagement.priority')}: </span>
@@ -162,11 +164,11 @@ export function ScheduledTaskList({ onEdit, onRefresh }: ScheduledTaskListProps)
                       <span className="text-muted-foreground">{t('settings.cronManagement.runCount')}: </span>
                       <span>{task.runCount}</span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1 min-w-0">
                       <span className="text-muted-foreground">{t('settings.cronManagement.lastRunAt')}: </span>
                       {task.lastRunAt ? (
                         <>
-                          <span className="text-xs">{formatDateTime(task.lastRunAt)}</span>
+                          <span className="text-xs break-words">{formatDateTime(task.lastRunAt)}</span>
                           {task.lastRunSuccess ? (
                             <CheckCircle className="w-3 h-3 text-green-500" />
                           ) : (
@@ -188,7 +190,7 @@ export function ScheduledTaskList({ onEdit, onRefresh }: ScheduledTaskListProps)
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 self-end sm:self-auto shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
