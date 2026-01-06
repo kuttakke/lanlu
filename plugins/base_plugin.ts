@@ -172,6 +172,13 @@ export abstract class BasePlugin {
   }
 
   /**
+   * 兼容旧插件：输出错误结果
+   */
+  protected outputError(message: string): void {
+    this.outputResult({ success: false, error: message });
+  }
+
+  /**
    * 获取参数（从 input 中提取并进行类型转换）
    */
   protected getParams(): Record<string, any> {

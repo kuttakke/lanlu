@@ -1,6 +1,6 @@
 #!/usr/bin/env deno run --allow-net --allow-read
 
-import { BasePlugin, PluginInfo, PluginParameter, PluginResult } from '../base_plugin.ts';
+import { BasePlugin, PluginInfo, PluginInput, PluginParameter, PluginResult } from '../base_plugin.ts';
 import { download } from "jsr:@doctor/download";
 
 /**
@@ -33,14 +33,14 @@ class EHentaiDownloadPlugin extends BasePlugin {
     };
   }
 
-  protected async runPlugin(args: string[]): Promise<void> {
+  protected async runPlugin(input: PluginInput): Promise<void> {
     try {
-      const params = this.parseParams(args);
-      const loginCookies = this.parseLoginCookies(args);
-      const url = this.getUrlFromArgs(args);
+      const params = this.getParams();
+      const loginCookies = (input.loginCookies || []) as LoginCookie[];
+      const url = (input.url || '').trim();
 
       if (!url) {
-        this.outputError('No URL provided. Use --url=https://e-hentai.org/g/XXX/YYY/');
+        this.outputResult({ success: false, error: 'No URL provided.' });
         return;
       }
 
@@ -51,16 +51,8 @@ class EHentaiDownloadPlugin extends BasePlugin {
       this.outputResult(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.outputError(`Plugin execution failed: ${errorMessage}`);
+      this.outputResult({ success: false, error: `Plugin execution failed: ${errorMessage}` });
     }
-  }
-
-  /**
-   * 从命令行参数获取URL
-   */
-  private getUrlFromArgs(args: string[]): string {
-    const urlArg = args.find(arg => arg.startsWith('--url='));
-    return urlArg ? urlArg.substring(6) : '';
   }
 
   /**
@@ -503,5 +495,5 @@ class EHentaiDownloadPlugin extends BasePlugin {
 // 运行插件
 if (import.meta.main) {
   const plugin = new EHentaiDownloadPlugin();
-  await plugin.handleCommand(Deno.args);
+  await plugin.handleCommand();
 }

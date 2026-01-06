@@ -1,6 +1,6 @@
 #!/usr/bin/env deno run --allow-net --allow-read
 
-import { BasePlugin, PluginInfo, PluginResult } from '../base_plugin.ts';
+import { BasePlugin, PluginInfo, PluginInput, PluginResult } from '../base_plugin.ts';
 
 /**
  * nhentai 登录插件
@@ -23,19 +23,21 @@ class NHentaiLoginPlugin extends BasePlugin {
     };
   }
 
-  protected async runPlugin(args: string[]): Promise<void> {
+  protected async runPlugin(_: PluginInput): Promise<void> {
     try {
-      const params = this.parseParams(args);
+      this.reportProgress(10, '读取登录参数...');
+      const params = this.getParams();
 
       const result = await this.doLogin(
         (params.cf_clearance as string) || '',
         (params.csrftoken as string) || ''
       );
 
+      this.reportProgress(100, '登录完成');
       this.outputResult(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.outputError(`Plugin execution failed: ${errorMessage}`);
+      this.outputResult({ success: false, error: `Plugin execution failed: ${errorMessage}` });
     }
   }
 
@@ -160,5 +162,5 @@ class NHentaiLoginPlugin extends BasePlugin {
 // 运行插件
 if (import.meta.main) {
   const plugin = new NHentaiLoginPlugin();
-  await plugin.handleCommand(Deno.args);
+  await plugin.handleCommand();
 }

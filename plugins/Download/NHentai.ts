@@ -1,6 +1,6 @@
 #!/usr/bin/env deno run --allow-net --allow-read --allow-write
 
-import { BasePlugin, PluginInfo, PluginResult } from '../base_plugin.ts';
+import { BasePlugin, PluginInfo, PluginInput, PluginResult } from '../base_plugin.ts';
 
 /**
  * nhentai 下载插件
@@ -48,13 +48,13 @@ class NHentaiDownloadPlugin extends BasePlugin {
     };
   }
 
-  protected async runPlugin(args: string[]): Promise<void> {
+  protected async runPlugin(input: PluginInput): Promise<void> {
     try {
-      const url = this.getUrlFromArgs(args);
-      const loginCookies = this.getLoginCookiesFromArgs(args);
+      const url = (input.url || '').trim();
+      const loginCookies = input.loginCookies || null;
 
       if (!url) {
-        this.outputError('No URL provided. Use --url=https://nhentai.net/g/123456/');
+        this.outputResult({ success: false, error: 'No URL provided.' });
         return;
       }
 
@@ -68,30 +68,7 @@ class NHentaiDownloadPlugin extends BasePlugin {
       this.outputResult(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.outputError(`Plugin execution failed: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * 从命令行参数获取 URL
-   */
-  private getUrlFromArgs(args: string[]): string {
-    const urlArg = args.find(arg => arg.startsWith('--url='));
-    if (!urlArg) return '';
-    return urlArg.substring(6).replace(/^["'\s]+|["'\s]+$/g, '').trim();
-  }
-
-  /**
-   * 从命令行参数获取 login cookies
-   */
-  private getLoginCookiesFromArgs(args: string[]): Array<{ name: string; value: string; domain: string; path: string }> | null {
-    const cookiesArg = args.find(arg => arg.startsWith('--login_cookies='));
-    if (!cookiesArg) return null;
-    try {
-      const cookiesJson = cookiesArg.substring(16);
-      return JSON.parse(cookiesJson);
-    } catch {
-      return null;
+      this.outputResult({ success: false, error: `Plugin execution failed: ${errorMessage}` });
     }
   }
 
@@ -421,5 +398,5 @@ class NHentaiDownloadPlugin extends BasePlugin {
 // 运行插件
 if (import.meta.main) {
   const plugin = new NHentaiDownloadPlugin();
-  await plugin.handleCommand(Deno.args);
+  await plugin.handleCommand();
 }
