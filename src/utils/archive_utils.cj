@@ -305,7 +305,8 @@ public class ArchiveUtils {
     }
 
     /**
-     * 转换图片为AVIF格式
+     * 转换图片或视频为AVIF格式缩略图
+     * 使用FFmpeg处理，支持图片和视频文件
      */
     public static func convertImageToAvif(inputPath: String, outputPath: String, tempPath: String): ProcessResultData {
         try {
@@ -314,31 +315,27 @@ public class ArchiveUtils {
                 Directory.create(outputDir, recursive: true)
             }
 
-            let resizedPath = joinPath(tempPath, "temp_resized.avif")
-            let resizeProcess = launch("convert", inputPath, "-resize", "500x1000>", "-strip", resizedPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-            let (resizeExitCode, _, resizeStderr) = resizeProcess.waitOutput()
+            // 使用FFmpeg进行转换，-frames:v 1 确保只取一帧（对视频有效，对图片无影响）
+            // scale滤镜：缩放到最大500x1000，保持宽高比
+            // -q:v 设置质量（1-31，越小质量越高，2约等于85%质量）
+            let process = launch(
+                "ffmpeg",
+                "-y",                    // 覆盖输出文件
+                "-i", inputPath,         // 输入文件
+                "-vf", "scale='min(500,iw)':'min(1000,ih)':force_original_aspect_ratio=decrease",
+                "-frames:v", "1",        // 只输出一帧
+                "-q:v", "2",             // 质量设置
+                "-map_metadata", "-1",   // 过滤元数据
+                outputPath,
+                stdOut: ProcessRedirect.Pipe,
+                stdErr: ProcessRedirect.Pipe
+            )
+            let (exitCode, _, stderr) = process.waitOutput()
 
-            if (resizeExitCode != 0) {
-                let error = String.fromUtf8(resizeStderr)
-                return ProcessResultData(false, "", error)
-            }
-
-            let qualityProcess = launch("convert", resizedPath, "-quality", "85", "-strip", outputPath, stdOut: ProcessRedirect.Pipe, stdErr: ProcessRedirect.Pipe)
-            let (qualityExitCode, _, qualityStderr) = qualityProcess.waitOutput()
-
-            // 清理临时文件
-            try {
-                if (fileExists(resizedPath)) {
-                    remove(resizedPath)
-                }
-            } catch (_: Exception) {
-                // 静默处理
-            }
-
-            if (qualityExitCode == 0) {
+            if (exitCode == 0) {
                 return ProcessResultData(true, outputPath, "")
             } else {
-                let error = String.fromUtf8(qualityStderr)
+                let error = String.fromUtf8(stderr)
                 return ProcessResultData(false, "", error)
             }
         } catch (e: Exception) {
