@@ -180,7 +180,7 @@ class EhdbMetadataPlugin extends BasePlugin {
       // 添加 source URL（如果不是从 source 标签获取的）
       if (hashData.tags) {
         if (!hasSrc) {
-          const sourceUrl = `e-hentai.org/g/${gID}/${gToken}`;
+          const sourceUrl = `https://e-hentai.org/g/${gID}/${gToken}`;
           hashData.tags += `, source:${sourceUrl}`;
         }
         hashData.title = tagsResult.data.title;
