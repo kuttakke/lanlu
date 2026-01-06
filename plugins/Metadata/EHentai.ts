@@ -174,7 +174,7 @@ class EHentaiMetadataPlugin extends BasePlugin {
 
     // 添加source URL和title
     if (hashData.tags) {
-      const sourceUrl = `${domain.replace('https://', '')}/g/${gID}/${gToken}`;
+      const sourceUrl = `${domain}/g/${gID}/${gToken}`;
       hashData.tags += `, source:${sourceUrl}`;
       hashData.title = tagsResult.data.title;
     }
