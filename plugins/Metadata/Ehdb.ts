@@ -122,7 +122,6 @@ class EhdbMetadataPlugin extends BasePlugin {
     try {
       let gID = "";
       let gToken = "";
-      let hasSrc = false;
 
       // 从 oneshot 参数提取 GID/Token
       if (lrrInfo.oneshot_param && lrrInfo.oneshot_param.match(/.*\/g\/([0-9]*)\/([0-z]*)\/*.*/)) {
@@ -141,7 +140,6 @@ class EhdbMetadataPlugin extends BasePlugin {
           if (srcMatch) {
             gID = srcMatch[1];
             gToken = srcMatch[2];
-            hasSrc = true;
             await this.logInfo("search:use_source_tag", { gID, gToken: `${gToken.slice(0, 6)}…` });
           }
         }
@@ -177,12 +175,10 @@ class EhdbMetadataPlugin extends BasePlugin {
 
       const hashData: any = { tags: tagsResult.data.tags };
 
-      // 添加 source URL（如果不是从 source 标签获取的）
+      // 添加 source URL
       if (hashData.tags) {
-        if (!hasSrc) {
-          const sourceUrl = `https://e-hentai.org/g/${gID}/${gToken}`;
-          hashData.tags += `, source:${sourceUrl}`;
-        }
+        const sourceUrl = `https://e-hentai.org/g/${gID}/${gToken}`;
+        hashData.tags += `, source:${sourceUrl}`;
         hashData.title = tagsResult.data.title;
       }
 

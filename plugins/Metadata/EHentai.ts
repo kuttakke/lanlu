@@ -103,7 +103,6 @@ class EHentaiMetadataPlugin extends BasePlugin {
     let gID = "";
     let gToken = "";
     const domain = enablepanda ? 'https://exhentai.org' : 'https://e-hentai.org';
-    let hasSrc = false;
     const cookies = Array.isArray(lrrInfo.login_cookies) ? lrrInfo.login_cookies : [];
     const debug = !!lrrInfo.debug;
 
@@ -130,7 +129,6 @@ class EHentaiMetadataPlugin extends BasePlugin {
         if (srcMatch) {
           gID = srcMatch[1];
           gToken = srcMatch[2];
-          hasSrc = true;
           await this.dlog(debug, "getTags:use_source_tag", { gID, gToken: `${gToken.slice(0, 6)}…` });
         }
       }
@@ -176,10 +174,8 @@ class EHentaiMetadataPlugin extends BasePlugin {
 
     // 添加source URL和title
     if (hashData.tags) {
-      if (!hasSrc) {
-        const sourceUrl = `${domain.replace('https://', '')}/g/${gID}/${gToken}`;
-        hashData.tags += `, source:${sourceUrl}`;
-      }
+      const sourceUrl = `${domain.replace('https://', '')}/g/${gID}/${gToken}`;
+      hashData.tags += `, source:${sourceUrl}`;
       hashData.title = tagsResult.data.title;
     }
 
