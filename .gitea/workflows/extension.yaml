@@ -32,16 +32,9 @@ jobs:
           cd extension
           pnpm run lint
 
-      - name: Package extension
-        run: |
-          cd extension/out
-          zip -r ../../extension.zip .
-          cd ../..
-          ls -lh extension.zip
-
-      - name: Archive extension package
+      - name: Archive extension artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: extension-package
-          path: extension.zip
+          name: extension-build
+          path: extension/out
           retention-days: 30
