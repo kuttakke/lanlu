@@ -140,6 +140,13 @@ docker run -d \
 | `/api/tankoubons` | GET | 合集列表 |
 | `/api/plugins` | GET | 插件列表 |
 
+### 搜索语法（`/api/search?filter=...`）
+
+- `foo bar`：普通关键词（在标题/文件名/标签/简介中模糊匹配）
+- `"foo bar"`：引号内短语匹配
+- `-foo`：排除词
+- `tag$`：标签完全匹配（仅匹配完整标签 token；例如 `artist:abc$` 不会命中 `artist:abcd`）
+
 ## 致谢
 
 - [LANraragi](https://github.com/Difegue/LANraragi) - 原始项目
