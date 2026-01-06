@@ -5,7 +5,7 @@ export interface UploadMetadata {
   title?: string;
   tags?: string;
   summary?: string;
-  categoryId?: string;
+  categoryId?: string | number;
   fileChecksum?: string;
   overwrite?: boolean;  // 是否覆盖已存在的文件
 }

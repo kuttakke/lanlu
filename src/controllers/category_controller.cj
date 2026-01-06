@@ -36,6 +36,7 @@ public class CategoryController {
 
     private static func categoryToJson(cat: CategoryData): String {
         var json = "{"
+        json += "\"id\":${cat.id},"
         json += "\"catid\":\"${escapeJson(cat.catid)}\","
         json += "\"name\":\"${escapeJson(cat.name)}\","
         json += "\"scan_path\":\"${escapeJson(cat.scanPath)}\","

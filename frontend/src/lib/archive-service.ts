@@ -10,7 +10,7 @@ export interface DownloadMetadata {
   title?: string;
   tags?: string;
   summary?: string;
-  categoryId?: string;
+  categoryId?: string | number;
 }
 
 export interface DownloadProgressCallback {
@@ -367,7 +367,31 @@ export class ArchiveService {
       throw new Error('No job id returned');
     }
 
-    const finalTask = await this.waitForTaskCompletion(Number(jobId), (task) => {
+    // The API enqueues a parent `metadata_plugin` task which immediately creates:
+    // - a `deno_task` (runs the plugin)
+    // - a `metadata_plugin_callback` task (writes metadata back after deno_task completes)
+    //
+    // The parent task typically completes quickly, but metadata isn't persisted until
+    // the callback task completes. Wait for the callback task when available.
+    const enqueueTask = await this.waitForTaskCompletion(Number(jobId), (task) => {
+      callbacks?.onUpdate?.(task);
+    });
+
+    let callbackTaskId: number | undefined;
+    try {
+      const out = enqueueTask.result ? JSON.parse(enqueueTask.result) : null;
+      const rawId = out?.callback_task_id ?? out?.callbackTaskId;
+      if (typeof rawId === 'number') callbackTaskId = rawId;
+      else if (typeof rawId === 'string' && rawId.trim() !== '') callbackTaskId = Number(rawId);
+    } catch {
+      // ignore parse errors; fall back to returning enqueueTask
+    }
+
+    if (!callbackTaskId || !Number.isFinite(callbackTaskId) || callbackTaskId <= 0) {
+      return enqueueTask;
+    }
+
+    const finalTask = await this.waitForTaskCompletion(callbackTaskId, (task) => {
       callbacks?.onUpdate?.(task);
     });
 

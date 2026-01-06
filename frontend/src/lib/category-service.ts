@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api';
 
 export interface Category {
+  id: number;
   catid: string;
   name: string;
   scan_path: string;

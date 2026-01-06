@@ -51,6 +51,7 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
   const [loadingCategories, setLoadingCategories] = useState(false)
+  const selectedCategoryInternalId = categories.find(cat => cat.catid === selectedCategoryId)?.id
 
   const supportedFormats = [".zip", ".rar", ".7z", ".tar", ".gz", ".pdf", ".epub", ".mobi", ".cbz", ".cbr"]
 
@@ -86,6 +87,10 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
       showError("请先选择要上传到的分类")
       return
     }
+    if (!selectedCategoryInternalId) {
+      showError("分类信息无效，请刷新后重试")
+      return
+    }
 
     Array.from(files).forEach(file => {
       const fileExtension = "." + file.name.split(".").pop()?.toLowerCase()
@@ -107,7 +112,7 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
     try {
       const result = await ArchiveService.uploadArchiveWithChunks(uploadFile.file, {
         title: uploadFile.file.name.replace(/\.[^/.]+$/, ""),
-        categoryId: selectedCategoryId,
+        categoryId: selectedCategoryInternalId,
         overwrite
       }, {
         onProgress: (progress) => {
@@ -197,6 +202,10 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
       showError("请先选择要下载到的分类")
       return
     }
+    if (!selectedCategoryInternalId) {
+      showError("分类信息无效，请刷新后重试")
+      return
+    }
 
     const task: DownloadTask = {
       id: Math.random().toString(36).substr(2, 9),
@@ -236,7 +245,7 @@ export function UploadDrawer({ open: controlledOpen, onOpenChange, onUploadCompl
         }
       }
 
-      await ArchiveService.downloadFromUrl(url, { categoryId: selectedCategoryId }, callbacks)
+      await ArchiveService.downloadFromUrl(url, { categoryId: selectedCategoryInternalId }, callbacks)
     } catch {
       setDownloadTasks(prev => prev.map(t =>
         t.id === task.id ? { ...t, status: "error", error: "下载失败" } : t
