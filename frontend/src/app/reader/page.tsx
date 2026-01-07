@@ -6,7 +6,6 @@ import type React from 'react';
 import { ArchiveService, PageInfo } from '@/lib/archive-service';
 import { FavoriteService } from '@/lib/favorite-service';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MediaInfoOverlay } from '@/components/reader/components/MediaInfoOverlay';
 import { ReaderFloatingControls } from '@/components/reader/components/ReaderFloatingControls';
@@ -17,9 +16,12 @@ import { ReaderTopBar } from '@/components/reader/components/ReaderTopBar';
 import { ReaderWebtoonModeView } from '@/components/reader/components/ReaderWebtoonModeView';
 import { useMediaInfoOverlayLines } from '@/components/reader/hooks/useMediaInfoOverlayLines';
 import { getTapTurnAction, useReaderInteractionHandlers } from '@/components/reader/hooks/useReaderInteractionHandlers';
+import { useReaderAutoPlay } from '@/components/reader/hooks/useReaderAutoPlay';
+import { useReaderImageLoading } from '@/components/reader/hooks/useReaderImageLoading';
 import { useReaderSidebar } from '@/components/reader/hooks/useReaderSidebar';
+import { useReaderWebtoonVirtualization } from '@/components/reader/hooks/useReaderWebtoonVirtualization';
+import { useReaderWheelNavigation } from '@/components/reader/hooks/useReaderWheelNavigation';
 import { logger } from '@/lib/logger';
-import { toast } from 'sonner';
 import {
   useReadingMode,
   useDoublePageMode,
@@ -58,12 +60,9 @@ function ReaderContent() {
   const { t, language } = useLanguage();
   
   const [pages, setPages] = useState<PageInfo[]>([]);
-  const [cachedPages, setCachedPages] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [imagesLoading, setImagesLoading] = useState<Set<number>>(new Set());
-  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set()); // 跟踪已加载的图片
   const [htmlContents, setHtmlContents] = useState<Record<number, string>>({}); // HTML内容缓存（按页索引）
   const [showToolbar, setShowToolbar] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false); // 收藏状态
@@ -76,22 +75,12 @@ function ReaderContent() {
   const webtoonContainerRef = useRef<HTMLDivElement>(null);
   const webtoonPageElementRefs = useRef<(HTMLDivElement | null)[]>([]);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const currentPageRef = useRef<number>(0); // 用于跟踪最新的currentPage值
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 2 }); // 可见范围
-  const [imageHeights, setImageHeights] = useState<number[]>([]); // 存储每张图片的高度
-  const [containerHeight, setContainerHeight] = useState(0); // 容器高度
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 图片加载防抖引用
   const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 自动隐藏定时器引用
   const AUTO_HIDE_DELAY = 3000; // 自动隐藏延迟时间（毫秒）
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showAutoNextCountdown, setShowAutoNextCountdown] = useState(false); // 是否显示自动跳转倒计时
-  const [countdownSeconds, setCountdownSeconds] = useState(3); // 倒计时秒数
-  const countdownTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 倒计时定时器引用
-  const countdownToastId = useRef<string | number | null>(null); // toast ID引用
-  const COUNTDOWN_DURATION = 3; // 倒计时持续时间（秒）
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 提取设备检测和宽度计算的通用函数
   const getDeviceInfo = useCallback(() => {
@@ -99,20 +88,6 @@ function ReaderContent() {
       ? Math.min(800, window.innerWidth * 0.8)
       : Math.min(window.innerWidth * 0.95, window.innerWidth);
     return { containerWidth };
-  }, []);
-
-  // 清除倒计时定时器
-  const clearCountdown = useCallback(() => {
-    if (countdownTimeoutRef.current) {
-      clearTimeout(countdownTimeoutRef.current);
-      countdownTimeoutRef.current = null;
-    }
-    if (countdownToastId.current !== null) {
-      toast.dismiss(countdownToastId.current);
-      countdownToastId.current = null;
-    }
-    setShowAutoNextCountdown(false);
-    setCountdownSeconds(COUNTDOWN_DURATION);
   }, []);
 
   const getImageHeight = useCallback((naturalWidth: number, naturalHeight: number) => {
@@ -257,6 +232,26 @@ function ReaderContent() {
   // 用于跟踪拆分封面模式的变化，避免无限循环
   const splitCoverModeRef = useRef(splitCoverMode);
 
+  const webtoonVirtualization = useReaderWebtoonVirtualization({
+    readingMode,
+    pages,
+    currentPage,
+    setCurrentPage,
+    getDeviceInfo,
+    getImageHeight,
+    webtoonPageElementRefs,
+    imageRefs,
+    htmlContents,
+  });
+
+  const imageLoading = useReaderImageLoading({
+    pages,
+    readingMode,
+    currentPage,
+    visibleRange: webtoonVirtualization.visibleRange,
+    imageRefs,
+  });
+
   useEffect(() => {
     async function fetchPages() {
       if (!id) {
@@ -320,7 +315,7 @@ function ReaderContent() {
 
         // 如果有进度且需要预加载图片，添加到加载队列
         if (initialPage > 0) {
-          setImagesLoading(new Set([initialPage]));
+          imageLoading.setImagesLoading(new Set([initialPage]));
         }
       } catch (err) {
         logger.apiError('fetch archive pages', err);
@@ -331,7 +326,7 @@ function ReaderContent() {
     }
 
     fetchPages();
-  }, [id, pageParam]);
+  }, [id, pageParam, imageLoading.setImagesLoading]);
 
   // 获取 metadata（包含标题、摘要、标签、收藏状态等）
   useEffect(() => {
@@ -610,7 +605,7 @@ function ReaderContent() {
     if (!id || pages.length === 0) return;
 
     if (readingMode === 'webtoon') {
-      for (let i = visibleRange.start; i <= visibleRange.end; i += 1) {
+      for (let i = webtoonVirtualization.visibleRange.start; i <= webtoonVirtualization.visibleRange.end; i += 1) {
         if (pages[i]?.type === 'html') {
           void loadHtmlPage(i);
         }
@@ -621,7 +616,7 @@ function ReaderContent() {
     if (currentPage >= 0 && currentPage < pages.length && pages[currentPage]?.type === 'html') {
       void loadHtmlPage(currentPage);
     }
-  }, [id, pages, currentPage, readingMode, visibleRange, loadHtmlPage]);
+  }, [id, pages, currentPage, readingMode, webtoonVirtualization.visibleRange, loadHtmlPage]);
 
   // 自动隐藏工具栏逻辑
   // - 显示条件：仅点击/轻触
@@ -653,8 +648,8 @@ function ReaderContent() {
   const sidebar = useReaderSidebar({
     pages,
     currentPage,
-    loadedImages,
-    imagesLoading,
+    loadedImages: imageLoading.loadedImages,
+    imagesLoading: imageLoading.imagesLoading,
     onSelectPage: (pageIndex) => setCurrentPage(pageIndex),
     resetTransform,
   });
@@ -667,7 +662,7 @@ function ReaderContent() {
     readingMode,
     doublePageMode,
     splitCoverMode,
-    cachedPages,
+    cachedPages: imageLoading.cachedPages,
     htmlContents,
     scale,
     translateX,
@@ -680,9 +675,9 @@ function ReaderContent() {
     doubleTapZoom,
     autoPlayMode,
     autoPlayInterval,
-    imagesLoading,
-    loadedImages,
-    visibleRange,
+    imagesLoading: imageLoading.imagesLoading,
+    loadedImages: imageLoading.loadedImages,
+    visibleRange: webtoonVirtualization.visibleRange,
     imageRefs,
     videoRefs,
     htmlContainerRefs,
@@ -697,13 +692,16 @@ function ReaderContent() {
       if (readingMode === 'webtoon' && webtoonContainerRef.current) {
         let accumulatedHeight = 0;
         for (let i = 0; i < newPage; i++) {
-          const imageHeight = imageHeights[i] || containerHeight || window.innerHeight * 0.7;
+          const imageHeight =
+            webtoonVirtualization.imageHeights[i] ||
+            webtoonVirtualization.containerHeight ||
+            window.innerHeight * 0.7;
           accumulatedHeight += imageHeight;
         }
         webtoonContainerRef.current.scrollTop = accumulatedHeight;
       }
     },
-    [resetTransform, readingMode, imageHeights, containerHeight]
+    [resetTransform, readingMode, webtoonVirtualization.containerHeight, webtoonVirtualization.imageHeights]
   );
 
   // 处理双击放大
@@ -839,176 +837,35 @@ function ReaderContent() {
     setCurrentPage: (page) => setCurrentPage(page),
     pagesLength: pages.length,
     webtoonContainerRef,
-    imageHeights,
-    containerHeight,
+    imageHeights: webtoonVirtualization.imageHeights,
+    containerHeight: webtoonVirtualization.containerHeight,
     setScale,
   });
 
-  const handleImageError = useCallback((pageIndex: number) => {
-    setImagesLoading(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(pageIndex);
-      return newSet;
-    });
-  }, []);
+  useReaderWheelNavigation({
+    pages,
+    currentPage,
+    readingMode,
+    autoHideEnabled,
+    showToolbar,
+    hideToolbar,
+    onPrevPage: handlePrevPage,
+    onNextPage: handleNextPage,
+  });
 
-  // 缓存图片 - 简化为直接使用原始 URL
-  const cacheImage = useCallback(async (url: string, index: number) => {
-    // 直接使用原始 URL，浏览器会自动处理缓存
-    setCachedPages(prev => {
-      const newCachedPages = [...prev];
-      newCachedPages[index] = url;
-      return newCachedPages;
-    });
-  }, []);
-
-  const handleImageLoad = useCallback((pageIndex: number, imgElement?: HTMLImageElement) => {
-    // 原子性地更新两个状态，避免中间状态导致白屏
-    setImagesLoading(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(pageIndex);
-      return newSet;
-    });
-    setLoadedImages(prev => {
-      const newSet = new Set(prev);
-      newSet.add(pageIndex);
-      return newSet;
-    });
-
-    // 如果是条漫模式且提供了图片元素，记录图片高度
-    if (readingMode === 'webtoon' && imgElement) {
-      const imageHeight = getImageHeight(imgElement.naturalWidth, imgElement.naturalHeight);
-
-      setImageHeights(prev => {
-        const newHeights = [...prev];
-        newHeights[pageIndex] = imageHeight;
-        return newHeights;
-      });
-
-      // 预加载相邻图片 - 只添加加载队列，不直接调用缓存
-      const preloadAdjacent = (index: number) => {
-        // 预加载前一张和后一张图片
-        [index - 1, index + 1].forEach(adjacentIndex => {
-          if (adjacentIndex >= 0 && adjacentIndex < pages.length && !loadedImages.has(adjacentIndex) && !imagesLoading.has(adjacentIndex)) {
-            setImagesLoading(prev => {
-              const updated = new Set(prev);
-              updated.add(adjacentIndex);
-              return updated;
-            });
-            // 不在这里调用 cacheImage，避免重复缓存
-            // 缓存逻辑由 useEffect 统一管理
-          }
-        });
-      };
-
-      // 延迟预加载，避免影响当前图片加载
-      setTimeout(() => preloadAdjacent(pageIndex), 100);
-    }
-  }, [readingMode, loadedImages, imagesLoading, pages, getImageHeight]); // 移除 cacheImage 依赖
-
-  // 计算可见范围的函数
-  const calculateVisibleRange = useCallback((scrollTop: number, containerHeight: number) => {
-    if (pages.length === 0 || imageHeights.length === 0) {
-      return { start: 0, end: Math.min(2, pages.length - 1) };
-    }
-
-    let accumulatedHeight = 0;
-    let startIndex = 0;
-    let endIndex = pages.length - 1;
-    const bufferHeight = containerHeight * 3; // 增加缓冲区到3倍屏幕高度，确保快速滚动时不漏
-
-    // 条漫模式：所有页面都参与计算（包含HTML页）
-    for (let i = 0; i < pages.length; i++) {
-      const imageHeight = imageHeights[i] || containerHeight || window.innerHeight * 0.7;
-
-      if (accumulatedHeight + imageHeight > scrollTop - bufferHeight) {
-        startIndex = Math.max(0, i - 4); // 增加前置缓冲
-        break;
-      }
-      accumulatedHeight += imageHeight;
-    }
-
-    // 找到结束索引
-    accumulatedHeight = 0;
-    for (let i = 0; i < pages.length; i++) {
-      const imageHeight = imageHeights[i] || containerHeight || window.innerHeight * 0.7;
-
-      accumulatedHeight += imageHeight;
-      if (accumulatedHeight > scrollTop + containerHeight + bufferHeight) {
-        endIndex = Math.min(pages.length - 1, i + 4); // 增加后置缓冲
-        break;
-      }
-    }
-
-    // 确保范围有效且合理
-    startIndex = Math.max(0, startIndex);
-    endIndex = Math.min(pages.length - 1, endIndex);
-
-    // 确保至少显示3页，除非总页数不足
-    if (endIndex - startIndex < 2 && pages.length > 2) {
-      const center = Math.floor((startIndex + endIndex) / 2);
-      startIndex = Math.max(0, center - 1);
-      endIndex = Math.min(pages.length - 1, center + 1);
-    }
-
-    return { start: startIndex, end: endIndex };
-  }, [pages.length, imageHeights]);
-
-  const handleWebtoonScroll = useCallback(
-    (e: React.UIEvent<HTMLDivElement>) => {
-      const container = e.currentTarget;
-
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-
-      scrollTimeoutRef.current = setTimeout(() => {
-        let accumulatedHeight = 0;
-        let newPageIndex = 0;
-
-        for (let i = 0; i < pages.length; i++) {
-          const imageHeight = imageHeights[i] || containerHeight || window.innerHeight * 0.7;
-          accumulatedHeight += imageHeight;
-          if (accumulatedHeight > container.scrollTop + container.clientHeight * 0.3) {
-            newPageIndex = i;
-            break;
-          }
-        }
-
-        if (newPageIndex !== currentPage && newPageIndex >= 0 && newPageIndex < pages.length) {
-          setCurrentPage(newPageIndex);
-        }
-
-        const newVisibleRange = calculateVisibleRange(container.scrollTop, container.clientHeight);
-        setVisibleRange(newVisibleRange);
-        setContainerHeight(container.clientHeight);
-      }, 16);
-    },
-    [calculateVisibleRange, containerHeight, currentPage, imageHeights, pages.length]
-  );
-
-  // 条漫模式下测量HTML页高度，避免HTML页内部滚动/高度不准导致的滚动计算错误
-  useEffect(() => {
-    if (readingMode !== 'webtoon') return;
-
-    requestAnimationFrame(() => {
-      for (let i = visibleRange.start; i <= visibleRange.end; i += 1) {
-        if (pages[i]?.type !== 'html') continue;
-        const el = webtoonPageElementRefs.current[i];
-        if (!el) continue;
-        const measured = Math.ceil(el.getBoundingClientRect().height);
-        if (!measured || measured <= 0) continue;
-
-        setImageHeights(prev => {
-          const current = prev[i];
-          if (current && Math.abs(current - measured) <= 2) return prev;
-          const next = [...prev];
-          next[i] = measured;
-          return next;
-        });
-      }
-    });
-  }, [readingMode, visibleRange, pages, htmlContents]);
+  useReaderAutoPlay({
+    autoPlayMode,
+    autoPlayInterval,
+    readingMode,
+    webtoonContainerRef,
+    imageHeights: webtoonVirtualization.imageHeights,
+    currentPage,
+    pagesLength: pages.length,
+    doublePageMode,
+    splitCoverMode,
+    onNextPage: handleNextPage,
+    setAutoPlayMode,
+  });
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement) return;
@@ -1048,208 +905,7 @@ function ReaderContent() {
     };
   }, [handleKeyDown]);
 
-  const handleWheel = useCallback((e: WheelEvent) => {
-    if (e.target instanceof HTMLInputElement) return;
-
-    // 隐藏条件：滑动/滚动
-    if (autoHideEnabled && showToolbar) {
-      hideToolbar();
-    }
-
-    // 条漫模式下仅允许自然滚动，不触发HTML边界倒计时跳转
-    if (readingMode === 'webtoon') {
-      if (showAutoNextCountdown) {
-        clearCountdown();
-      }
-      return;
-    }
-
-    // 检查当前页面是否为HTML类型
-    const isHtmlPage = pages[currentPage]?.type === 'html';
-
-    // 如果是HTML页面，允许内容自然滚动，只在边界处翻页
-    if (isHtmlPage) {
-      const target = e.target as HTMLElement;
-      // 检查事件是否来自HTML内容容器或其子元素
-      const htmlContainer = target.closest('.html-content-container');
-
-      if (htmlContainer) {
-        // 获取滚动位置
-        const scrollTop = htmlContainer.scrollTop;
-        const scrollHeight = htmlContainer.scrollHeight;
-        const clientHeight = htmlContainer.clientHeight;
-        const isAtTop = scrollTop <= 5; // 允许5px的误差
-        const isNearTop = scrollTop <= 150; // 接近顶部时开始倒计时
-        const isNearBottom = scrollTop >= scrollHeight - clientHeight - 150; // 提前150px开始倒计时
-        const isAtBottom = scrollTop >= scrollHeight - clientHeight - 5;
-
-        const deltaY = e.deltaY;
-
-        // 如果正在显示倒计时，阻止滚动并处理倒计时逻辑
-        if (showAutoNextCountdown) {
-          e.preventDefault();
-          if (isAtTop && deltaY < 0) {
-            // 倒计时结束后自动跳转
-            // 不需要手动处理，倒计时会自动执行
-          } else if (isAtBottom && deltaY > 0) {
-            // 倒计时结束后自动跳转
-            // 不需要手动处理，倒计时会自动执行
-          } else {
-            // 其他滚动行为，取消倒计时
-            clearCountdown();
-          }
-          return;
-        }
-
-        // 在顶部向上滚动 -> 上一页（跳转到上一页底部，显示倒计时）
-        // 在底部向下滚动 -> 下一页（跳转到下一页顶部，显示倒计时）
-        // 其他情况允许自然滚动
-        if (isNearTop && deltaY < 0) {
-          // 接近顶部时，开始倒计时
-          e.preventDefault();
-          if (!showAutoNextCountdown) {
-            setShowAutoNextCountdown(true);
-            setCountdownSeconds(COUNTDOWN_DURATION);
-
-            // 显示 toast
-            countdownToastId.current = toast.loading(`即将跳转到上一页（${COUNTDOWN_DURATION}秒后）`, {
-              duration: COUNTDOWN_DURATION * 1000,
-              action: {
-                label: '取消',
-                onClick: () => clearCountdown(),
-              },
-            });
-
-            // 开始倒计时
-            countdownTimeoutRef.current = setInterval(() => {
-              setCountdownSeconds(prev => {
-                if (prev <= 1) {
-                  // 倒计时结束，执行跳转
-                  clearCountdown();
-                  handlePrevPage();
-                  setTimeout(() => {
-                    const htmlContainer = document.querySelector('.html-content-container');
-                    if (htmlContainer) {
-                      htmlContainer.scrollTop = htmlContainer.scrollHeight;
-                    }
-                  }, 100);
-                  return 0;
-                }
-                // 更新 toast 消息
-                if (countdownToastId.current !== null) {
-                  toast.loading(`即将跳转到上一页（${prev - 1}秒后）`, {
-                    id: countdownToastId.current,
-                    duration: (prev - 1) * 1000,
-                    action: {
-                      label: '取消',
-                      onClick: () => clearCountdown(),
-                    },
-                  });
-                }
-                return prev - 1;
-              });
-            }, 1000);
-          }
-        } else if (isNearBottom && deltaY > 0) {
-          // 接近底部时，开始倒计时
-          e.preventDefault();
-          if (!showAutoNextCountdown) {
-            setShowAutoNextCountdown(true);
-            setCountdownSeconds(COUNTDOWN_DURATION);
-
-            // 显示 toast
-            countdownToastId.current = toast.loading(`即将跳转到下一页（${COUNTDOWN_DURATION}秒后）`, {
-              duration: COUNTDOWN_DURATION * 1000,
-              action: {
-                label: '取消',
-                onClick: () => clearCountdown(),
-              },
-            });
-
-            // 开始倒计时
-            countdownTimeoutRef.current = setInterval(() => {
-              setCountdownSeconds(prev => {
-                if (prev <= 1) {
-                  // 倒计时结束，执行跳转
-                  clearCountdown();
-                  handleNextPage();
-                  setTimeout(() => {
-                    const htmlContainer = document.querySelector('.html-content-container');
-                    if (htmlContainer) {
-                      htmlContainer.scrollTop = 0;
-                    }
-                  }, 100);
-                  return 0;
-                }
-                // 更新 toast 消息
-                if (countdownToastId.current !== null) {
-                  toast.loading(`即将跳转到下一页（${prev - 1}秒后）`, {
-                    id: countdownToastId.current,
-                    duration: (prev - 1) * 1000,
-                    action: {
-                      label: '取消',
-                      onClick: () => clearCountdown(),
-                    },
-                  });
-                }
-                return prev - 1;
-              });
-            }, 1000);
-          }
-        }
-        // 其他情况不阻止默认行为，让HTML内容自然滚动
-        return;
-      }
-    }
-
-    // 非HTML页面的滚轮处理逻辑
-    const deltaX = e.deltaX;
-    const deltaY = e.deltaY;
-
-    if (readingMode === 'single-rtl') {
-      if (deltaX > 0 || deltaY > 0) {
-        handlePrevPage();
-      } else if (deltaX < 0 || deltaY < 0) {
-        handleNextPage();
-      }
-    } else if (readingMode === 'single-ttb') {
-      if (deltaY > 0) {
-        handleNextPage();
-      } else if (deltaY < 0) {
-        handlePrevPage();
-      }
-    } else {
-      if (deltaX > 0 || deltaY > 0) {
-        handleNextPage();
-      } else if (deltaX < 0 || deltaY < 0) {
-        handlePrevPage();
-      }
-    }
-  }, [
-    handlePrevPage,
-    handleNextPage,
-    readingMode,
-    pages,
-    currentPage,
-    showAutoNextCountdown,
-    clearCountdown,
-    autoHideEnabled,
-    showToolbar,
-    hideToolbar,
-  ]);
-
-  useEffect(() => {
-    window.addEventListener('wheel', handleWheel);
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-    };
-  }, [handleWheel]);
-
-  useEffect(() => {
-    if (readingMode === 'webtoon' && showAutoNextCountdown) {
-      clearCountdown();
-    }
-  }, [readingMode, showAutoNextCountdown, clearCountdown]);
+  // wheel 翻页/HTML 边界倒计时逻辑已抽到 useReaderWheelNavigation
 
   const getReadingModeIcon = () => {
     switch (readingMode) {
@@ -1269,97 +925,7 @@ function ReaderContent() {
     }
   };
 
-  // 初始化图片高度数组和容器高度
-  useEffect(() => {
-    if (pages.length > 0 && imageHeights.length !== pages.length) {
-      // 使用更合理的默认高度初始化数组
-      const { containerWidth } = getDeviceInfo();
-      const defaultHeight = Math.min(window.innerHeight * 0.7, containerWidth * 1.5);
-      setImageHeights(new Array(pages.length).fill(defaultHeight));
-      
-      // 设置初始容器高度
-      const viewportHeight = window.innerHeight - 100; // 优化工具栏高度计算
-      setContainerHeight(viewportHeight);
-      
-      // 设置初始可见范围
-      setVisibleRange({ start: 0, end: Math.min(3, pages.length - 1) }); // 增加初始渲染范围
-    }
-  }, [pages.length, imageHeights.length, getDeviceInfo]);
-
-  // 自动翻页定时器
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
-    
-    if (autoPlayMode && pages.length > 0) {
-      // 设置定时器
-      intervalId = setInterval(() => {
-        if (readingMode === 'webtoon') {
-          // 条漫模式：自动滚动
-          if (webtoonContainerRef.current) {
-            const container = webtoonContainerRef.current;
-            const currentScrollTop = container.scrollTop;
-            const containerHeight = container.clientHeight;
-            const scrollHeight = container.scrollHeight;
-            
-            // 检查是否到达底部
-            if (currentScrollTop + containerHeight >= scrollHeight - 10) {
-              // 到达底部，停止自动翻页
-              setAutoPlayMode(false);
-              return;
-            }
-            
-            // 计算下一张图片的位置
-            let accumulatedHeight = 0;
-            let nextImagePosition = 0;
-            
-            for (let i = 0; i < imageHeights.length; i++) {
-              const imageHeight = imageHeights[i] || containerHeight;
-              accumulatedHeight += imageHeight;
-              
-              // 找到当前可见图片的下一张图片位置
-              if (accumulatedHeight > currentScrollTop + containerHeight * 0.3) {
-                nextImagePosition = accumulatedHeight - imageHeight;
-                break;
-              }
-            }
-            
-            // 滚动到下一张图片
-            container.scrollTo({
-              top: nextImagePosition + containerHeight * 0.7,
-              behavior: 'smooth'
-            });
-          }
-        } else {
-          // 单页/双页模式：检查是否到达最后一页
-          if (doublePageMode) {
-            // 双页模式：检查是否到达最后两页
-            if (currentPage >= pages.length - (splitCoverMode && currentPage === 0 ? 1 : 2)) {
-              // 到达最后一页，停止自动翻页
-              setAutoPlayMode(false);
-              return;
-            }
-          } else {
-            // 单页模式：检查是否到达最后一页
-            if (currentPage >= pages.length - 1) {
-              // 到达最后一页，停止自动翻页
-              setAutoPlayMode(false);
-              return;
-            }
-          }
-          
-          // 执行翻页
-          handleNextPage();
-        }
-      }, autoPlayInterval * 1000); // 转换为毫秒
-    }
-    
-    // 清理函数
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [autoPlayMode, autoPlayInterval, currentPage, pages.length, doublePageMode, splitCoverMode, handleNextPage, readingMode, imageHeights, setAutoPlayMode]);
+  // 自动翻页逻辑已抽到 useReaderAutoPlay
 
   // 处理拆分封面模式切换时的页面调整
   useEffect(() => {
@@ -1406,142 +972,6 @@ function ReaderContent() {
       }
     }
   }, [splitCoverMode, doublePageMode, currentPage, pages.length]);
-
-  // 合并的图片加载逻辑 - 优化性能和减少重复执行
-  useEffect(() => {
-    if (pages.length === 0) return;
-
-    if (readingMode === 'webtoon') {
-      // 条漫模式：预加载当前页面前后的几页（如果还未加载）
-      const preloadRange = 2;
-      setImagesLoading(prev => {
-        const updated = new Set(prev);
-
-        // 添加当前页面及前后页面到加载队列
-        for (let i = Math.max(0, currentPage - preloadRange); i <= Math.min(pages.length - 1, currentPage + preloadRange); i++) {
-          if (!loadedImages.has(i)) {
-            updated.add(i);
-          }
-        }
-
-        // 确保可见范围内的页面在加载列表中
-        for (let i = visibleRange.start; i <= visibleRange.end; i++) {
-          if (i >= 0 && i < pages.length && !loadedImages.has(i)) {
-            updated.add(i);
-          }
-        }
-
-        return updated;
-      });
-    } else {
-      // 单页/双页模式：预加载前1页和后5页
-      setImagesLoading(prev => {
-        const updated = new Set(prev);
-
-        // 预加载范围：前1页，后5页
-        const preloadBefore = 1;
-        const preloadAfter = 5;
-
-        for (let i = Math.max(0, currentPage - preloadBefore);
-             i <= Math.min(pages.length - 1, currentPage + preloadAfter);
-             i++) {
-          if (!loadedImages.has(i)) {
-            updated.add(i);
-          }
-        }
-
-        return updated;
-      });
-    }
-  }, [currentPage, readingMode, pages.length, loadedImages, visibleRange.start, visibleRange.end]);
-
-  // 设置Intersection Observer用于懒加载
-  useEffect(() => {
-    if (readingMode === 'webtoon') {
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              const imgElement = entry.target as HTMLImageElement;
-              const index = parseInt(imgElement.dataset.index || '0');
-
-              // 观察所有图片
-              if (!loadedImages.has(index) && !imagesLoading.has(index)) {
-                setImagesLoading(prev => {
-                  const updated = new Set(prev);
-                  updated.add(index);
-                  return updated;
-                });
-
-                // 预加载相邻图片
-                [index - 1, index + 1].forEach(adjacentIndex => {
-                  if (adjacentIndex >= 0 && adjacentIndex < pages.length && !loadedImages.has(adjacentIndex) && !imagesLoading.has(adjacentIndex)) {
-                    setImagesLoading(prev => {
-                      const updated = new Set(prev);
-                      updated.add(adjacentIndex);
-                      return updated;
-                    });
-                  }
-                });
-              }
-
-              // 加载后停止观察该元素
-              observerRef.current?.unobserve(imgElement);
-            }
-          });
-        },
-        {
-          rootMargin: '2000px 0px 2000px 0px' // 增加预加载距离到2000px，优化快速滚动体验
-        }
-      );
-
-      // 观察可见范围内的图片元素
-      imageRefs.current.forEach((img, index) => {
-        if (img && index >= visibleRange.start && index <= visibleRange.end) {
-          img.dataset.index = index.toString();
-          observerRef.current?.observe(img);
-        }
-      });
-    }
-
-    return () => {
-      observerRef.current?.disconnect();
-    };
-  }, [readingMode, imagesLoading, visibleRange, loadedImages, pages.length]);
-
-  // 清理防抖定时器
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // 处理已经加载完成的图片
-  useEffect(() => {
-    if (readingMode === 'webtoon') {
-      imageRefs.current.forEach((img, index) => {
-        if (img && img.complete && img.naturalHeight > 0 && !imageHeights[index]) {
-          // 如果图片已经加载完成但还没有记录高度，计算高度
-          const imageHeight = getImageHeight(img.naturalWidth, img.naturalHeight);
-          
-          setImageHeights(prev => {
-            const newHeights = [...prev];
-            newHeights[index] = imageHeight;
-            return newHeights;
-          });
-        }
-      });
-    }
-  }, [readingMode, imageHeights, getImageHeight]);
-
-  // 组件卸载时清理倒计时定时器
-  useEffect(() => {
-    return () => {
-      clearCountdown();
-    };
-  }, [clearCountdown]);
 
   if (loading) {
     return (
@@ -1638,74 +1068,74 @@ function ReaderContent() {
         />
 
         {/* 单页模式 */}
-        <ReaderSingleModeView
-          enabled={readingMode !== 'webtoon'}
-          sidebarOpen={sidebar.sidebarOpen}
-          pages={pages}
-          cachedPages={cachedPages}
-          currentPage={currentPage}
-          doublePageMode={doublePageMode}
-          splitCoverMode={splitCoverMode}
-          imagesLoading={imagesLoading}
-          loadedImages={loadedImages}
-          scale={scale}
-          translateX={translateX}
-          translateY={translateY}
-          htmlContents={htmlContents}
+	        <ReaderSingleModeView
+	          enabled={readingMode !== 'webtoon'}
+	          sidebarOpen={sidebar.sidebarOpen}
+	          pages={pages}
+	          cachedPages={imageLoading.cachedPages}
+	          currentPage={currentPage}
+	          doublePageMode={doublePageMode}
+	          splitCoverMode={splitCoverMode}
+	          imagesLoading={imageLoading.imagesLoading}
+	          loadedImages={imageLoading.loadedImages}
+	          scale={scale}
+	          translateX={translateX}
+	          translateY={translateY}
+	          htmlContents={htmlContents}
           imageRefs={imageRefs}
           videoRefs={videoRefs}
-          htmlContainerRefs={htmlContainerRefs}
-          imageRequestUrls={imageRequestUrls}
-          onImageLoaded={handleImageLoad}
-          onImageError={handleImageError}
-          onCacheImage={cacheImage}
-          onDoubleClick={handleDoubleClick}
-          onImageDragStart={handleImageDragStart}
-          t={t}
-        />
+	          htmlContainerRefs={htmlContainerRefs}
+	          imageRequestUrls={imageRequestUrls}
+	          onImageLoaded={imageLoading.handleImageLoad}
+	          onImageError={imageLoading.handleImageError}
+	          onCacheImage={imageLoading.cacheImage}
+	          onDoubleClick={handleDoubleClick}
+	          onImageDragStart={handleImageDragStart}
+	          t={t}
+	        />
 
         {/* 隐藏的预加载区域：前1页和后5页（仅单页/双页模式） */}
-        <ReaderPreloadArea
-          enabled={readingMode !== 'webtoon'}
-          imagesLoading={imagesLoading}
-          currentPage={currentPage}
-          doublePageMode={doublePageMode}
-          pages={pages}
-          cachedPages={cachedPages}
-          onLoaded={handleImageLoad}
-          onError={handleImageError}
-          onCacheImage={cacheImage}
-        />
+	        <ReaderPreloadArea
+	          enabled={readingMode !== 'webtoon'}
+	          imagesLoading={imageLoading.imagesLoading}
+	          currentPage={currentPage}
+	          doublePageMode={doublePageMode}
+	          pages={pages}
+	          cachedPages={imageLoading.cachedPages}
+	          onLoaded={imageLoading.handleImageLoad}
+	          onError={imageLoading.handleImageError}
+	          onCacheImage={imageLoading.cacheImage}
+	        />
 
         {/* 条漫模式 */}
-        <ReaderWebtoonModeView
-          enabled={readingMode === 'webtoon'}
-          webtoonContainerRef={webtoonContainerRef}
-          sidebarOpen={sidebar.sidebarOpen}
-          onScroll={handleWebtoonScroll}
-          pages={pages}
-          cachedPages={cachedPages}
-          visibleRange={visibleRange}
-          imageHeights={imageHeights}
-          containerHeight={containerHeight}
-          imagesLoading={imagesLoading}
-          loadedImages={loadedImages}
-          scale={scale}
-          translateX={translateX}
-          translateY={translateY}
-          htmlContents={htmlContents}
+	        <ReaderWebtoonModeView
+	          enabled={readingMode === 'webtoon'}
+	          webtoonContainerRef={webtoonContainerRef}
+	          sidebarOpen={sidebar.sidebarOpen}
+	          onScroll={webtoonVirtualization.handleWebtoonScroll}
+	          pages={pages}
+	          cachedPages={imageLoading.cachedPages}
+	          visibleRange={webtoonVirtualization.visibleRange}
+	          imageHeights={webtoonVirtualization.imageHeights}
+	          containerHeight={webtoonVirtualization.containerHeight}
+	          imagesLoading={imageLoading.imagesLoading}
+	          loadedImages={imageLoading.loadedImages}
+	          scale={scale}
+	          translateX={translateX}
+	          translateY={translateY}
+	          htmlContents={htmlContents}
           webtoonPageElementRefs={webtoonPageElementRefs}
           imageRefs={imageRefs}
-          videoRefs={videoRefs}
-          htmlContainerRefs={htmlContainerRefs}
-          imageRequestUrls={imageRequestUrls}
-          onImageLoaded={handleImageLoad}
-          onImageError={handleImageError}
-          onCacheImage={cacheImage}
-          onDoubleClick={handleDoubleClick}
-          onImageDragStart={handleImageDragStart}
-          t={t}
-        />
+	          videoRefs={videoRefs}
+	          htmlContainerRefs={htmlContainerRefs}
+	          imageRequestUrls={imageRequestUrls}
+	          onImageLoaded={imageLoading.handleImageLoad}
+	          onImageError={imageLoading.handleImageError}
+	          onCacheImage={imageLoading.cacheImage}
+	          onDoubleClick={handleDoubleClick}
+	          onImageDragStart={handleImageDragStart}
+	          t={t}
+	        />
       </div>
     </div>
   );
