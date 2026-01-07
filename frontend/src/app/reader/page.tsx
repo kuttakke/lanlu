@@ -4,7 +4,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import type React from 'react';
 import { ArchiveService, PageInfo } from '@/lib/archive-service';
-import { FavoriteService } from '@/lib/favorite-service';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MediaInfoOverlay } from '@/components/reader/components/MediaInfoOverlay';
@@ -14,11 +13,16 @@ import { ReaderSidebar } from '@/components/reader/components/ReaderSidebar';
 import { ReaderSingleModeView } from '@/components/reader/components/ReaderSingleModeView';
 import { ReaderTopBar } from '@/components/reader/components/ReaderTopBar';
 import { ReaderWebtoonModeView } from '@/components/reader/components/ReaderWebtoonModeView';
+import { useReaderArchiveMetadata } from '@/components/reader/hooks/useReaderArchiveMetadata';
+import { useReaderHtmlPages } from '@/components/reader/hooks/useReaderHtmlPages';
+import { useReaderKeyboardNavigation } from '@/components/reader/hooks/useReaderKeyboardNavigation';
 import { useMediaInfoOverlayLines } from '@/components/reader/hooks/useMediaInfoOverlayLines';
+import { useReaderProgressTracking } from '@/components/reader/hooks/useReaderProgressTracking';
 import { getTapTurnAction, useReaderInteractionHandlers } from '@/components/reader/hooks/useReaderInteractionHandlers';
 import { useReaderAutoPlay } from '@/components/reader/hooks/useReaderAutoPlay';
 import { useReaderImageLoading } from '@/components/reader/hooks/useReaderImageLoading';
 import { useReaderSidebar } from '@/components/reader/hooks/useReaderSidebar';
+import { useReaderToolbarAutoHide } from '@/components/reader/hooks/useReaderToolbarAutoHide';
 import { useReaderWebtoonVirtualization } from '@/components/reader/hooks/useReaderWebtoonVirtualization';
 import { useReaderWheelNavigation } from '@/components/reader/hooks/useReaderWheelNavigation';
 import { logger } from '@/lib/logger';
@@ -33,7 +37,7 @@ import {
   useAutoHideEnabled,
   useTapTurnPageEnabled,
   useMediaInfoEnabled,
-} from '@/hooks/use-reader-settings';
+  } from '@/hooks/use-reader-settings';
 import {
   ArrowLeft,
   Book,
@@ -50,7 +54,6 @@ import {
   MousePointerClick
 } from 'lucide-react';
 import Link from 'next/link';
-import type { ArchiveMetadata } from '@/types/archive';
 
 function ReaderContent() {
   const router = useRouter();
@@ -63,11 +66,6 @@ function ReaderContent() {
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [htmlContents, setHtmlContents] = useState<Record<number, string>>({}); // HTML内容缓存（按页索引）
-  const [showToolbar, setShowToolbar] = useState(true);
-  const [isFavorited, setIsFavorited] = useState(false); // 收藏状态
-  const [archiveTitle, setArchiveTitle] = useState<string>(''); // 归档标题
-  const [archiveMetadata, setArchiveMetadata] = useState<ArchiveMetadata | null>(null);
   const [scale, setScale] = useState(1);
   const [translateX, setTranslateX] = useState(0);
   const [translateY, setTranslateY] = useState(0);
@@ -75,10 +73,6 @@ function ReaderContent() {
   const webtoonContainerRef = useRef<HTMLDivElement>(null);
   const webtoonPageElementRefs = useRef<(HTMLDivElement | null)[]>([]);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
-  const currentPageRef = useRef<number>(0); // 用于跟踪最新的currentPage值
-  const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 图片加载防抖引用
-  const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 自动隐藏定时器引用
-  const AUTO_HIDE_DELAY = 3000; // 自动隐藏延迟时间（毫秒）
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -128,109 +122,17 @@ function ReaderContent() {
   const [autoHideEnabled, setAutoHideEnabled] = useAutoHideEnabled();
   const [tapTurnPageEnabled, setTapTurnPageEnabled] = useTapTurnPageEnabled();
   const [mediaInfoEnabled, setMediaInfoEnabled] = useMediaInfoEnabled();
-  const htmlContentsRef = useRef<Record<number, string>>({});
-  const htmlLoadingRef = useRef<Set<number>>(new Set());
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const htmlContainerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const imageRequestUrls = useRef<(string | null)[]>([]);
   const [mediaInfoTick, setMediaInfoTick] = useState(0);
-
-  useEffect(() => {
-    htmlContentsRef.current = htmlContents;
-  }, [htmlContents]);
-
-  const loadHtmlPage = useCallback(async (pageIndex: number) => {
-    if (!id) return;
-    const page = pages[pageIndex];
-    if (!page || page.type !== 'html') return;
-    if (htmlContentsRef.current[pageIndex]) return;
-    if (htmlLoadingRef.current.has(pageIndex)) return;
-
-    htmlLoadingRef.current.add(pageIndex);
-    try {
-      const response = await fetch(page.url);
-      const html = await response.text();
-
-      // 重写相对路径为API路径，确保资源文件正确加载
-      const urlObj = new URL(page.url, window.location.origin);
-      const pathParam = urlObj.searchParams.get('path');
-      const currentDir = pathParam ? pathParam.substring(0, pathParam.lastIndexOf('/')) : '';
-
-      let processedHtml = html;
-
-      processedHtml = processedHtml.replace(
-        /(src|href)=["'](?!http|https|data:|mailto:|tel:)([^"']+)["']/gi,
-        (match, attr, relativePath) => {
-          if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
-            const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
-            const encodedPath = encodeURIComponent(fullPath);
-            const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
-            return `${attr}="${apiPath}"`;
-          }
-          return match;
-        }
-      );
-
-      processedHtml = processedHtml.replace(
-        /url\((?!['"]?(?:http|https|data:))([^'")]+)\)/gi,
-        (match, relativePath) => {
-          relativePath = relativePath.replace(/['"]/g, '');
-          if (!relativePath.startsWith('/') && !relativePath.startsWith('data:')) {
-            const fullPath = currentDir ? `${currentDir}/${relativePath}` : relativePath;
-            const encodedPath = encodeURIComponent(fullPath);
-            const apiPath = ArchiveService.addTokenToUrl(`/api/archives/${id}/page?path=${encodedPath}`);
-            return `url(${apiPath})`;
-          }
-          return match;
-        }
-      );
-
-      setHtmlContents(prev => ({ ...prev, [pageIndex]: processedHtml }));
-    } catch (error) {
-      logger.error('Failed to load HTML page', error);
-      setError('Failed to load HTML content');
-    } finally {
-      htmlLoadingRef.current.delete(pageIndex);
-    }
-  }, [id, pages]);
-
-  const clearAutoHideTimers = useCallback(() => {
-    if (autoHideTimeoutRef.current) {
-      clearTimeout(autoHideTimeoutRef.current);
-      autoHideTimeoutRef.current = null;
-    }
-  }, []);
-
-  const scheduleAutoHide = useCallback(() => {
-    if (!autoHideEnabled) return;
-    if (autoHideTimeoutRef.current) {
-      clearTimeout(autoHideTimeoutRef.current);
-    }
-    autoHideTimeoutRef.current = setTimeout(() => {
-      setShowToolbar(false);
-    }, AUTO_HIDE_DELAY);
-  }, [autoHideEnabled]);
-
-  const hideToolbar = useCallback(() => {
-    setShowToolbar(false);
-    clearAutoHideTimers();
-  }, [clearAutoHideTimers]);
-
-  const toggleToolbar = useCallback(() => {
-    if (!autoHideEnabled) return;
-    setShowToolbar(prev => {
-      const next = !prev;
-      if (next) {
-        scheduleAutoHide();
-      } else {
-        clearAutoHideTimers();
-      }
-      return next;
-    });
-  }, [autoHideEnabled, scheduleAutoHide, clearAutoHideTimers]);
+  const archive = useReaderArchiveMetadata({ id, language });
+  const { htmlContents, loadHtmlPage } = useReaderHtmlPages({ id, pages, onError: setError });
 
   // 用于跟踪拆分封面模式的变化，避免无限循环
   const splitCoverModeRef = useRef(splitCoverMode);
+
+  const toolbar = useReaderToolbarAutoHide({ autoHideEnabled, delayMs: 3000 });
 
   const webtoonVirtualization = useReaderWebtoonVirtualization({
     readingMode,
@@ -328,45 +230,6 @@ function ReaderContent() {
     fetchPages();
   }, [id, pageParam, imageLoading.setImagesLoading]);
 
-  // 获取 metadata（包含标题、摘要、标签、收藏状态等）
-  useEffect(() => {
-    if (!id) {
-      setArchiveMetadata(null);
-      return;
-    }
-
-    let cancelled = false;
-    setArchiveMetadata(null);
-
-    (async () => {
-      try {
-        const metadata = await ArchiveService.getMetadata(id, language);
-        if (cancelled) return;
-        setArchiveMetadata(metadata);
-        setIsFavorited(metadata.isfavorite);
-        if (metadata.title && metadata.title.trim()) {
-          setArchiveTitle(metadata.title);
-        }
-      } catch (metaErr) {
-        logger.apiError('fetch archive metadata', metaErr);
-        if (cancelled) return;
-        setArchiveMetadata(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id, language]);
-
-  const metadataTags = useMemo(() => {
-    if (!archiveMetadata?.tags) return [];
-    return archiveMetadata.tags
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-  }, [archiveMetadata?.tags]);
-
   // 单独处理错误消息的翻译
   useEffect(() => {
     if (error === 'Missing archive ID') {
@@ -375,58 +238,6 @@ function ReaderContent() {
       setError(t('reader.fetchError'));
     }
   }, [error, t]);
-
-  // 更新阅读进度
-  const updateReadingProgress = useCallback(async (page: number) => {
-    if (!id) return;
-
-    try {
-      // 在拆分封面模式下，需要计算实际的阅读进度
-      let actualPage = page;
-      if (doublePageMode && splitCoverMode) {
-        // 拆分封面模式：第0页显示第1页，第1页显示第2-3页，第3页显示第4-5页，以此类推
-        if (page === 0) {
-          // 封面页，实际是第1页
-          actualPage = 0;
-        } else if (page === 1) {
-          // 显示第2-3页，保存进度为第3页
-          actualPage = 2;
-        } else {
-          // 其他情况，currentPage显示的是第(currentPage+1)和第(currentPage+2)页
-          // 保存进度为第(currentPage+2)页
-          actualPage = page + 1;
-        }
-      }
-      
-      // 调用新的进度更新API，自动标记为已读
-      await ArchiveService.updateProgress(id, actualPage + 1); // API 使用1-based页码
-    } catch (err) {
-      logger.operationFailed('update reading progress', err);
-      // 静默失败，不影响阅读体验
-    }
-  }, [id, doublePageMode, splitCoverMode]);
-
-  // 切换收藏状态
-  const toggleFavorite = useCallback(async (e?: React.MouseEvent) => {
-    if (!id) return;
-
-    // 阻止事件冒泡
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    try {
-      if (isFavorited) {
-        await FavoriteService.removeFavorite(id);
-        setIsFavorited(false);
-      } else {
-        await FavoriteService.addFavorite(id);
-        setIsFavorited(true);
-      }
-    } catch (err) {
-      logger.operationFailed('toggle favorite', err);
-      // 可以显示错误提示，但静默失败更符合用户体验
-    }
-  }, [id, isFavorited]);
 
   // 切换全屏模式
   const toggleFullscreen = useCallback(async () => {
@@ -565,40 +376,13 @@ function ReaderContent() {
     return () => window.clearInterval(interval);
   }, [mediaInfoEnabled]);
 
-  // 监听页码变化并更新进度
-  useEffect(() => {
-    if (pages.length > 0 && currentPage >= 0) {
-      // 清除之前的定时器
-      if (imageLoadTimeoutRef.current) {
-        clearTimeout(imageLoadTimeoutRef.current);
-      }
-
-      // 防抖：延迟500ms更新，避免频繁调用
-      imageLoadTimeoutRef.current = setTimeout(() => {
-        updateReadingProgress(currentPage);
-      }, 500);
-
-      return () => {
-        if (imageLoadTimeoutRef.current) {
-          clearTimeout(imageLoadTimeoutRef.current);
-        }
-      };
-    }
-  }, [currentPage, pages.length, updateReadingProgress]);
-
-  // 组件卸载时保存进度
-  useEffect(() => {
-    return () => {
-      if (pages.length > 0 && currentPageRef.current >= 0) {
-        updateReadingProgress(currentPageRef.current);
-      }
-    };
-  }, [pages.length, updateReadingProgress]);
-
-  // 跟踪currentPage的变化并更新ref
-  useEffect(() => {
-    currentPageRef.current = currentPage;
-  }, [currentPage]);
+  useReaderProgressTracking({
+    id,
+    currentPage,
+    pagesLength: pages.length,
+    doublePageMode,
+    splitCoverMode,
+  });
 
   // 加载HTML页面内容（单页模式：当前页；条漫模式：可见范围内）
   useEffect(() => {
@@ -617,26 +401,6 @@ function ReaderContent() {
       void loadHtmlPage(currentPage);
     }
   }, [id, pages, currentPage, readingMode, webtoonVirtualization.visibleRange, loadHtmlPage]);
-
-  // 自动隐藏工具栏逻辑
-  // - 显示条件：仅点击/轻触
-  // - 隐藏条件：点击（切换）、滑动（触摸移动后抬起）、或显示后一段时间
-  useEffect(() => {
-    clearAutoHideTimers();
-
-    if (!autoHideEnabled) {
-      setShowToolbar(true);
-      return;
-    }
-
-    if (showToolbar) {
-      scheduleAutoHide();
-    }
-
-    return () => {
-      clearAutoHideTimers();
-    };
-  }, [autoHideEnabled, showToolbar, scheduleAutoHide, clearAutoHideTimers]);
 
   // 重置变换
   const resetTransform = useCallback(() => {
@@ -668,7 +432,7 @@ function ReaderContent() {
     translateX,
     translateY,
     isFullscreen,
-    showToolbar,
+    showToolbar: toolbar.showToolbar,
     sidebarOpen: sidebar.sidebarOpen,
     autoHideEnabled,
     tapTurnPageEnabled,
@@ -828,9 +592,9 @@ function ReaderContent() {
     readingMode,
     tapTurnPageEnabled,
     autoHideEnabled,
-    showToolbar,
-    onToggleToolbar: toggleToolbar,
-    onHideToolbar: hideToolbar,
+    showToolbar: toolbar.showToolbar,
+    onToggleToolbar: toolbar.toggleToolbar,
+    onHideToolbar: toolbar.hideToolbar,
     onPrevPage: handlePrevPage,
     onNextPage: handleNextPage,
     currentPage,
@@ -847,8 +611,8 @@ function ReaderContent() {
     currentPage,
     readingMode,
     autoHideEnabled,
-    showToolbar,
-    hideToolbar,
+    showToolbar: toolbar.showToolbar,
+    hideToolbar: toolbar.hideToolbar,
     onPrevPage: handlePrevPage,
     onNextPage: handleNextPage,
   });
@@ -866,44 +630,11 @@ function ReaderContent() {
     onNextPage: handleNextPage,
     setAutoPlayMode,
   });
-
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement) return;
-    
-    switch (e.key) {
-      case 'ArrowLeft':
-        if (readingMode === 'single-rtl') {
-          handleNextPage();
-        } else if (readingMode !== 'webtoon') {
-          handlePrevPage();
-        }
-        break;
-      case 'ArrowRight':
-        if (readingMode === 'single-rtl') {
-          handlePrevPage();
-        } else if (readingMode !== 'webtoon') {
-          handleNextPage();
-        }
-        break;
-      case 'ArrowUp':
-        if (readingMode === 'single-ttb') {
-          handlePrevPage();
-        }
-        break;
-      case 'ArrowDown':
-        if (readingMode === 'single-ttb') {
-          handleNextPage();
-        }
-        break;
-    }
-  }, [handlePrevPage, handleNextPage, readingMode]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [handleKeyDown]);
+  useReaderKeyboardNavigation({
+    readingMode,
+    onPrevPage: handlePrevPage,
+    onNextPage: handleNextPage,
+  });
 
   // wheel 翻页/HTML 边界倒计时逻辑已抽到 useReaderWheelNavigation
 
@@ -1004,37 +735,37 @@ function ReaderContent() {
     <div
       className="h-screen bg-background text-foreground flex flex-col overflow-hidden relative"
     >
-      <ReaderTopBar
-        showToolbar={showToolbar}
-        archiveTitle={archiveTitle}
-        onBack={handleBack}
-        onToggleSidebar={() => sidebar.setSidebarOpen((prev) => !prev)}
-        onToggleReadingMode={toggleReadingMode}
-        readingModeIcon={getReadingModeIcon()}
-        readingModeText={getReadingModeText()}
-        t={t}
-      />
+	      <ReaderTopBar
+	        showToolbar={toolbar.showToolbar}
+	        archiveTitle={archive.archiveTitle}
+	        onBack={handleBack}
+	        onToggleSidebar={() => sidebar.setSidebarOpen((prev) => !prev)}
+	        onToggleReadingMode={toggleReadingMode}
+	        readingModeIcon={getReadingModeIcon()}
+	        readingModeText={getReadingModeText()}
+	        t={t}
+	      />
 
-      <ReaderFloatingControls
-        showToolbar={showToolbar}
-        currentPage={currentPage}
-        totalPages={pages.length}
-        onChangePage={handleSliderChangePage}
-        settingsOpen={settingsOpen}
-        onSettingsOpenChange={setSettingsOpen}
-        archiveTitle={archiveTitle}
-        archiveMetadata={archiveMetadata}
-        metadataTags={metadataTags}
-        id={id}
-        onNavigateToArchive={handleNavigateToArchiveFromSettings}
-        settingButtons={settingButtons}
-        autoPlayMode={autoPlayMode}
-        autoPlayInterval={autoPlayInterval}
-        onAutoPlayIntervalChange={setAutoPlayInterval}
-        isFavorited={isFavorited}
-        onToggleFavorite={toggleFavorite}
-        t={t}
-      />
+	      <ReaderFloatingControls
+	        showToolbar={toolbar.showToolbar}
+	        currentPage={currentPage}
+	        totalPages={pages.length}
+	        onChangePage={handleSliderChangePage}
+	        settingsOpen={settingsOpen}
+	        onSettingsOpenChange={setSettingsOpen}
+	        archiveTitle={archive.archiveTitle}
+	        archiveMetadata={archive.archiveMetadata}
+	        metadataTags={archive.metadataTags}
+	        id={id}
+	        onNavigateToArchive={handleNavigateToArchiveFromSettings}
+	        settingButtons={settingButtons}
+	        autoPlayMode={autoPlayMode}
+	        autoPlayInterval={autoPlayInterval}
+	        onAutoPlayIntervalChange={setAutoPlayInterval}
+	        isFavorited={archive.isFavorited}
+	        onToggleFavorite={archive.toggleFavorite}
+	        t={t}
+	      />
 
       {/* 主要阅读区域 */}
       <div
