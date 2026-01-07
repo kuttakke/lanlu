@@ -97,6 +97,30 @@ function getApproxResourceBytes(resourceUrl: string) {
   }
 }
 
+function getLatestResourceTiming(resourceUrl: string) {
+  if (typeof window === 'undefined') return null;
+  if (!resourceUrl) return null;
+  try {
+    const entries = performance.getEntriesByName(resourceUrl) as PerformanceEntry[];
+    const resourceEntries = entries.filter((entry) => entry.entryType === 'resource') as PerformanceResourceTiming[];
+    const latest = resourceEntries.sort((a, b) => a.startTime - b.startTime).at(-1);
+    return latest || null;
+  } catch {
+    return null;
+  }
+}
+
+function formatMs(value: number | null) {
+  if (!value || !Number.isFinite(value) || value < 0) return '--ms';
+  if (value < 1000) return `${Math.round(value)}ms`;
+  return `${(value / 1000).toFixed(2)}s`;
+}
+
+function formatKiB(bytes: number | null) {
+  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return '-- KiB';
+  return `${(bytes / 1024).toFixed(1)} KiB`;
+}
+
 function getImageFormatLabel(resourceUrl: string) {
   if (!resourceUrl) return null;
 
@@ -257,6 +281,7 @@ function ReaderContent() {
   const [mediaInfoEnabled, setMediaInfoEnabled] = useMediaInfoEnabled();
   const htmlContentsRef = useRef<Record<number, string>>({});
   const htmlLoadingRef = useRef<Set<number>>(new Set());
+  const htmlTitleCacheRef = useRef<Record<number, { len: number; title: string | null }>>({});
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const htmlContainerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const imageRequestUrls = useRef<(string | null)[]>([]);
@@ -799,19 +824,27 @@ function ReaderContent() {
       if (!element) return null;
       const rect = element.getBoundingClientRect();
       const resourceUrl = imageRequestUrls.current[index] || element.currentSrc || element.src;
+      const timing = getLatestResourceTiming(resourceUrl);
       return {
         naturalWidth: element.naturalWidth,
         naturalHeight: element.naturalHeight,
         displayedWidth: Math.round(rect.width),
         displayedHeight: Math.round(rect.height),
         bytes: getApproxResourceBytes(resourceUrl),
+        transferSize: timing?.transferSize ?? null,
+        encodedSize: timing?.encodedBodySize ?? null,
+        decodedSize: timing?.decodedBodySize ?? null,
+        duration: timing ? timing.responseEnd - timing.startTime : null,
+        protocol: (timing as any)?.nextHopProtocol ? String((timing as any).nextHopProtocol) : null,
         format: getImageFormatLabel(resourceUrl),
+        resourceUrl,
       };
     };
 
     const readVideoInfo = (index: number) => {
       const element = videoRefs.current[index];
       if (!element) return null;
+      const timing = getLatestResourceTiming(element.currentSrc || element.src);
       const buffered = element.buffered;
       const bufferedEnd = buffered && buffered.length > 0 ? buffered.end(buffered.length - 1) : 0;
       return {
@@ -825,19 +858,26 @@ function ReaderContent() {
         paused: element.paused,
         readyState: element.readyState,
         bufferedEnd,
+        transferSize: timing?.transferSize ?? null,
+        durationMs: timing ? timing.responseEnd - timing.startTime : null,
+        protocol: (timing as any)?.nextHopProtocol ? String((timing as any).nextHopProtocol) : null,
       };
     };
 
     const readHtmlInfo = (index: number) => {
       const html = htmlContents[index] || '';
-      let title: string | null = null;
-      if (html) {
-        try {
-          const parsed = new DOMParser().parseFromString(html, 'text/html');
-          title = parsed.querySelector('title')?.textContent?.trim() || null;
-        } catch {
-          title = null;
+      const cached = htmlTitleCacheRef.current[index];
+      let title: string | null = cached?.len === html.length ? cached.title : null;
+      if (!cached || cached.len !== html.length) {
+        if (html) {
+          try {
+            const parsed = new DOMParser().parseFromString(html, 'text/html');
+            title = parsed.querySelector('title')?.textContent?.trim() || null;
+          } catch {
+            title = null;
+          }
         }
+        htmlTitleCacheRef.current[index] = { len: html.length, title };
       }
       const container = htmlContainerRefs.current[index];
       const scrollable =
@@ -853,16 +893,55 @@ function ReaderContent() {
     };
 
     const lines: string[] = [];
+    const joinPairs = (...pairs: Array<[string, string]>) => pairs.map(([k, v]) => `${k}  ${v}`).join('  ');
     const headerIndexLabel = indices.length === 2 ? `${indices[0] + 1}-${indices[1] + 1}` : `${indices[0] + 1}`;
+    const viewport = typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : '--';
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
     lines.push(`P ${headerIndexLabel}/${pages.length}  ${readingMode}${doublePageMode ? '  double' : ''}`);
-    if (isFullscreen) lines.push(`fullscreen`);
+    lines.push(
+      `ui ${joinPairs(
+        ['toolbar', showToolbar ? 'on' : 'off'],
+        ['sidebar', sidebarOpen ? 'on' : 'off'],
+        ['fullscreen', isFullscreen ? 'on' : 'off']
+      )}`
+    );
+    lines.push(
+      `cfg ${joinPairs(
+        ['autoHide', autoHideEnabled ? 'on' : 'off'],
+        ['tapTurn', tapTurnPageEnabled ? 'on' : 'off'],
+        ['dblTapZoom', doubleTapZoom ? 'on' : 'off']
+      )}`
+    );
+    lines.push(
+      `cfg ${joinPairs(
+        ['splitCover', splitCoverMode ? 'on' : 'off'],
+        ['autoPlay', autoPlayMode ? `${autoPlayInterval}s` : 'off']
+      )}`
+    );
+    lines.push(
+      `env ${joinPairs(
+        ['vp', viewport],
+        ['dpr', String(dpr)],
+        ['zoom', `${scale.toFixed(2)}x`],
+        ['pan', `${Math.round(translateX)}/${Math.round(translateY)}`]
+      )}`
+    );
+    lines.push(
+      `load ${joinPairs(
+        ['loaded', `${loadedImages.size}/${pages.length}`],
+        ['queue', String(imagesLoading.size)],
+        ['webtoon', `${visibleRange.start + 1}-${visibleRange.end + 1}`]
+      )}`
+    );
 
     indices.forEach((index, idx) => {
       const p = pages[index];
       if (!p) return;
       const prefix = indices.length === 2 ? `#${idx + 1} ` : '';
       const src = p.type === 'image' ? (cachedPages[index] || p.url) : p.url;
-      lines.push(`${prefix}${p.type}  ${getLastPathSegment(src)}`);
+      const cached = p.type === 'image' ? Boolean(cachedPages[index]) : false;
+      const state = loadedImages.has(index) ? 'loaded' : imagesLoading.has(index) ? 'loading' : 'idle';
+      lines.push(`${prefix}${p.type}  ${getLastPathSegment(src)}  ${state}${cached ? '  cached' : ''}`);
 
       if (p.type === 'video') {
         const info = readVideoInfo(index);
@@ -870,32 +949,50 @@ function ReaderContent() {
           const time = `${formatSeconds(info.currentTime)}/${formatSeconds(info.duration)}`;
           const bufferedPct =
             info.duration > 0 ? formatPercent(Math.min(1, Math.max(0, info.bufferedEnd / info.duration))) : '--%';
+          lines.push(`${prefix}${joinPairs(['dim', `${info.videoWidth}x${info.videoHeight}`], ['t', time], ['buf', bufferedPct])}`);
           lines.push(
-            `${prefix}${info.videoWidth}x${info.videoHeight}  t ${time}  buf ${bufferedPct}`
+            `${prefix}${joinPairs(
+              ['state', info.paused ? 'paused' : 'playing'],
+              ['rate', `${info.playbackRate.toFixed(2)}x`],
+              ['vol', formatPercent(info.muted ? 0 : info.volume)],
+              ['ready', String(info.readyState)]
+            )}`
           );
           lines.push(
-            `${prefix}${info.paused ? 'paused' : 'playing'}  ${info.playbackRate.toFixed(2)}x  vol ${formatPercent(
-              info.muted ? 0 : info.volume
-            )}  ready ${info.readyState}`
+            `${prefix}${joinPairs(
+              ['xfer', formatKiB(info.transferSize)],
+              ['dl', formatMs(info.durationMs)],
+              ['proto', info.protocol || '--']
+            )}`
           );
         }
       } else if (p.type === 'html') {
         const info = readHtmlInfo(index);
-        if (info.title) lines.push(`${prefix}title  ${info.title}`);
+        if (info.title) lines.push(`${prefix}${joinPairs(['title', info.title])}`);
         if (info.scrollable && info.scrollTop !== null && info.scrollHeight !== null && info.clientHeight !== null) {
-          lines.push(`${prefix}scroll  ${info.scrollTop}/${info.scrollHeight - info.clientHeight}`);
+          lines.push(`${prefix}${joinPairs(['scroll', `${info.scrollTop}/${info.scrollHeight - info.clientHeight}`])}`);
         } else if (info.length) {
-          lines.push(`${prefix}len  ${info.length}`);
+          lines.push(`${prefix}${joinPairs(['len', String(info.length)])}`);
         }
       } else {
         const info = readImageInfo(index);
         if (info) {
-          lines.push(`${prefix}${info.naturalWidth}x${info.naturalHeight}  disp ${info.displayedWidth}x${info.displayedHeight}`);
-          lines.push(`${prefix}fmt  ${info.format || '--'}`);
-          lines.push(`${prefix}size  ${formatMiB(info.bytes)}`);
-          lines.push(`${prefix}zoom  ${scale.toFixed(2)}x`);
-        } else {
-          lines.push(`${prefix}zoom  ${scale.toFixed(2)}x`);
+          lines.push(
+            `${prefix}${joinPairs(
+              ['dim', `${info.naturalWidth}x${info.naturalHeight}`],
+              ['disp', `${info.displayedWidth}x${info.displayedHeight}`]
+            )}`
+          );
+          lines.push(`${prefix}${joinPairs(['fmt', info.format || '--'])}`);
+          lines.push(
+            `${prefix}${joinPairs(
+              ['size', formatMiB(info.bytes)],
+              ['xfer', formatKiB(info.transferSize)],
+              ['dl', formatMs(info.duration)]
+            )}`
+          );
+          lines.push(`${prefix}${joinPairs(['src', getLastPathSegment(info.resourceUrl)])}`);
+          if (info.protocol) lines.push(`${prefix}${joinPairs(['proto', info.protocol])}`);
         }
       }
     });
@@ -912,7 +1009,20 @@ function ReaderContent() {
     cachedPages,
     htmlContents,
     scale,
+    translateX,
+    translateY,
     isFullscreen,
+    showToolbar,
+    sidebarOpen,
+    autoHideEnabled,
+    tapTurnPageEnabled,
+    doubleTapZoom,
+    autoPlayMode,
+    autoPlayInterval,
+    imagesLoading,
+    loadedImages,
+    visibleRange.start,
+    visibleRange.end,
   ]);
 
   // 监听页码变化并更新进度
