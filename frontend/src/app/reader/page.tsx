@@ -15,6 +15,9 @@ import { ReaderSidebar } from '@/components/reader/components/ReaderSidebar';
 import { ReaderSingleModeView } from '@/components/reader/components/ReaderSingleModeView';
 import { ReaderTopBar } from '@/components/reader/components/ReaderTopBar';
 import { ReaderWebtoonModeView } from '@/components/reader/components/ReaderWebtoonModeView';
+import { useMediaInfoOverlayLines } from '@/components/reader/hooks/useMediaInfoOverlayLines';
+import { getTapTurnAction, useReaderInteractionHandlers } from '@/components/reader/hooks/useReaderInteractionHandlers';
+import { useReaderSidebar } from '@/components/reader/hooks/useReaderSidebar';
 import { logger } from '@/lib/logger';
 import { toast } from 'sonner';
 import {
@@ -47,121 +50,6 @@ import {
 import Link from 'next/link';
 import type { ArchiveMetadata } from '@/types/archive';
 
-const TAP_MOVE_THRESHOLD_PX = 10;
-const TAP_MAX_DURATION_MS = 350;
-const IGNORE_CLICK_AFTER_TOUCH_MS = 800;
-
-function formatSeconds(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds < 0) return '--:--';
-  const whole = Math.floor(seconds);
-  const h = Math.floor(whole / 3600);
-  const m = Math.floor((whole % 3600) / 60);
-  const s = whole % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function formatPercent(value: number) {
-  if (!Number.isFinite(value)) return '--%';
-  return `${Math.round(value * 100)}%`;
-}
-
-function formatMiB(bytes: number | null) {
-  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return '-- MiB';
-  return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
-}
-
-function getApproxResourceBytes(resourceUrl: string) {
-  if (typeof window === 'undefined') return null;
-  if (!resourceUrl) return null;
-
-  if (resourceUrl.startsWith('data:')) {
-    const base64Index = resourceUrl.indexOf('base64,');
-    if (base64Index >= 0) {
-      const base64 = resourceUrl.slice(base64Index + 'base64,'.length);
-      const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
-      return Math.floor((base64.length * 3) / 4) - padding;
-    }
-    return null;
-  }
-
-  try {
-    const entries = performance.getEntriesByName(resourceUrl) as PerformanceEntry[];
-    const resourceEntries = entries.filter((entry) => entry.entryType === 'resource') as PerformanceResourceTiming[];
-    const latest = resourceEntries.sort((a, b) => a.startTime - b.startTime).at(-1);
-    if (!latest) return null;
-    const bytes = latest.transferSize || latest.encodedBodySize || latest.decodedBodySize;
-    return bytes && bytes > 0 ? bytes : null;
-  } catch {
-    return null;
-  }
-}
-
-function getLatestResourceTiming(resourceUrl: string) {
-  if (typeof window === 'undefined') return null;
-  if (!resourceUrl) return null;
-  try {
-    const entries = performance.getEntriesByName(resourceUrl) as PerformanceEntry[];
-    const resourceEntries = entries.filter((entry) => entry.entryType === 'resource') as PerformanceResourceTiming[];
-    const latest = resourceEntries.sort((a, b) => a.startTime - b.startTime).at(-1);
-    return latest || null;
-  } catch {
-    return null;
-  }
-}
-
-function formatMs(value: number | null) {
-  if (!value || !Number.isFinite(value) || value < 0) return '--ms';
-  if (value < 1000) return `${Math.round(value)}ms`;
-  return `${(value / 1000).toFixed(2)}s`;
-}
-
-function formatKiB(bytes: number | null) {
-  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return '-- KiB';
-  return `${(bytes / 1024).toFixed(1)} KiB`;
-}
-
-function getImageFormatLabel(resourceUrl: string) {
-  if (!resourceUrl) return null;
-
-  if (resourceUrl.startsWith('data:')) {
-    const match = resourceUrl.match(/^data:([^;,]+)[;,]/i);
-    const mime = match?.[1]?.toLowerCase() || '';
-    if (mime.startsWith('image/')) return mime.slice('image/'.length);
-    return null;
-  }
-
-  try {
-    const parsed = new URL(resourceUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    const pathnameExt = parsed.pathname.split('/').pop()?.split('.').pop();
-    if (pathnameExt && pathnameExt !== parsed.pathname) return pathnameExt.toLowerCase();
-
-    const pathParam = parsed.searchParams.get('path');
-    if (pathParam) {
-      const decoded = decodeURIComponent(pathParam);
-      const ext = decoded.split('/').pop()?.split('.').pop();
-      if (ext) return ext.toLowerCase();
-    }
-  } catch {
-    const ext = resourceUrl.split('?')[0]?.split('#')[0]?.split('.').pop();
-    if (ext && ext !== resourceUrl) return ext.toLowerCase();
-  }
-
-  return null;
-}
-
-function getLastPathSegment(url: string) {
-  try {
-    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    const pathname = parsed.pathname || '';
-    const last = pathname.split('/').filter(Boolean).pop();
-    return last || url;
-  } catch {
-    const parts = url.split('?')[0]?.split('#')[0]?.split('/').filter(Boolean);
-    return parts?.[parts.length - 1] || url;
-  }
-}
-
 function ReaderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -174,8 +62,6 @@ function ReaderContent() {
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
-  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
   const [imagesLoading, setImagesLoading] = useState<Set<number>>(new Set());
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set()); // 跟踪已加载的图片
   const [htmlContents, setHtmlContents] = useState<Record<number, string>>({}); // HTML内容缓存（按页索引）
@@ -186,10 +72,6 @@ function ReaderContent() {
   const [scale, setScale] = useState(1);
   const [translateX, setTranslateX] = useState(0);
   const [translateY, setTranslateY] = useState(0);
-  const [lastTouchDistance, setLastTouchDistance] = useState(0);
-  const tapStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const tapMovedRef = useRef(false);
-  const lastTouchAtRef = useRef(0);
   const readerAreaRef = useRef<HTMLDivElement | null>(null);
   const webtoonContainerRef = useRef<HTMLDivElement>(null);
   const webtoonPageElementRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -203,20 +85,12 @@ function ReaderContent() {
   const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 自动隐藏定时器引用
   const AUTO_HIDE_DELAY = 3000; // 自动隐藏延迟时间（毫秒）
 
-  // 侧边栏状态管理
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarDisplayPages, setSidebarDisplayPages] = useState<PageInfo[]>([]);
-  const [sidebarLoadedCount, setSidebarLoadedCount] = useState(20);
-  const [sidebarLoading, setSidebarLoading] = useState(false);
-  const [sidebarImagesLoading, setSidebarImagesLoading] = useState<Set<number>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isEpub, setIsEpub] = useState(false); // 是否为EPUB文件
   const [showAutoNextCountdown, setShowAutoNextCountdown] = useState(false); // 是否显示自动跳转倒计时
   const [countdownSeconds, setCountdownSeconds] = useState(3); // 倒计时秒数
   const countdownTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 倒计时定时器引用
   const countdownToastId = useRef<string | number | null>(null); // toast ID引用
   const COUNTDOWN_DURATION = 3; // 倒计时持续时间（秒）
-  const sidebarScrollRef = useRef<HTMLDivElement | null>(null); // 侧边栏滚动容器引用
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 提取设备检测和宽度计算的通用函数
@@ -281,55 +155,10 @@ function ReaderContent() {
   const [mediaInfoEnabled, setMediaInfoEnabled] = useMediaInfoEnabled();
   const htmlContentsRef = useRef<Record<number, string>>({});
   const htmlLoadingRef = useRef<Set<number>>(new Set());
-  const htmlTitleCacheRef = useRef<Record<number, { len: number; title: string | null }>>({});
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const htmlContainerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const imageRequestUrls = useRef<(string | null)[]>([]);
   const [mediaInfoTick, setMediaInfoTick] = useState(0);
-
-  const isInteractiveTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) return false;
-    return Boolean(
-      target.closest(
-        'a,button,input,textarea,select,option,[role="button"],[role="link"],[data-no-reader-tap]'
-      )
-    );
-  }, []);
-
-  const isHtmlContentTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) return false;
-    return Boolean(target.closest('.html-content-container'));
-  }, []);
-
-  const getTapTurnAction = useCallback((clientX: number, clientY: number) => {
-    const el = readerAreaRef.current;
-    if (!el) return 'none' as const;
-    const rect = el.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return 'none' as const;
-
-    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-    // 点击翻页的边缘区域：在大屏/鼠标场景下也保持足够大，使鼠标与触摸体验一致
-    const edgeW = clamp(rect.width * 0.22, 72, Math.min(320, rect.width * 0.45));
-    const edgeH = clamp(rect.height * 0.22, 72, Math.min(320, rect.height * 0.45));
-
-    const inLeft = x <= edgeW;
-    const inRight = x >= rect.width - edgeW;
-    const inTop = y <= edgeH;
-    const inBottom = y >= rect.height - edgeH;
-
-    if (!(inLeft || inRight || inTop || inBottom)) return 'none' as const;
-
-    const leftDist = x;
-    const rightDist = rect.width - x;
-    const topDist = y;
-    const bottomDist = rect.height - y;
-    const minDist = Math.min(leftDist, rightDist, topDist, bottomDist);
-
-    if (minDist === rightDist || minDist === bottomDist) return 'next' as const;
-    return 'prev' as const;
-  }, []);
 
   useEffect(() => {
     htmlContentsRef.current = htmlContents;
@@ -552,70 +381,6 @@ function ReaderContent() {
     }
   }, [error, t]);
 
-  // 初始化侧边栏状态和EPUB检测
-  useEffect(() => {
-    // 从localStorage恢复侧边栏状态
-    if (typeof window !== 'undefined') {
-      const savedSidebarState = localStorage.getItem('reader_sidebar_open');
-      if (savedSidebarState !== null) {
-        setSidebarOpen(savedSidebarState === 'true');
-      }
-    }
-
-    // 检测是否为EPUB文件
-    if (pages.length > 0) {
-      // 如果第一个页面的类型是 'html'，则认为是EPUB
-      const isEpubFile = pages[0]?.type === 'html';
-      setIsEpub(isEpubFile);
-    }
-  }, [pages]);
-
-  // 侧边栏状态持久化
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('reader_sidebar_open', sidebarOpen.toString());
-    }
-  }, [sidebarOpen]);
-
-  // 侧边栏页面数据初始化
-  useEffect(() => {
-    if (pages.length > 0 && sidebarDisplayPages.length === 0) {
-      // 只在首次加载或pages数组变化时重置，避免load more时重新渲染
-      setSidebarDisplayPages(pages.slice(0, sidebarLoadedCount));
-      setSidebarLoading(false);
-    }
-  }, [pages, sidebarLoadedCount, sidebarDisplayPages.length]);
-
-  // 监听currentPage变化，自动扩展侧边栏加载范围
-  useEffect(() => {
-    // 如果当前页面超出已加载范围，且还有更多内容可以加载
-    if (currentPage >= sidebarLoadedCount && sidebarLoadedCount < pages.length && !sidebarLoading) {
-      // 计算需要加载的页数，确保至少加载到当前页面+10页
-      const targetCount = Math.min(pages.length, currentPage + 10);
-      const newPages = pages.slice(sidebarLoadedCount, targetCount);
-
-      if (newPages.length > 0) {
-        setSidebarDisplayPages(prev => [...prev, ...newPages]);
-        setSidebarLoadedCount(targetCount);
-
-        // 同时添加新页面到缩略图加载队列
-        const newPageIndices: number[] = [];
-        for (let i = sidebarLoadedCount; i < targetCount; i++) {
-          if (!loadedImages.has(i) && !imagesLoading.has(i)) {
-            newPageIndices.push(i);
-          }
-        }
-        if (newPageIndices.length > 0) {
-          setSidebarImagesLoading(prev => {
-            const updated = new Set(prev);
-            newPageIndices.forEach(index => updated.add(index));
-            return updated;
-          });
-        }
-      }
-    }
-  }, [currentPage, pages.length, sidebarLoadedCount, sidebarLoading, loadedImages, imagesLoading]);
-
   // 更新阅读进度
   const updateReadingProgress = useCallback(async (page: number) => {
     if (!id) return;
@@ -805,226 +570,6 @@ function ReaderContent() {
     return () => window.clearInterval(interval);
   }, [mediaInfoEnabled]);
 
-  const mediaInfoOverlayLines = useMemo(() => {
-    if (!mediaInfoEnabled) return [];
-    void mediaInfoTick;
-    const page = pages[currentPage];
-    if (!page) return [];
-
-    const showSecondPage =
-      readingMode !== 'webtoon' &&
-      doublePageMode &&
-      !(splitCoverMode && currentPage === 0) &&
-      currentPage + 1 < pages.length;
-
-    const indices = showSecondPage ? [currentPage, currentPage + 1] : [currentPage];
-
-    const readImageInfo = (index: number) => {
-      const element = imageRefs.current[index];
-      if (!element) return null;
-      const rect = element.getBoundingClientRect();
-      const resourceUrl = imageRequestUrls.current[index] || element.currentSrc || element.src;
-      const timing = getLatestResourceTiming(resourceUrl);
-      return {
-        naturalWidth: element.naturalWidth,
-        naturalHeight: element.naturalHeight,
-        displayedWidth: Math.round(rect.width),
-        displayedHeight: Math.round(rect.height),
-        bytes: getApproxResourceBytes(resourceUrl),
-        transferSize: timing?.transferSize ?? null,
-        encodedSize: timing?.encodedBodySize ?? null,
-        decodedSize: timing?.decodedBodySize ?? null,
-        duration: timing ? timing.responseEnd - timing.startTime : null,
-        protocol: (timing as any)?.nextHopProtocol ? String((timing as any).nextHopProtocol) : null,
-        format: getImageFormatLabel(resourceUrl),
-        resourceUrl,
-      };
-    };
-
-    const readVideoInfo = (index: number) => {
-      const element = videoRefs.current[index];
-      if (!element) return null;
-      const timing = getLatestResourceTiming(element.currentSrc || element.src);
-      const buffered = element.buffered;
-      const bufferedEnd = buffered && buffered.length > 0 ? buffered.end(buffered.length - 1) : 0;
-      return {
-        videoWidth: element.videoWidth,
-        videoHeight: element.videoHeight,
-        duration: element.duration,
-        currentTime: element.currentTime,
-        playbackRate: element.playbackRate,
-        muted: element.muted,
-        volume: element.volume,
-        paused: element.paused,
-        readyState: element.readyState,
-        bufferedEnd,
-        transferSize: timing?.transferSize ?? null,
-        durationMs: timing ? timing.responseEnd - timing.startTime : null,
-        protocol: (timing as any)?.nextHopProtocol ? String((timing as any).nextHopProtocol) : null,
-      };
-    };
-
-    const readHtmlInfo = (index: number) => {
-      const html = htmlContents[index] || '';
-      const cached = htmlTitleCacheRef.current[index];
-      let title: string | null = cached?.len === html.length ? cached.title : null;
-      if (!cached || cached.len !== html.length) {
-        if (html) {
-          try {
-            const parsed = new DOMParser().parseFromString(html, 'text/html');
-            title = parsed.querySelector('title')?.textContent?.trim() || null;
-          } catch {
-            title = null;
-          }
-        }
-        htmlTitleCacheRef.current[index] = { len: html.length, title };
-      }
-      const container = htmlContainerRefs.current[index];
-      const scrollable =
-        readingMode !== 'webtoon' && container && container.scrollHeight > container.clientHeight;
-      return {
-        title,
-        length: html.length,
-        scrollTop: container ? Math.round(container.scrollTop) : null,
-        scrollHeight: container ? Math.round(container.scrollHeight) : null,
-        clientHeight: container ? Math.round(container.clientHeight) : null,
-        scrollable,
-      };
-    };
-
-    const lines: string[] = [];
-    const joinPairs = (...pairs: Array<[string, string]>) => pairs.map(([k, v]) => `${k}  ${v}`).join('  ');
-    const headerIndexLabel = indices.length === 2 ? `${indices[0] + 1}-${indices[1] + 1}` : `${indices[0] + 1}`;
-    const viewport = typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : '--';
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
-    lines.push(`P ${headerIndexLabel}/${pages.length}  ${readingMode}${doublePageMode ? '  double' : ''}`);
-    lines.push(
-      `ui ${joinPairs(
-        ['toolbar', showToolbar ? 'on' : 'off'],
-        ['sidebar', sidebarOpen ? 'on' : 'off'],
-        ['fullscreen', isFullscreen ? 'on' : 'off']
-      )}`
-    );
-    lines.push(
-      `cfg ${joinPairs(
-        ['autoHide', autoHideEnabled ? 'on' : 'off'],
-        ['tapTurn', tapTurnPageEnabled ? 'on' : 'off'],
-        ['dblTapZoom', doubleTapZoom ? 'on' : 'off']
-      )}`
-    );
-    lines.push(
-      `cfg ${joinPairs(
-        ['splitCover', splitCoverMode ? 'on' : 'off'],
-        ['autoPlay', autoPlayMode ? `${autoPlayInterval}s` : 'off']
-      )}`
-    );
-    lines.push(
-      `env ${joinPairs(
-        ['vp', viewport],
-        ['dpr', String(dpr)],
-        ['zoom', `${scale.toFixed(2)}x`],
-        ['pan', `${Math.round(translateX)}/${Math.round(translateY)}`]
-      )}`
-    );
-    lines.push(
-      `load ${joinPairs(
-        ['loaded', `${loadedImages.size}/${pages.length}`],
-        ['queue', String(imagesLoading.size)],
-        ['webtoon', `${visibleRange.start + 1}-${visibleRange.end + 1}`]
-      )}`
-    );
-
-    indices.forEach((index, idx) => {
-      const p = pages[index];
-      if (!p) return;
-      const prefix = indices.length === 2 ? `#${idx + 1} ` : '';
-      const src = p.type === 'image' ? (cachedPages[index] || p.url) : p.url;
-      const cached = p.type === 'image' ? Boolean(cachedPages[index]) : false;
-      const state = loadedImages.has(index) ? 'loaded' : imagesLoading.has(index) ? 'loading' : 'idle';
-      lines.push(`${prefix}${p.type}  ${getLastPathSegment(src)}  ${state}${cached ? '  cached' : ''}`);
-
-      if (p.type === 'video') {
-        const info = readVideoInfo(index);
-        if (info) {
-          const time = `${formatSeconds(info.currentTime)}/${formatSeconds(info.duration)}`;
-          const bufferedPct =
-            info.duration > 0 ? formatPercent(Math.min(1, Math.max(0, info.bufferedEnd / info.duration))) : '--%';
-          lines.push(`${prefix}${joinPairs(['dim', `${info.videoWidth}x${info.videoHeight}`], ['t', time], ['buf', bufferedPct])}`);
-          lines.push(
-            `${prefix}${joinPairs(
-              ['state', info.paused ? 'paused' : 'playing'],
-              ['rate', `${info.playbackRate.toFixed(2)}x`],
-              ['vol', formatPercent(info.muted ? 0 : info.volume)],
-              ['ready', String(info.readyState)]
-            )}`
-          );
-          lines.push(
-            `${prefix}${joinPairs(
-              ['xfer', formatKiB(info.transferSize)],
-              ['dl', formatMs(info.durationMs)],
-              ['proto', info.protocol || '--']
-            )}`
-          );
-        }
-      } else if (p.type === 'html') {
-        const info = readHtmlInfo(index);
-        if (info.title) lines.push(`${prefix}${joinPairs(['title', info.title])}`);
-        if (info.scrollable && info.scrollTop !== null && info.scrollHeight !== null && info.clientHeight !== null) {
-          lines.push(`${prefix}${joinPairs(['scroll', `${info.scrollTop}/${info.scrollHeight - info.clientHeight}`])}`);
-        } else if (info.length) {
-          lines.push(`${prefix}${joinPairs(['len', String(info.length)])}`);
-        }
-      } else {
-        const info = readImageInfo(index);
-        if (info) {
-          lines.push(
-            `${prefix}${joinPairs(
-              ['dim', `${info.naturalWidth}x${info.naturalHeight}`],
-              ['disp', `${info.displayedWidth}x${info.displayedHeight}`]
-            )}`
-          );
-          lines.push(`${prefix}${joinPairs(['fmt', info.format || '--'])}`);
-          lines.push(
-            `${prefix}${joinPairs(
-              ['size', formatMiB(info.bytes)],
-              ['xfer', formatKiB(info.transferSize)],
-              ['dl', formatMs(info.duration)]
-            )}`
-          );
-          lines.push(`${prefix}${joinPairs(['src', getLastPathSegment(info.resourceUrl)])}`);
-          if (info.protocol) lines.push(`${prefix}${joinPairs(['proto', info.protocol])}`);
-        }
-      }
-    });
-
-    return lines;
-  }, [
-    mediaInfoEnabled,
-    mediaInfoTick,
-    pages,
-    currentPage,
-    readingMode,
-    doublePageMode,
-    splitCoverMode,
-    cachedPages,
-    htmlContents,
-    scale,
-    translateX,
-    translateY,
-    isFullscreen,
-    showToolbar,
-    sidebarOpen,
-    autoHideEnabled,
-    tapTurnPageEnabled,
-    doubleTapZoom,
-    autoPlayMode,
-    autoPlayInterval,
-    imagesLoading,
-    loadedImages,
-    visibleRange.start,
-    visibleRange.end,
-  ]);
-
   // 监听页码变化并更新进度
   useEffect(() => {
     if (pages.length > 0 && currentPage >= 0) {
@@ -1105,6 +650,45 @@ function ReaderContent() {
     setTranslateY(0);
   }, []);
 
+  const sidebar = useReaderSidebar({
+    pages,
+    currentPage,
+    loadedImages,
+    imagesLoading,
+    onSelectPage: (pageIndex) => setCurrentPage(pageIndex),
+    resetTransform,
+  });
+
+  const mediaInfoOverlayLines = useMediaInfoOverlayLines({
+    enabled: mediaInfoEnabled,
+    tick: mediaInfoTick,
+    pages,
+    currentPage,
+    readingMode,
+    doublePageMode,
+    splitCoverMode,
+    cachedPages,
+    htmlContents,
+    scale,
+    translateX,
+    translateY,
+    isFullscreen,
+    showToolbar,
+    sidebarOpen: sidebar.sidebarOpen,
+    autoHideEnabled,
+    tapTurnPageEnabled,
+    doubleTapZoom,
+    autoPlayMode,
+    autoPlayInterval,
+    imagesLoading,
+    loadedImages,
+    visibleRange,
+    imageRefs,
+    videoRefs,
+    htmlContainerRefs,
+    imageRequestUrls,
+  });
+
   const handleSliderChangePage = useCallback(
     (newPage: number) => {
       setCurrentPage(newPage);
@@ -1125,6 +709,12 @@ function ReaderContent() {
   // 处理双击放大
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     if (!doubleTapZoom) return;
+
+    // 开启“点击翻页”时，边缘区域优先用于翻页；缩小鼠标双击放大触发区域（仅中心区域可放大）
+    if (tapTurnPageEnabled) {
+      const action = getTapTurnAction(readerAreaRef.current, e.clientX, e.clientY);
+      if (action === 'prev' || action === 'next') return;
+    }
     
     e.preventDefault();
     
@@ -1169,7 +759,7 @@ function ReaderContent() {
       // 重置缩放
       resetTransform();
     }
-  }, [doubleTapZoom, scale, resetTransform, doublePageMode]);
+  }, [doubleTapZoom, tapTurnPageEnabled, scale, resetTransform, doublePageMode]);
 
   // 处理图片拖拽开始
   const handleImageDragStart = useCallback((e: React.DragEvent) => {
@@ -1235,101 +825,24 @@ function ReaderContent() {
     }
   }, [currentPage, pages.length, resetTransform, doublePageMode, splitCoverMode]);
 
-  const runTapTurnAction = useCallback((action: 'prev' | 'next') => {
-    if (autoHideEnabled && showToolbar) {
-      hideToolbar();
-    }
-
-    // 条漫模式下需要滚动到对应位置，仅更新 currentPage 不足以产生可见变化
-    if (readingMode === 'webtoon' && webtoonContainerRef.current) {
-      const nextPage =
-        action === 'prev'
-          ? Math.max(0, currentPage - 1)
-          : Math.min(pages.length - 1, currentPage + 1);
-
-      setCurrentPage(nextPage);
-
-      requestAnimationFrame(() => {
-        if (!webtoonContainerRef.current) return;
-        let accumulatedHeight = 0;
-        for (let i = 0; i < nextPage; i++) {
-          accumulatedHeight += imageHeights[i] || containerHeight || window.innerHeight * 0.7;
-        }
-        webtoonContainerRef.current.scrollTop = accumulatedHeight;
-      });
-
-      return;
-    }
-
-    if (action === 'prev') {
-      handlePrevPage();
-    } else {
-      handleNextPage();
-    }
-  }, [
+  const interactionHandlers = useReaderInteractionHandlers({
+    readerAreaRef,
+    readingMode,
+    tapTurnPageEnabled,
     autoHideEnabled,
     showToolbar,
-    hideToolbar,
-    readingMode,
+    onToggleToolbar: toggleToolbar,
+    onHideToolbar: hideToolbar,
+    onPrevPage: handlePrevPage,
+    onNextPage: handleNextPage,
     currentPage,
-    pages.length,
+    setCurrentPage: (page) => setCurrentPage(page),
+    pagesLength: pages.length,
+    webtoonContainerRef,
     imageHeights,
     containerHeight,
-    handlePrevPage,
-    handleNextPage,
-  ]);
-
-  // 侧边栏页面选择处理
-  const handleSidebarPageSelect = useCallback((pageIndex: number) => {
-    setCurrentPage(pageIndex);
-    resetTransform();
-
-    // 移动端选择页面后自动关闭侧边栏
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setSidebarOpen(false);
-    }
-  }, [resetTransform]);
-
-  const handleSidebarThumbLoaded = useCallback((pageIndex: number) => {
-    setSidebarImagesLoading((prev) => {
-      const next = new Set(prev);
-      next.delete(pageIndex);
-      return next;
-    });
-  }, []);
-
-  const handleSidebarThumbError = useCallback((pageIndex: number) => {
-    setSidebarImagesLoading((prev) => {
-      const next = new Set(prev);
-      next.delete(pageIndex);
-      return next;
-    });
-  }, []);
-
-  // 加载更多侧边栏页面
-  const handleLoadMoreSidebarPages = useCallback(() => {
-    // 保存当前滚动位置
-    const scrollElement = sidebarScrollRef.current;
-    const scrollTop = scrollElement?.scrollTop || 0;
-
-    setSidebarLoading(true);
-    const newCount = sidebarLoadedCount + 10;
-
-    // 直接追加新页面到现有数组
-    const newPages = pages.slice(sidebarLoadedCount, newCount);
-    setSidebarDisplayPages(prev => [...prev, ...newPages]);
-
-    setSidebarLoadedCount(newCount);
-    setSidebarLoading(false);
-
-    // 使用requestAnimationFrame在DOM更新后恢复滚动位置
-    // 确保与静态导出环境兼容
-    requestAnimationFrame(() => {
-      if (scrollElement) {
-        scrollElement.scrollTop = scrollTop;
-      }
-    });
-  }, [pages, sidebarLoadedCount]);
+    setScale,
+  });
 
   const handleImageError = useCallback((pageIndex: number) => {
     setImagesLoading(prev => {
@@ -1738,193 +1251,6 @@ function ReaderContent() {
     }
   }, [readingMode, showAutoNextCountdown, clearCountdown]);
 
-  // 计算两点距离
-  const getDistance = (touch1: Touch, touch2: Touch) => {
-    const dx = touch1.clientX - touch2.clientX;
-    const dy = touch1.clientY - touch2.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  // 触摸开始
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    lastTouchAtRef.current = Date.now();
-
-    if (e.touches.length === 1) {
-      tapStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        time: Date.now(),
-      };
-      tapMovedRef.current = false;
-    } else {
-      tapStartRef.current = null;
-      tapMovedRef.current = true;
-    }
-
-    // 条漫模式下不阻止默认行为，让页面可以自然滚动
-    if (readingMode === 'webtoon') return;
-
-    if (e.touches.length === 1) {
-      setTouchEnd(null);
-      setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-    } else if (e.touches.length === 2) {
-      // 双指缩放
-      const distance = getDistance(e.touches[0] as Touch, e.touches[1] as Touch);
-      setLastTouchDistance(distance);
-      setTouchStart(null);
-    }
-  }, [readingMode]);
-
-  // 触摸移动
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    lastTouchAtRef.current = Date.now();
-
-    if (e.touches.length === 1 && tapStartRef.current) {
-      const dx = e.touches[0].clientX - tapStartRef.current.x;
-      const dy = e.touches[0].clientY - tapStartRef.current.y;
-      if (Math.abs(dx) > TAP_MOVE_THRESHOLD_PX || Math.abs(dy) > TAP_MOVE_THRESHOLD_PX) {
-        tapMovedRef.current = true;
-      }
-    } else if (e.touches.length > 1) {
-      tapMovedRef.current = true;
-    }
-
-    // 条漫模式下不阻止默认行为，让页面可以自然滚动
-    if (readingMode === 'webtoon') return;
-
-    if (e.touches.length === 1 && touchStart) {
-      setTouchEnd({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-    } else if (e.touches.length === 2) {
-      // 双指缩放
-      e.preventDefault();
-      const distance = getDistance(e.touches[0] as Touch, e.touches[1] as Touch);
-      if (lastTouchDistance > 0) {
-        const scaleChange = distance / lastTouchDistance;
-        setScale(prev => Math.min(Math.max(prev * scaleChange, 0.5), 3));
-      }
-      setLastTouchDistance(distance);
-    }
-  }, [touchStart, lastTouchDistance, readingMode]);
-
-  // 触摸结束
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    lastTouchAtRef.current = Date.now();
-
-    const start = tapStartRef.current;
-    const now = Date.now();
-    const duration = start ? now - start.time : Infinity;
-    const endTouch = e.changedTouches?.[0];
-    const movedByEnd =
-      Boolean(start && endTouch) &&
-      (Math.abs(endTouch.clientX - start!.x) > TAP_MOVE_THRESHOLD_PX ||
-        Math.abs(endTouch.clientY - start!.y) > TAP_MOVE_THRESHOLD_PX);
-    const moved = tapMovedRef.current || movedByEnd;
-    const isTap = Boolean(start && !moved && duration <= TAP_MAX_DURATION_MS);
-
-    if (isTap) {
-      // HTML内容区域内的点击交给内容自身处理（链接、选择等）
-      if (isHtmlContentTarget(e.target) || isInteractiveTarget(e.target)) {
-        tapStartRef.current = null;
-        tapMovedRef.current = false;
-        return;
-      }
-
-      if (tapTurnPageEnabled && endTouch) {
-        const action = getTapTurnAction(endTouch.clientX, endTouch.clientY);
-        if (action === 'prev' || action === 'next') {
-          runTapTurnAction(action);
-          tapStartRef.current = null;
-          tapMovedRef.current = false;
-          setTouchStart(null);
-          setTouchEnd(null);
-          setLastTouchDistance(0);
-          return;
-        }
-      }
-
-      toggleToolbar();
-      tapStartRef.current = null;
-      tapMovedRef.current = false;
-      setTouchStart(null);
-      setTouchEnd(null);
-      setLastTouchDistance(0);
-      return;
-    }
-
-    // 滑动结束：如果工具栏当前可见，立即隐藏
-    if (autoHideEnabled && showToolbar && moved) {
-      hideToolbar();
-    }
-
-    tapStartRef.current = null;
-    tapMovedRef.current = false;
-
-    if (!touchStart || !touchEnd) {
-      setLastTouchDistance(0);
-      return;
-    }
-    
-    // 条漫模式下不处理滑动手势，让页面自然滚动
-    if (readingMode === 'webtoon') {
-      setTouchStart(null);
-      setTouchEnd(null);
-      setLastTouchDistance(0);
-      return;
-    }
-    
-    const deltaX = touchStart.x - touchEnd.x;
-    const deltaY = touchStart.y - touchEnd.y;
-    const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY);
-    const isSwipe = Math.abs(deltaX) > 50 || Math.abs(deltaY) > 50;
-    
-    if (isSwipe) {
-      if (isHorizontalSwipe) {
-        // 水平滑动
-        if (readingMode === 'single-rtl') {
-          if (deltaX > 50) {
-            handlePrevPage();
-          } else if (deltaX < -50) {
-            handleNextPage();
-          }
-        } else {
-          if (deltaX > 50) {
-            handleNextPage();
-          } else if (deltaX < -50) {
-            handlePrevPage();
-          }
-        }
-      } else {
-        // 垂直滑动
-        if (readingMode === 'single-ttb') {
-          if (deltaY > 50) {
-            handleNextPage();
-          } else if (deltaY < -50) {
-            handlePrevPage();
-          }
-        }
-      }
-    }
-    
-    setTouchStart(null);
-    setTouchEnd(null);
-    setLastTouchDistance(0);
-  }, [
-    touchStart,
-    touchEnd,
-    handleNextPage,
-    handlePrevPage,
-    readingMode,
-    toggleToolbar,
-    autoHideEnabled,
-    showToolbar,
-    hideToolbar,
-    isHtmlContentTarget,
-    isInteractiveTarget,
-    tapTurnPageEnabled,
-    getTapTurnAction,
-    runTapTurnAction,
-  ]);
-
   const getReadingModeIcon = () => {
     switch (readingMode) {
       case 'single-ltr': return <ArrowRight className="w-4 h-4" />;
@@ -2252,7 +1578,7 @@ function ReaderContent() {
         showToolbar={showToolbar}
         archiveTitle={archiveTitle}
         onBack={handleBack}
-        onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+        onToggleSidebar={() => sidebar.setSidebarOpen((prev) => !prev)}
         onToggleReadingMode={toggleReadingMode}
         readingModeIcon={getReadingModeIcon()}
         readingModeText={getReadingModeText()}
@@ -2284,53 +1610,37 @@ function ReaderContent() {
       <div
         ref={readerAreaRef}
         className="flex-1 relative overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={(e) => {
-          // HTML内容/交互元素的点击交给内容自身处理
-          if (isHtmlContentTarget(e.target) || isInteractiveTarget(e.target)) return;
-
-          // 显示条件只有点击：触摸后的合成 click 一律忽略（避免滑动触发）
-          if (Date.now() - lastTouchAtRef.current < IGNORE_CLICK_AFTER_TOUCH_MS) return;
-
-          if (tapTurnPageEnabled) {
-            const action = getTapTurnAction(e.clientX, e.clientY);
-            if (action === 'prev' || action === 'next') {
-              runTapTurnAction(action);
-              return;
-            }
-          }
-
-          toggleToolbar();
-        }}
+        onTouchStart={interactionHandlers.onTouchStart}
+        onTouchMove={interactionHandlers.onTouchMove}
+        onTouchEnd={interactionHandlers.onTouchEnd}
+        onClick={interactionHandlers.onClick}
       >
         {mediaInfoEnabled ? (
-          <MediaInfoOverlay lines={mediaInfoOverlayLines} sidebarOpen={sidebarOpen} />
+          <MediaInfoOverlay lines={mediaInfoOverlayLines} sidebarOpen={sidebar.sidebarOpen} />
         ) : null}
 
         {/* 侧边栏导航 */}
         <ReaderSidebar
-          open={sidebarOpen}
-          sidebarScrollRef={sidebarScrollRef}
-          sidebarLoading={sidebarLoading}
-          isEpub={isEpub}
-          sidebarDisplayPages={sidebarDisplayPages}
+          open={sidebar.sidebarOpen}
+          sidebarScrollRef={sidebar.sidebarScrollRef}
+          sidebarLoading={sidebar.sidebarLoading}
+          isEpub={sidebar.isEpub}
+          sidebarDisplayPages={sidebar.sidebarDisplayPages}
           currentPage={currentPage}
-          sidebarImagesLoading={sidebarImagesLoading}
+          sidebarImagesLoading={sidebar.sidebarImagesLoading}
           pagesLength={pages.length}
-          canLoadMore={sidebarLoadedCount < pages.length}
-          onSelectPage={handleSidebarPageSelect}
-          onLoadMore={handleLoadMoreSidebarPages}
-          onThumbLoaded={handleSidebarThumbLoaded}
-          onThumbError={handleSidebarThumbError}
+          canLoadMore={sidebar.sidebarLoadedCount < pages.length}
+          onSelectPage={sidebar.handleSidebarPageSelect}
+          onLoadMore={sidebar.handleLoadMoreSidebarPages}
+          onThumbLoaded={sidebar.handleSidebarThumbLoaded}
+          onThumbError={sidebar.handleSidebarThumbError}
           t={t}
         />
 
         {/* 单页模式 */}
         <ReaderSingleModeView
           enabled={readingMode !== 'webtoon'}
-          sidebarOpen={sidebarOpen}
+          sidebarOpen={sidebar.sidebarOpen}
           pages={pages}
           cachedPages={cachedPages}
           currentPage={currentPage}
@@ -2371,7 +1681,7 @@ function ReaderContent() {
         <ReaderWebtoonModeView
           enabled={readingMode === 'webtoon'}
           webtoonContainerRef={webtoonContainerRef}
-          sidebarOpen={sidebarOpen}
+          sidebarOpen={sidebar.sidebarOpen}
           onScroll={handleWebtoonScroll}
           pages={pages}
           cachedPages={cachedPages}
