@@ -105,31 +105,27 @@ function TankoubonDetailContent() {
 
   // Fetch archives in tankoubon
   const fetchArchives = useCallback(async () => {
-    if (!tankoubon?.archives || tankoubon.archives.length === 0) {
+    if (!tankoubon?.tankoubon_id || !tankoubon?.archives || tankoubon.archives.length === 0) {
       setArchives([]);
       return;
     }
 
     try {
       setArchivesLoading(true);
-      // Fetch each archive's details
-      const archivePromises = tankoubon.archives.map(async (arcid) => {
-        try {
-          const archive = await ArchiveService.getArchive(arcid);
-          return archive;
-        } catch {
-          return null;
-        }
+      const result = await ArchiveService.search({
+        tankoubon_id: tankoubon.tankoubon_id,
+        sortby: 'tank_order',
+        order: 'asc',
+        start: 0,
+        count: 10000,
       });
-
-      const results = await Promise.all(archivePromises);
-      setArchives(results.filter((a): a is Archive => a !== null));
+      setArchives(result.data || []);
     } catch (error) {
       logger.apiError('fetch archives', error);
     } finally {
       setArchivesLoading(false);
     }
-  }, [tankoubon?.archives]);
+  }, [tankoubon?.archives, tankoubon?.tankoubon_id]);
 
   useEffect(() => {
     fetchTankoubon();

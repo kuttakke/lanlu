@@ -312,6 +312,10 @@ public class ArchiveDao {
     }
 
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, favoriteOnly: Bool, dateFrom: String, dateTo: String, userId: Int64): (Array<ArchiveData>, Int64) {
+        return searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, favoriteOnly, dateFrom, dateTo, userId, "")
+    }
+
+    public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, favoriteOnly: Bool, dateFrom: String, dateTo: String, userId: Int64, tankoubonId: String): (Array<ArchiveData>, Int64) {
         let connOpt = DatabaseConfig.getPooledConnection()
         match (connOpt) {
             case Some(conn) =>
@@ -479,6 +483,12 @@ public class ArchiveDao {
                     whereConditions.add("EXISTS (SELECT 1 FROM user_favorites uf JOIN archives a ON a.id = uf.archive_id WHERE a.arcid = archives_with_tags.arcid AND uf.user_id = ${userId})")
                 }
 
+                // tankoubon_id 过滤 - 只返回某个合集中的归档
+                if (tankoubonId.size > 0) {
+                    whereConditions.add("EXISTS (SELECT 1 FROM tankoubons t JOIN tankoubon_archives ta ON ta.tankoubon_id = t.id WHERE t.tankoubon_id = ? AND ta.archive_id = archives_with_tags.id)")
+                    filterParams.add(tankoubonId)
+                }
+
                 // 日期范围过滤
                 if (dateFrom.size > 0) {
                     whereConditions.add("created_at >= ?")
@@ -579,6 +589,11 @@ public class ArchiveDao {
                 } else if (sortby == "pagecount") {
                     let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }
                     sql += " ORDER BY pagecount ${orderDirection}"
+                } else if (sortby == "tank_order" && tankoubonId.size > 0) {
+                    let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }
+                    sql += " ORDER BY (SELECT ta.sort_order FROM tankoubons t JOIN tankoubon_archives ta ON ta.tankoubon_id = t.id WHERE t.tankoubon_id = ? AND ta.archive_id = archives_with_tags.id LIMIT 1) ${orderDirection}, created_at DESC"
+                    // ORDER BY 子查询需要再次绑定 tankId
+                    filterParams.add(tankoubonId)
                 } else if (sortby == "size") {
                     let orderDirection = if (order == "desc") { "DESC" } else { "ASC" }
                     sql += " ORDER BY file_size ${orderDirection}"

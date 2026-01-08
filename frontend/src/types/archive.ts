@@ -24,6 +24,7 @@ export interface SearchResponse {
 export interface SearchParams {
   filter?: string;
   category?: string;
+  tankoubon_id?: string;
   start?: number;
   count?: number;
   sortby?: string;

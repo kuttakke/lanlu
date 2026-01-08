@@ -190,10 +190,17 @@ public class ArchiveModel {
      * 搜索归档（完整参数版本，支持收藏筛选和日期范围筛选）
      */
     public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, favoriteOnly: Bool, dateFrom: String, dateTo: String, userId: Int64): (Array<Archive>, Int64) {
-        println("开始搜索归档，参数: filter='${filter}', category='${category}', start=${start}, count=${count}, sortby='${sortby}', order='${order}', newOnly=${newOnly}, untaggedOnly=${untaggedOnly}, favoriteOnly=${favoriteOnly}, dateFrom='${dateFrom}', dateTo='${dateTo}', userId=${userId}")
+        return searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, favoriteOnly, dateFrom, dateTo, userId, "")
+    }
+
+    /**
+     * 搜索归档（完整参数版本，支持收藏筛选、日期范围筛选和 tankoubon_id 过滤）
+     */
+    public static func searchArchives(filter: String, category: String, start: Int32, count: Int32, sortby: String, order: String, newOnly: Bool, untaggedOnly: Bool, favoriteOnly: Bool, dateFrom: String, dateTo: String, userId: Int64, tankoubonId: String): (Array<Archive>, Int64) {
+        println("开始搜索归档，参数: filter='${filter}', category='${category}', start=${start}, count=${count}, sortby='${sortby}', order='${order}', newOnly=${newOnly}, untaggedOnly=${untaggedOnly}, favoriteOnly=${favoriteOnly}, dateFrom='${dateFrom}', dateTo='${dateTo}', userId=${userId}, tankoubonId='${tankoubonId}'")
 
         // 使用DAO层获取数据
-        let (archiveDataArray, totalCount) = ArchiveDao.searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, favoriteOnly, dateFrom, dateTo, userId)
+        let (archiveDataArray, totalCount) = ArchiveDao.searchArchives(filter, category, start, count, sortby, order, newOnly, untaggedOnly, favoriteOnly, dateFrom, dateTo, userId, tankoubonId)
 
         var archives: ArrayList<Archive> = ArrayList<Archive>()
         for (data in archiveDataArray) {

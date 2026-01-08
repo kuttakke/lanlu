@@ -35,6 +35,7 @@ public class SearchController {
     public static func searchArchives(ctx: JoyContext) {
         let category = ctx.getQuery("category") ?? ""
         let filter = ctx.getQuery("filter") ?? ""
+        let tankoubonId = ctx.getQuery("tankoubon_id") ?? ""
 
         // 处理分页参数，设置默认值
         let startStr = ctx.getQuery("start") ?? "0"
@@ -147,7 +148,7 @@ public class SearchController {
             return
         }
 
-        let (archives, totalCount) = ArchiveModel.searchArchives(filter, category, Int32(start), Int32(count), sortby, order, newOnly, untaggedOnly, favoriteOnly, dateFrom, dateTo, userId)
+        let (archives, totalCount) = ArchiveModel.searchArchives(filter, category, Int32(start), Int32(count), sortby, order, newOnly, untaggedOnly, favoriteOnly, dateFrom, dateTo, userId, tankoubonId)
 
         // 如果启用了Tankoubon分组，获取归档到Tankoubon的映射
         var tankoubonMapping: HashMap<String, String> = HashMap<String, String>()
