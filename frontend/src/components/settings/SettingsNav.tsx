@@ -17,19 +17,24 @@ type SettingsSection = {
 };
 
 const baseSections: SettingsSection[] = [
+  // 概览
   { id: 'overview', href: '/settings', icon: LayoutGrid, titleKey: 'settings.overview' },
+  // 个人设置
   { id: 'favorites', href: '/settings/favorites', icon: Heart, titleKey: 'settings.favorites' },
   { id: 'reading-history', href: '/settings/reading-history', icon: BookOpen, titleKey: 'settings.readingHistory' },
   { id: 'auth', href: '/settings/auth', icon: KeyRound, titleKey: 'settings.auth' },
-  { id: 'users', href: '/settings/users', icon: Users, titleKey: 'settings.users', requiresAdmin: true },
+  // 内容管理
   { id: 'categories', href: '/settings/categories', icon: FolderOpen, titleKey: 'settings.categories', requiresAdmin: true },
-  { id: 'stats', href: '/settings/stats', icon: BarChart3, titleKey: 'settings.stats', requiresAdmin: true },
-  { id: 'system', href: '/settings/system', icon: Server, titleKey: 'settings.system.title', requiresAdmin: true },
   { id: 'tags', href: '/settings/tags', icon: Tag, titleKey: 'settings.tags', requiresAdmin: true },
   { id: 'smart-filters', href: '/settings/smart-filters', icon: Filter, titleKey: 'settings.smartFilters', requiresAdmin: true },
+  // 用户管理
+  { id: 'users', href: '/settings/users', icon: Users, titleKey: 'settings.users', requiresAdmin: true },
+  // 系统管理
+  { id: 'system', href: '/settings/system', icon: Server, titleKey: 'settings.system.title', requiresAdmin: true },
   { id: 'tasks', href: '/settings/tasks', icon: ListTodo, titleKey: 'settings.tasks', requiresAdmin: true },
   { id: 'cron', href: '/settings/cron', icon: Clock, titleKey: 'settings.cron', requiresAdmin: true },
   { id: 'plugins', href: '/settings/plugins', icon: Package, titleKey: 'settings.plugins', requiresAdmin: true },
+  { id: 'stats', href: '/settings/stats', icon: BarChart3, titleKey: 'settings.stats', requiresAdmin: true },
 ];
 
 interface SettingsNavProps {
