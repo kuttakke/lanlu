@@ -132,14 +132,6 @@ export default function ServerInfoSettingsPage() {
               <span className="text-muted-foreground">{t('settings.serverPagesRead')}</span>
               <span>{serverInfo?.total_pages_read ?? '-'}</span>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground">{t('settings.serverCacheCleared')}</span>
-              <span className="truncate">{formatDateTimeFromUnixSeconds(serverInfo?.cache_last_cleared)}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground">{t('settings.serverDebug')}</span>
-              <span>{serverInfo?.debug_mode ? 'true' : 'false'}</span>
-            </div>
           </div>
           {serverInfo?.motd ? (
             <div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">{serverInfo.motd}</div>

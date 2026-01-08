@@ -6,7 +6,7 @@ import { ServerInfo } from '@/types/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Server, Database, HardDrive, Clock, Settings } from 'lucide-react';
+import { Server, Database, Settings } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Link from 'next/link';
 
@@ -105,75 +105,10 @@ export function Sidebar() {
               <span className="text-sm">{t('sidebar.totalArchives')}</span>
               <Badge variant="outline">{serverInfo.total_archives}</Badge>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-sm">{t('sidebar.pagesRead')}</span>
               <Badge variant="outline">{serverInfo.total_pages_read}</Badge>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm">{t('sidebar.perPage')}</span>
-              <Badge variant="outline">{serverInfo.archives_per_page}</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 服务器配置 */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <HardDrive className="w-5 h-5" />
-              {t('sidebar.serverConfig')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">{t('sidebar.debugMode')}</span>
-              <Badge variant={serverInfo.debug_mode ? "default" : "secondary"}>
-                {serverInfo.debug_mode ? t('sidebar.enabled') : t('sidebar.disabled')}
-              </Badge>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm">{t('sidebar.passwordProtection')}</span>
-              <Badge variant={serverInfo.has_password ? "default" : "secondary"}>
-                {serverInfo.has_password ? t('sidebar.enabled') : t('sidebar.disabled')}
-              </Badge>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm">{t('sidebar.imageResize')}</span>
-              <Badge variant={serverInfo.server_resizes_images ? "default" : "secondary"}>
-                {serverInfo.server_resizes_images ? t('sidebar.enabled') : t('sidebar.disabled')}
-              </Badge>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm">{t('sidebar.progressTracking')}</span>
-              <Badge variant={serverInfo.server_tracks_progress ? "default" : "secondary"}>
-                {serverInfo.server_tracks_progress ? t('sidebar.enabled') : t('sidebar.disabled')}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 缓存信息 */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              {t('sidebar.cacheInfo')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm">
-              <p className="font-medium mb-1">{t('sidebar.lastCleared')}</p>
-              <p className="text-muted-foreground">
-                {serverInfo.cache_last_cleared
-                  ? new Date(serverInfo.cache_last_cleared * 1000).toLocaleString()
-                  : t('common.unknown')
-                }
-              </p>
             </div>
           </CardContent>
         </Card>
