@@ -38,7 +38,7 @@ export function TaskList({ className }: TaskListProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
@@ -46,53 +46,60 @@ export function TaskList({ className }: TaskListProps) {
   // Filter state
   const [activeFilter, setActiveFilter] = useState('all');
 
-  const fetchTasks = useCallback(async (page: number = currentPage) => {
-    try {
-      setError(null);
-      const result: TaskPageResult = await TaskPoolService.getTasks(page, pageSize);
+  const fetchTasks = useCallback(
+    async (page: number) => {
+      try {
+        setError(null);
+        setLoading(true); 
 
-      // 确保 result.tasks 是数组
-      const tasksArray = Array.isArray(result.tasks) ? result.tasks : [];
+        const result: TaskPageResult = await TaskPoolService.getTasks(page + 1, pageSize);
 
-      // Apply client-side filtering if needed
-      let filteredTasks = tasksArray;
-      if (activeFilter !== 'all') {
-        filteredTasks = tasksArray.filter(task => task && task.status === activeFilter);
+        const tasksArray = Array.isArray(result.tasks) ? result.tasks : [];
+
+        let filteredTasks = tasksArray;
+        if (activeFilter !== 'all') {
+          filteredTasks = tasksArray.filter((task) => task?.status === activeFilter);
+        }
+
+        setTasks(filteredTasks);
+        setTotal(typeof result.total === 'number' ? result.total : 0);
+        setTotalPages(typeof result.totalPages === 'number' ? result.totalPages : 0);
+        setCurrentPage(page);
+      } catch (err) {
+        console.error('Failed to fetch tasks:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
+        setTasks([]);
+        setTotal(0);
+        setTotalPages(0);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
+    },
+    [activeFilter, pageSize] 
+  );
 
-      setTasks(filteredTasks);
-      setTotal(typeof result.total === 'number' ? result.total : 0);
-      setTotalPages(typeof result.totalPages === 'number' ? result.totalPages : 0);
-      setCurrentPage(page);
-    } catch (err) {
-      console.error('Failed to fetch tasks:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
-      setTasks([]);
-      setTotal(0);
-      setTotalPages(0);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [activeFilter, currentPage, pageSize]);
-
+  
   useEffect(() => {
-    setLoading(true);
-    fetchTasks(1);
-  }, [activeFilter, fetchTasks]);
+    fetchTasks(currentPage);
+  }, [currentPage, activeFilter, fetchTasks]);
 
-  // 自动刷新：当存在运行中/待执行任务时，周期性刷新列表以展示进度与日志
+  
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [activeFilter]);
+
+
   useEffect(() => {
     const hasActive = tasks.some(t => t?.status === 'running' || t?.status === 'pending');
-    if (!hasActive) return;
+    if (!hasActive || loading || refreshing) return;
 
     const timer = setInterval(() => {
-      if (loading || refreshing) return;
       fetchTasks(currentPage);
     }, 1500);
 
     return () => clearInterval(timer);
-  }, [tasks, activeFilter, currentPage, loading, refreshing, fetchTasks]);
+  }, [tasks, currentPage, loading, refreshing, fetchTasks]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -466,7 +473,7 @@ export function TaskList({ className }: TaskListProps) {
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={(page) => fetchTasks(page)}
+            onPageChange={(page) => setCurrentPage(page)}
           />
         </div>
       )}
