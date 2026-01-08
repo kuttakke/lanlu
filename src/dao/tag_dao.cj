@@ -1137,4 +1137,57 @@ public class TagDao {
         }
         return result
     }
+
+    /**
+     * 获取标签词云数据（按归档使用次数降序）
+     * 返回: [(fullName, display, count)]
+     */
+    public static func getTagCloud(lang: String, limit: Int64): ArrayList<(String, String, Int64)> {
+        var result: ArrayList<(String, String, Int64)> = ArrayList<(String, String, Int64)>()
+        let connOpt = DatabaseConfig.getPooledConnection()
+        match (connOpt) {
+            case None => return result
+            case Some(conn) =>
+                try {
+                    let sql = """
+                        SELECT t.namespace, t.name,
+                               COALESCE(t.translations->?->>'text', '') as translated_text,
+                               COUNT(at.archive_id)::BIGINT as usage_count
+                        FROM tags t
+                        INNER JOIN archive_tags at ON at.tag_id = t.id
+                        WHERE COALESCE(LOWER(t.namespace), '') != 'source'
+                        GROUP BY t.id, t.namespace, t.name, translated_text
+                        ORDER BY usage_count DESC, t.name
+                        LIMIT ?
+                    """
+                    let stmt = conn.prepareStatement(sql)
+                    try {
+                        stmt.set(0, lang)
+                        stmt.set(1, limit)
+                        let rs = stmt.query()
+                        try {
+                            while (rs.next()) {
+                                let namespace = rs.getOrNull<String>(0) ?? ""
+                                let name = rs.getOrNull<String>(1) ?? ""
+                                let translated = rs.getOrNull<String>(2) ?? ""
+                                let count = rs.getOrNull<Int64>(3) ?? 0
+
+                                let fullName = if (namespace.size > 0) { "${namespace}:${name}" } else { name }
+                                let display = if (translated.trimAscii().size > 0) { translated } else { name }
+                                result.add((fullName, display, count))
+                            }
+                        } finally {
+                            rs.close()
+                        }
+                    } finally {
+                        stmt.close()
+                    }
+                } catch (e: Exception) {
+                    getLogger("tag_dao").error("获取标签词云失败", ("error", e.message))
+                } finally {
+                    try { conn.close() } catch (_: Exception) {}
+                }
+        }
+        return result
+    }
 }

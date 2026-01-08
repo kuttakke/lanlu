@@ -102,6 +102,23 @@ export class TagService {
   }
 
   /**
+   * 标签词云（按使用次数）
+   */
+  static async getCloud(params: { lang: string; limit?: number }): Promise<{ items: { tag: string; display: string; count: number }[]; total: number }> {
+    const resp = await apiClient.get('/api/tags/cloud', {
+      params: {
+        lang: params.lang,
+        limit: params.limit ?? 200,
+      },
+    });
+    const data = resp.data?.data;
+    return {
+      items: (data?.items ?? []) as { tag: string; display: string; count: number }[],
+      total: Number(data?.total ?? 0),
+    };
+  }
+
+  /**
    * 获取所有标签名（用于自动补全）
    */
   static async adminListTagNames(): Promise<string[]> {

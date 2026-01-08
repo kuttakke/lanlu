@@ -297,6 +297,36 @@ public class TagController {
     }
 
     /**
+     * GET /api/tags/cloud?lang=...&limit=...
+     * 返回: { items: [{ tag, display, count }], total }
+     */
+    public static func cloud(ctx: JoyContext): Unit {
+        let lang = (ctx.getQuery("lang") ?? "zh").trimAscii()
+        let limitStr = (ctx.getQuery("limit") ?? "200").trimAscii()
+        var limit: Int64 = 200
+        try { limit = Int64.parse(limitStr) } catch (_: Exception) {}
+        if (limit <= 0) { limit = 200 }
+        if (limit > 1000) { limit = 1000 }
+
+        let rows = TagDao.getTagCloud(lang, limit)
+
+        var itemsJson = "["
+        var first = true
+        for ((tag, display, count) in rows) {
+            if (!first) { itemsJson = itemsJson + "," } else { first = false }
+            itemsJson = itemsJson + "{"
+            itemsJson = itemsJson + "\"tag\":\"${escapeJsonString(tag)}\","
+            itemsJson = itemsJson + "\"display\":\"${escapeJsonString(display)}\","
+            itemsJson = itemsJson + "\"count\":${count.toString()}"
+            itemsJson = itemsJson + "}"
+        }
+        itemsJson = itemsJson + "]"
+
+        let data = "{\"items\":${itemsJson},\"total\":${rows.size.toString()}}"
+        ResponseView.successJson(ctx, data, "获取标签词云成功")
+    }
+
+    /**
      * GET /api/admin/tags/names
      * 返回所有标签名（用于自动补全）
      */

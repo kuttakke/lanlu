@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Package, ListTodo, KeyRound, Users, Tag, Heart, BookOpen, Filter, Server, Clock, FolderOpen } from 'lucide-react';
+import { LayoutGrid, Package, ListTodo, KeyRound, Users, Tag, Heart, BookOpen, Filter, Server, Clock, FolderOpen, BarChart3 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ const baseSections: SettingsSection[] = [
   { id: 'auth', href: '/settings/auth', icon: KeyRound, titleKey: 'settings.auth' },
   { id: 'users', href: '/settings/users', icon: Users, titleKey: 'settings.users', requiresAdmin: true },
   { id: 'categories', href: '/settings/categories', icon: FolderOpen, titleKey: 'settings.categories', requiresAdmin: true },
+  { id: 'stats', href: '/settings/stats', icon: BarChart3, titleKey: 'settings.stats', requiresAdmin: true },
   { id: 'system', href: '/settings/system', icon: Server, titleKey: 'settings.system.title', requiresAdmin: true },
   { id: 'tags', href: '/settings/tags', icon: Tag, titleKey: 'settings.tags', requiresAdmin: true },
   { id: 'smart-filters', href: '/settings/smart-filters', icon: Filter, titleKey: 'settings.smartFilters', requiresAdmin: true },

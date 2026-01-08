@@ -28,6 +28,11 @@ public func registerTagRoutes(router: JoyRouters): Unit {
         TagController.list(ctx)
     })
 
+    // 公开接口：标签词云（按使用次数）
+    router.get("/api/tags/cloud", { ctx =>
+        TagController.cloud(ctx)
+    })
+
     // 公开接口：获取标签详情
     router.get("/api/tags/{id}", { ctx =>
         TagController.getById(ctx)
