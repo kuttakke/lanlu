@@ -54,10 +54,8 @@ export function TaskList({ className }: TaskListProps) {
 
         const result: TaskPageResult = await TaskPoolService.getTasks(page + 1, pageSize);
 
-      // 确保 result.tasks 是数组
         const tasksArray = Array.isArray(result.tasks) ? result.tasks : [];
 
-      // Apply client-side filtering if needed
         let filteredTasks = tasksArray;
         if (activeFilter !== 'all') {
           filteredTasks = tasksArray.filter((task) => task?.status === activeFilter);
